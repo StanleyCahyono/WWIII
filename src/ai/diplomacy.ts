@@ -13,6 +13,7 @@ import type { Analysis } from './analysis';
 import { resValue } from './value';
 import { km } from './geo';
 import { ASSIST_WINDOW, homeExposed, joinVerdict, parseDefenceRequest, reachFor, trackHelp } from './alliance';
+import { maxRounds, peaceTerms, sameTerms, territoryValue, warSituation } from './peace';
 
 const DAY = 1440;
 const PROPOSAL_COOLDOWN = 3 * DAY;
@@ -107,6 +108,13 @@ export function evaluateOffer(t: Turn, a: Analysis, o: Offer): Eval {
     costs.push(x.label);
     if (x.v < worst.v) worst = x;
   }
+  if (o.territory) {
+    const tv = territoryValue(t, o);
+    score += tv.v;
+    gets.push(...tv.gets);
+    costs.push(...tv.costs);
+    if (tv.worst.v < worst.v) worst = tv.worst;
+  }
   const p = t.personality;
   score += trust * 0.4 + (t.mem.favour[from] ?? 0) * 0.5 - griev * 0.6 + (p.trade - 0.5) * 10;
   const peace = o.give.some((x) => x.kind === 'peace') || o.receive.some((x) => x.kind === 'peace');
@@ -115,17 +123,42 @@ export function evaluateOffer(t: Turn, a: Analysis, o: Offer): Eval {
   const accept = score >= threshold && (peace || trust > -30) && !(o.give.some((x) => x.kind === 'coalition_invite') && t.view.myCoalition);
   let reason: string;
   if (accept) {
-    if (peace) reason = `continuing the war no longer pays off (assessment ${score.toFixed(0)})`;
+    if (peace) reason = `continuing the war no longer pays off (assessment ${score.toFixed(0)}${gets.length > 1 || costs.length ? `; ${gets.filter((x) => x !== 'peace').join(', ') || 'no gains'} for ${costs.join(', ') || 'nothing'}` : ''})`;
     else if (o.give.some((x) => x.kind === 'coalition_invite')) reason = `joining strengthens our position (bloc assessment ${score.toFixed(0)}, trust ${trust.toFixed(0)})`;
     else reason = `${gets.join(', ') || 'the terms'} for ${costs.join(', ') || 'nothing'} is acceptable (trust ${trust.toFixed(0)})`;
   } else if (trust <= -30 && !peace) reason = `trust in ${from} is ${trust.toFixed(0)} after recent hostile acts`;
   else if (griev >= 20) reason = `we have not forgotten recent hostile acts by ${from} (grievance ${griev.toFixed(0)})`;
   else if (o.give.some((x) => x.kind === 'coalition_invite') && t.view.myCoalition) reason = 'we already belong to a coalition';
+  else if (peace && worst.label) reason = `${worst.label} is too high a price for peace (assessment ${score.toFixed(0)})`;
   else if (peace) reason = `we hold the advantage in this war (assessment ${score.toFixed(0)})`;
   else if (!o.give.length || gets.length === 0) reason = `the offer asks for ${costs.join(', ')} and gives nothing in return`;
   else if (worst.label) reason = `${worst.label} is worth more to us than ${gets.join(', ')} (assessment ${score.toFixed(0)} below ${threshold.toFixed(0)})`;
   else reason = `the terms are not balanced enough for us (assessment ${score.toFixed(0)} below ${threshold.toFixed(0)})`;
   return { accept, score: Math.round(score * 10) / 10, reason };
+}
+
+/**
+ * Haggling: answer a peace offer we would decline with our own terms while rounds remain. Each of
+ * our counters concedes 25 % more than our opening position. Returns true when a counter was sent.
+ */
+function counterPeace(t: Turn, a: Analysis, o: Offer, e: Eval): boolean {
+  const peace = o.give.some((x) => x.kind === 'peace') || o.receive.some((x) => x.kind === 'peace');
+  if (!peace || t.full) return false;
+  const round = o.round ?? 1;
+  if (round >= maxRounds(t)) return false;
+  // no counter when we do not want peace at all (winning and aggressive, or strong grievance)
+  const ws = warSituation(t, a, o.from);
+  if (ws.adv > 0.75 && t.personality.aggression > 0.6) return false;
+  const terms = peaceTerms(t, a, o.from, 0.25 * (round - 1));
+  if (sameTerms(terms, o)) return false;
+  const reason = `counter-offer (round ${round + 1}/${maxRounds(t)}): ${terms.summary} — ${e.reason}`;
+  const cmd = { type: 'proposeOffer' as const, country: t.me, to: o.from, give: terms.give, receive: terms.receive, territory: terms.territory, counterTo: o.id, expiresInMin: DAY };
+  let ok = t.add(cmd, 'reply', 'counter_offer', reason);
+  // a clause the validator refuses (e.g. a province changed hands) falls back to money-only terms
+  if (!ok && (terms.territory.give.length || terms.territory.receive.length)) ok = t.add({ ...cmd, territory: undefined }, 'reply', 'counter_offer', `${reason} (without territory)`);
+  if (!ok) return false;
+  t.mem.decisions.push({ offer: o.id, from: o.from, accept: false, reason, score: e.score, at: t.now });
+  return true;
 }
 
 function respond(t: Turn, a: Analysis): void {
@@ -134,6 +167,7 @@ function respond(t: Turn, a: Analysis): void {
     if (o.status !== 'pending' || o.to !== t.me) continue;
     if (t.mem.decisions.some((d) => d.offer === o.id)) continue;
     const e = evaluateOffer(t, a, o);
+    if (!e.accept && counterPeace(t, a, o, e)) continue;
     const ok = t.add({ type: 'respondOffer', country: t.me, offer: o.id, accept: e.accept }, 'reply', e.accept ? 'accept_offer' : 'decline_offer', e.reason);
     if (!ok && e.accept) {
       // stale/unpayable: decline instead (with the validator's reason)
@@ -251,11 +285,13 @@ function cooled(t: Turn, key: string): boolean {
   return !t.mem.cooldown[key] || t.mem.cooldown[key] <= t.now;
 }
 
-function propose(t: Turn, a: Analysis, to: CountryId, give: OfferTerm[], receive: OfferTerm[], kind: string, reason: string, intent?: string): boolean {
+function propose(t: Turn, a: Analysis, to: CountryId, give: OfferTerm[], receive: OfferTerm[], kind: string, reason: string, intent?: string, territory?: { give: NodeId[]; receive: NodeId[] }): boolean {
   const key = `${to}:${kind}`;
   if (!cooled(t, key) || !cooled(t, `${to}:declined`)) return false;
   if ((t.pendingWith.get(to) ?? 0) >= 1) return false;
-  const r = t.add({ type: 'proposeOffer', country: t.me, to, give, receive, expiresInMin: 2 * DAY, text: intent ? undefined : undefined }, 'diplomatic', `propose_${kind}`, reason);
+  const hasTerr = !!territory && (territory.give.length > 0 || territory.receive.length > 0);
+  let r = t.add({ type: 'proposeOffer', country: t.me, to, give, receive, ...(hasTerr ? { territory } : {}), expiresInMin: 2 * DAY, text: intent ? undefined : undefined }, 'diplomatic', `propose_${kind}`, reason);
+  if (!r && hasTerr) r = t.add({ type: 'proposeOffer', country: t.me, to, give, receive, expiresInMin: 2 * DAY }, 'diplomatic', `propose_${kind}`, `${reason} (without territory)`);
   if (!r) return false;
   t.pendingWith.set(to, (t.pendingWith.get(to) ?? 0) + 1);
   t.mem.cooldown[key] = t.now + PROPOSAL_COOLDOWN;
@@ -278,8 +314,13 @@ function proposals(t: Turn, a: Analysis): void {
     const losing = a.cities.some((c) => c.threat > c.present * 1.2) || mem.capitalsLost > 0;
     const stalled = since > 12 && mem.objective?.target === e && (mem.counters['captures'] ?? 0) === 0;
     const weaker = a.power(e) > a.myPower * 1.3;
-    if (!(losing || stalled || (weaker && since > 4))) continue;
-    if (propose(t, a, e, [{ kind: 'peace' }], [], 'peace', losing ? 'the war is costing us territory' : weaker ? `${e} is stronger (${(a.power(e) / a.myPower).toFixed(1)}×)` : 'the war has stalled')) made++;
+    const ws = warSituation(t, a, e);
+    // a clear winner offers a settlement on its terms once the war stalls or another front opens
+    const settle = ws.adv >= 0.35 && since > 6 && (stalled || a.enemies.length > 1);
+    if (!(losing || stalled || settle || (weaker && since > 4))) continue;
+    const terms = peaceTerms(t, a, e);
+    const why = losing ? 'the war is costing us territory' : weaker ? `${e} is stronger (${(a.power(e) / a.myPower).toFixed(1)}×)` : settle ? 'we hold the advantage and want a settlement' : 'the war has stalled';
+    if (propose(t, a, e, terms.give, terms.receive, 'peace', `${why}; terms: ${terms.summary}`, undefined, terms.territory)) made++;
   }
   if (made >= maxMade || t.full) return;
   // a critical shortage (< 48 h of stock) puts a sized trade ahead of coalition/passage business

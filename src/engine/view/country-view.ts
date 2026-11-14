@@ -48,7 +48,7 @@ import { countryScores, thresholdFor } from '../systems/score';
 import { routeEtaTick } from '../systems/movement';
 import { forEachAlliedStack, observedNodes, sortedContactIds, stackSensorRadii } from '../systems/visibility';
 import { forceSummary, liftBreakdown, type ForceSummary, type LiftBreakdown } from '../systems/readiness';
-import { RULES } from '../rules';
+import { BLOCKADE, RULES } from '../rules';
 import { derived, invalidateDerived, memoByVersion } from '../derived';
 
 export interface PublicCity {
@@ -61,6 +61,18 @@ export interface PublicCity {
   capital: boolean;
   port: boolean;
   status: TerritoryStatus | 'rebel';
+}
+
+export interface BlockadeView {
+  city: CityKey;
+  name: string;
+  node: NodeId;
+  since: number;
+  role: 'blockaded' | 'enforcing';
+  /** City owner (public). */
+  owner: CountryId | null;
+  /** Output factor applied to the city while blockaded. */
+  outputFactor: number;
 }
 
 export interface ContactView {
@@ -172,6 +184,12 @@ export interface CountryView {
   messages: Record<string, Message[]>;
   market: { books: Record<string, { bids: BookLevel[]; asks: BookLevel[]; last: number | null }>; myOrders: MarketOrder[]; myFills: MarketFill[] };
   launches: { id: string; missile: string; target: NodeId; launchedAt: number; arriveAt: number; knowledge: string; mine: boolean }[];
+  /**
+   * (additive, v2) Port blockades that concern the viewer: its own blockaded ports (`blockaded`; the
+   * blockaders are NOT named — they may be unobserved) and enemy ports its warships blockade
+   * (`enforcing`, with the public owner). Sorted by city key.
+   */
+  blockades: BlockadeView[];
   scores: { denominator: number; byCountry: Record<CountryId, number>; soloThreshold: number; coalitionThresholds: Record<number, number>; lastSettledDay: number };
   journal: { id: string; at: number; kind: string; category: string; node: NodeId | null; text: string; data?: Record<string, unknown>; interrupt: boolean; routine: boolean }[];
   openingPower: OpeningPowerResult | null;
@@ -423,12 +441,27 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
       myFills: lite ? [] : state.market.fills.filter((f) => f.buyer === viewer || f.seller === viewer).map((f) => ({ ...f })),
     },
     launches,
+    blockades: blockadesFor(state, viewer),
     scores: { denominator: state.score.denominator, byCountry: pub.scores, soloThreshold: thresholdFor(state.score.denominator, 1), coalitionThresholds: { 2: thresholdFor(state.score.denominator, 2), 3: thresholdFor(state.score.denominator, 3), 4: thresholdFor(state.score.denominator, 4), 5: thresholdFor(state.score.denominator, 5) }, lastSettledDay: state.score.lastSettledDay },
     journal: journalFor(state, viewer, opts.journalLimit ?? 40, opts.journalScan ?? 4000),
     openingPower: state.openingPower,
     rules: RULES,
     ...(lite ? { lite: true as const } : {}),
   };
+}
+
+function blockadesFor(state: GameState, viewer: CountryId): BlockadeView[] {
+  const b = state.blockades;
+  if (!b) return [];
+  const out: BlockadeView[] = [];
+  for (const k of Object.keys(b).sort()) {
+    const city = state.cities[k];
+    if (!city) continue;
+    const owner = state.provinces[city.node]?.owner ?? null;
+    const role = owner === viewer ? 'blockaded' : b[k].by.includes(viewer) ? 'enforcing' : null;
+    if (role) out.push({ city: k, name: city.name, node: city.node, since: b[k].since, role, owner, outputFactor: BLOCKADE.outputFactor });
+  }
+  return out;
 }
 
 let timeMemo = { t: -1, start: '', text: '' };

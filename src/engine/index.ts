@@ -14,7 +14,7 @@ export { advance, stepOnce, advanceToNextEvent, isReviewMode } from './sim';
 export { submitCommand, validateCommand, previewCommand, applyCommand, COMMAND_TYPES } from './commands/index';
 export type { Command, CommandResult, Validation, CommandType, CommandOf, AirBase } from './commands/types';
 
-export { getCountryView, getCountryViews, projectContact, type ViewOptions, type CountryView, type ContactView, type PublicCity, type StackView, type DiplomacyRow } from './view/country-view';
+export { getCountryView, getCountryViews, projectContact, type ViewOptions, type CountryView, type ContactView, type PublicCity, type StackView, type DiplomacyRow, type BlockadeView } from './view/country-view';
 export {
   ledgerModel,
   forecastModel,
@@ -55,4 +55,6 @@ export { formatGameTime, formatDuration, dayOf, FINAL_TICK, dayEndTick } from '.
 export { bumpEconomy, popManpower, popMoney, multEffect } from './systems/economy';
 export { liftBreakdown, type LiftBreakdown } from './systems/readiness';
 export { CONSUMED_MODIFIERS, UNUSED_MODIFIERS, cmod } from './systems/modifiers';
-export { initialTrust, trustOf, threadFor } from './systems/diplomacy';
+export { initialTrust, trustOf, threadFor, cessionError, offerRound } from './systems/diplomacy';
+export { liftInfo, canAirLift, interceptionRisk, airborneLifts, type AirmobilePreview } from './systems/airmobile';
+export { updateBlockades, isBlockaded, portIndex } from './systems/blockade';

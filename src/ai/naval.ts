@@ -13,6 +13,10 @@
  *     with an air wing takes station off the objective/threatened coast under sea superiority, so the
  *     wing's patrols reach it; otherwise it stays in port.
  *  4. Housekeeping: idle ships far from home in peace return to the nearest own port.
+ *  5. Break a blockade (engine rule, AI request #12): an own port listed as `blockaded` in the view
+ *     (output −30 %, no shipyard launches) gets the nearest free ship sent to an adjacent sea zone —
+ *     any friendly naval presence there lifts the blockade — when our fleet in reach is not clearly
+ *     outmatched by the observed hostile naval strength around that zone.
  */
 import type { CountryId, NodeId } from '../engine/data-types';
 import type { StackView } from '../engine/view/country-view';
@@ -122,6 +126,30 @@ function blockade(t: Turn, a: Analysis, ships: StackView[]): void {
   }
 }
 
+function breakBlockade(t: Turn, a: Analysis, ships: StackView[]): void {
+  const mine = (t.view.blockades ?? []).filter((b) => b.role === 'blockaded');
+  if (!mine.length || t.full || t.pathLeft <= 0) return;
+  const g = t.geo;
+  for (const b of mine.slice(0, 1)) {
+    const zones = g.coast[b.node].filter((n) => !g.isLand[n]);
+    if (!zones.length) continue;
+    if (ships.some((x) => zones.includes(nodeOf(x) ?? -1) || zones.includes(orderDest(x) ?? -1))) continue; // relief already under way
+    const cand = ships
+      .filter((x) => freeShip(t, x, ['blockade']) && !isCarrierGroup(t, x))
+      .map((x) => ({ x, zone: zones.slice().sort((p, q) => km(g, (x.pos as { node: NodeId }).node, p) - km(g, (x.pos as { node: NodeId }).node, q) || p - q)[0] }))
+      .filter((c) => km(g, (c.x.pos as { node: NodeId }).node, c.zone) <= FLEET_REACH_KM)
+      .sort((p, q) => km(g, (p.x.pos as { node: NodeId }).node, p.zone) - km(g, (q.x.pos as { node: NodeId }).node, q.zone) || (p.x.id < q.x.id ? -1 : 1));
+    if (!cand.length) continue;
+    const fleet = cand.reduce((s, c) => s + stackNavalPower(t.ix, c.x), 0);
+    const threat = seaThreat(t, a, cand[0].zone, t.ix.avgNaval);
+    if (fleet < threat.strength * 0.6) {
+      t.note('operational', 'blockade_unbroken', `own port ${b.name}`, `fleet ${fleet.toFixed(0)} vs ${threat.observed ? 'observed' : 'estimated'} hostile ${threat.strength.toFixed(0)}: too weak to contest the blockade`);
+      continue;
+    }
+    issueMove(t, cand[0].x, cand[0].zone, 'escort', `break the blockade of ${b.name}: a friendly ship in sea zone ${cand[0].zone} restores port trade and shipyard launches`, DAY);
+  }
+}
+
 /** Embark carrier-qualified air wings and station carriers with a wing off the focus coast. */
 function carriers(t: Turn, a: Analysis, ships: StackView[]): void {
   const v = t.view, g = t.geo;
@@ -188,6 +216,7 @@ export function navalReview(t: Turn, a: Analysis): void {
   const ships = t.view.stacks.filter((s) => s.moveClass === 'naval');
   if (!ships.length) return;
   escorts(t, a, ships);
+  breakBlockade(t, a, ships);
   carriers(t, a, ships);
   blockade(t, a, ships);
   housekeeping(t, a, ships);

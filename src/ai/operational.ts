@@ -15,6 +15,7 @@ import { canCapture, stackAirPower, stackGroundPower } from './value';
 import { DAY, HOUR, heldByTask, idleGround, issueMove, orderDest } from './orders';
 import { allianceDefence, callForHelp } from './alliance';
 import { navalReview } from './naval';
+import { airmobileReinforce } from './airmobile';
 
 function defend(t: Turn, a: Analysis, stacks: StackView[]): void {
   // cities short of their requirement, capital first
@@ -39,6 +40,8 @@ function defend(t: Turn, a: Analysis, stacks: StackView[]): void {
       const reason = c.threat > 0 ? `defend ${c.capital ? 'capital' : 'city'} ${c.key}: observed hostile strength ${c.threat.toFixed(0)} vs ${c.present.toFixed(0)}` : `garrison capital ${c.key}`;
       if (issueMove(t, s, c.node, 'defend', reason, 18 * HOUR)) need -= stackGroundPower(t.ix, s);
     }
+    // short-notice help by helicopter when land reinforcements are far away or cut off
+    if (need > 0 && !t.full) need -= airmobileReinforce(t, a, stacks, c, need, d);
   }
 }
 
