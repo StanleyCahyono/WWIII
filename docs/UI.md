@@ -135,11 +135,12 @@ main thread (React 18)                         Web Worker (src/workers/sim.worke
 | `e2e/walkthroughs.spec.ts` | W08 walkthroughs (desktop). **U.S.**: force screen separates fielded/ready/committed; day-1 research tree shows Sealift I time-locked "Available from day 4"; Norfolk construction, Washington MBT mobilization, right-of-way request to Canada, homeland move, carrier air wing rebased onto its carrier then patrols from it; outcomes verified (arrival, +1 MBT, building level, bot answer); day 4 Sealift I researched → lift +4; save/reload identical. **Bolivia (5 days)**: no naval project/unit/building/embark anywhere; mobilize, move, economic report + 24 h forecast checked against the real outcome; market buy crossing a computer ask; accept an incoming bot offer (no second accept); apply to a computer coalition; score panel; save/reload identical. **Indonesia (3 days)**: research, Surabaya naval base, fleet to a sea zone, 24 h forecast, four newspaper editions, save/reload |
 | `e2e/screens.spec.ts` | Annex A walkthrough 5 (market sell order → partial computer fill via `debugMarketOrder` → abort the rest → stock/escrow/cash/history reconcile before and after reload); coalition create/details/thread/leave with 24 h notice; journal (day groups, five filters, event detail, notification history + Go) and toasts (jump-to, dismiss, clock unaffected); newspaper (no future edition, previous/next, nation index, anonymous plain-text statement); unit dossier; split/merge conservation and fire control; tutorial skip/reopen/auto-complete/persisted; archive/restore/delete; settings persistence, credits, diagnostics, closed-app catch-up |
 | `e2e/mobile-touch.spec.ts` | iPhone 13, taps only: mobile worked interaction (as E-worked); W10 touch pass in monochrome (locate a ship formation by symbol meaning "friendly surface" + SIDC check, planned vs present via APP-6 status digit and "Planned" label, dated radar contact without hidden type); narrow-width dossier selectors |
+| `e2e/verification.spec.ts` | Verification pass 2 (desktop unless noted). **Resource/time strip** (Singapore: negative net vs insufficient stock after escrowing all supplies, tooltip breakdown, shortage ledger row + market link; research deadline, build job, arrival, refit and dated report in the timeline, previews never advance the clock). **Interrupt-and-pause** (`debugScheduleWar`: a computer country declares war while the clock runs → the worker pauses within one 15-min chunk, dialog, Stay paused; with the Settings preference off the clock keeps running). **Order dialogs** (embark/delay/disembark with previews; attack lists only current non-air contacts without hidden types, act-of-war confirmation carried by the order). **Map input chart** (Shift/Ctrl multi-select + common actions incl. Move all/Stop all, cluster chooser, right-drag lasso, context menu by right-click and Shift+F10 with arrow keys and Escape, right-click cancels targeting, ocean/province clicks, zoom buttons + scale bar, locator arrow, independent layer toggles). **Journal** after the formation is destroyed (`debugEngage` with `stack`/`strongest`), lost-selection explanation, Go, save/reload. **Recovery copies** (revision conflict → dialog → recovery list → restore as new campaign → delete). **Score + end** (standings, territories sum, history after two settlements; China save moved to one hour before the final settlement via export → edit clock → import; end panel, campaign-end interruption, review mode: controls disabled, step no-op, victory XP awarded once). Choose-country region counts + preview fields, map ≥ 70 % of 1440×900, previous/next formation and city, WASD vs typing, advisor; rural province sheet with zero-output warning; research current-vs-next table and eligible cities. **Mobile**: d-pad, CDP two-finger pinch (anchored), tap on a crowded sector → picker |
 | `e2e/visual.spec.ts` | `toHaveScreenshot` of the map canvas: crowded Europe (2,000 deterministic synthetic stacks, four affiliations) at regional and local zoom, Surabaya at regional and local zoom (baselines in `e2e/visual.spec.ts-snapshots/`, maxDiffPixelRatio 1 %); symbol-gallery manifest regenerated in memory (`e2e/gallery-manifest.mts`) must equal `docs/gallery/manifest.json` |
 
 `?e2e=1` enables test-only worker ops (`debugContact` for A04, `debugMissileSetup` = grant the
 missile blueprint + a launch complex in the capital, `debugEngage` = put a foreign stack on one of
-yours at war, for the retreat test, `debugMarketOrder` = the richest computer country submits an ordinary market order through `submitCommand`, for the partial-fill test); they are unreachable without the URL flag. `window.__wc` exposes read-only accessors (camera, frame, projection) for tests.
+yours at war, for the retreat test, `debugMarketOrder` = the richest computer country submits an ordinary market order through `submitCommand`, for the partial-fill test; `debugEngage` also accepts `{ stack, strongest }` to pick which of yours and the largest foreign formation; `debugScheduleWar { by, inMinutes }` = that computer country submits an ordinary validated `declareWar` on you when the *running* clock reaches the tick, for the interrupt test); they are unreachable without the URL flag. `debugContact` writes a fresh contact-table object (the engine memoizes per-table sorted ids). `window.__wc` exposes read-only accessors (camera, frame, projection) for tests.
 
 ## Performance (measured 2026-11-14)
 
@@ -202,8 +203,28 @@ Remaining gaps (worked around; nice to have in the engine):
   filter's rows while a new filter loads; on phones the destination bar stays visible under the
   inspector sheet (opening another screen keeps the selection) and toasts stack below the sheet with
   tap-through text, so a toast can no longer block the sheet's Close button.
-* The U.S. has no research available on day 1 (tier-1 package complete; next program Sealift I opens
-  on day 4) — catalog/profile data, recorded by the U.S. walkthrough.
+* Verification pass 2 (2026-11-14) UI fixes:
+  - **Act-of-war orders from dialogs were always rejected.** `CommandDialog` (attack, disembark,
+    deployables) read the war list from the *current* preview; once the player ticked "I accept going to
+    war", the re-preview with the confirmation succeeded, the list vanished and the command was sent
+    without `confirmActOfWar` ("Attacking AUS is an act of war. Confirm to declare war."). The dialog now
+    remembers the act-of-war requirement per target (`warFor`) and resets the confirmation when the
+    target changes.
+  - **Locator arrow** for an off-screen selection was drawn under DOM overlays (legend, toolbar) and
+    clicking it only re-selected the object. It now avoids overlay rectangles (`renderer.overlayRects`)
+    and brings the object into view; lasso ignores locator hit boxes.
+  - **Previous/next formation buttons** added to the formation sheet (cities already had them; the
+    input chart requires both).
+  - **Readable notification copy** (`src/ui/eventText.ts`): toasts, the journal and the interrupt dialog
+    rebuild offer events from structured data (`data.offer` + `view.offers`): country names, "right of
+    way", coalition names, "asking nothing in return", "Mexico's offer expired without an answer."; a
+    fallback resolves country codes, `of31`, `(co3)`, `[—]` and `at tick N` in any other engine text.
+    Several incoming offers collapse into one toast ("3 new offers — open Diplomacy to answer them.",
+    with an Open Diplomacy button); each offer is still listed in the notification history.
+  - **Building effects** in the city sheet use one shared formatter (`src/ui/effects.ts`):
+    "+10% production · +5% recruiting speed", "9 naval slots · +9 HP recovery/day"; demolish previews
+    name lost effects the same way.
+* Day-1 research for the U.S. is open (Sealift I) — the earlier note about day 4 is obsolete.
 * The End screen derives losses/captures from journal event kinds; a dedicated engine summary would
   be more precise.
 * Perf numbers come from headless software rendering; re-measure on a reference laptop with GPU.

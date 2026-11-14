@@ -1,6 +1,6 @@
 # Coverage matrix — World Command: World 120
 
-_Release audit (SPEC §6.6). Last audited 2026-11-14 by the release-audit agent; statuses updated the same day by the verification agent (new e2e specs: walkthroughs, screens, mobile-touch, visual). Verified by reading
+_Release audit (SPEC §6.6). Last audited 2026-11-14 by the release-audit agent; statuses updated the same day by the verification agent (new e2e specs: walkthroughs, screens, mobile-touch, visual) and by verification agent #2 (`e2e/verification.spec.ts`, `tests/profiles/hypersonic-playthrough.test.ts`, `tests/ui/readable-copy.test.ts`; 27 rows moved to tested). Verified by reading
 the implementation and the tests, not by trusting other docs. Re-run the commands in
 [HANDOFF.md](HANDOFF.md) before changing a status._
 
@@ -53,6 +53,18 @@ Test IDs: `V:` = Vitest (`npm test`), written `file › test name` (prefix of th
 | E-m-dossier | `e2e/mobile-touch.spec.ts` › unit dossier at narrow width: target/terrain selectors with vertically labelled values |
 | E-shots | `e2e/visual.spec.ts` › map screenshots: crowded Europe and the port of Surabaya at regional and local zoom (`toHaveScreenshot`, baselines in `e2e/visual.spec.ts-snapshots/`) |
 | E-gallery | `e2e/visual.spec.ts` › symbol gallery: the regenerated manifest equals the reviewed docs/gallery/manifest.json |
+| E-v-strips | `e2e/verification.spec.ts` › resource strip: stock and net per good, negative net vs insufficient stock, shortage ledger row, tooltip breakdown, opens the market; time strip previews without advancing |
+| E-v-interrupt | `e2e/verification.spec.ts` › interrupt-and-pause: a declaration of war on me pauses the running clock in the worker and alerts; with the preference off the clock keeps running |
+| E-v-orders | `e2e/verification.spec.ts` › order dialogs: embark with arrival and mode-change preview, delay holds the order, disembark at sea, attack offers only visible targets and needs explicit war confirmation |
+| E-v-map | `e2e/verification.spec.ts` › map input chart: Shift/Ctrl-click multi-selection with common actions, cluster chooser, right-drag lasso, context menu by right-click and Shift+F10, right-click cancels targeting, ocean/province clicks, zoom buttons, scale bar, locator arrow, layer toggles |
+| E-v-journal | `e2e/verification.spec.ts` › journal: an event opened after its formation was destroyed keeps time, place and outcome; the inspector explains the lost selection; survives save/reload |
+| E-v-recovery | `e2e/verification.spec.ts` › recovery copies: a revision conflict keeps this tab’s progress as a recovery copy, listed on the load screen, restorable as a new campaign and deletable |
+| E-v-score | `e2e/verification.spec.ts` › score panel and end of campaign: standings, territories, settlement and history; the final settlement opens the end panel; review mode of the completed save never awards victory twice |
+| E-v-misc | `e2e/verification.spec.ts` › choose-country region filters (22/34/18/22/21/3) and preview fields; map ≥ 70 % of 1440×900; previous/next formation and city by arrows and buttons; WASD not stolen while typing; advisor with keyboard chart and current-save examples |
+| E-v-rural | `e2e/verification.spec.ts` › rural province sheet: its own construction catalog, deposit shown, zero-output warning for a deposit improvement without a deposit; the order is still validated and queued |
+| E-v-research | `e2e/verification.spec.ts` › research detail: a level upgrade compares current vs next level stats; a completed unlock lists the cities eligible to mobilize it and opens one |
+| E-v-touch | `e2e/verification.spec.ts` › touch: d-pad pans, two-finger pinch zooms around the fingers, a tap on a crowded sector opens the two-step picker (mobile) |
+| E-readable | `e2e/screens.spec.ts` › readable copy: city building effects use plain labels (Hamburg); offer toasts and journal rows name countries, terms and offers, and repeated offers collapse into one toast |
 
 Reference URLs for Annex rows are the wiki links given in the SPEC section named in the "Spec" column
 (e.g. Annex A·H → <https://wiki.conflictnations.com/User_Interface#H_-_Market>).
@@ -65,8 +77,8 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | --- | --- | --- | --- | --- |
 | Exactly 120 seats, one human + 119 AI, one capital per seat | World 120 manifest, W01 | `src/data/countries.ts`, `src/engine/scenario/create.ts`, `src/engine/scenario/world120.ts` | V: `tests/engine/world120.test.ts › W01 roster: unique seats/capitals, one human + N−1 AI…`; `tests/map/map.test.ts › has exactly the 120 manifest countries…`, `› exactly one capital per country…`; `tests/profiles/profiles.test.ts › has exactly 120 profiles…`; E-A01 (119 AI in view) | implemented and tested |
 | One selectable campaign mode (World 120) | W02, §1 | `src/engine/scenario/registry.ts` (`listCampaignModes`), `src/ui/screens/ChooseCountry.tsx` | V: `tests/engine/world120.test.ts › exposes exactly one campaign mode (W02)`, `› W02: save/reload/replay keep the single ruleset…`; `tests/engine/ai.test.ts › W01/W02 (fixture)…` | implemented and tested |
-| Region filters 22/34/18/22/21/3, searchable list, Indonesia featured | World 120, §1 | `src/ui/screens/ChooseCountry.tsx` | E-core, E-A01 (search + select BOL, default IDN preview) — counts not asserted | implemented awaiting verification |
-| Preview: capital, cities, resources, doctrine, coastline, neighbours, start difficulty, opening power | §1, Annex A intro | `src/ui/screens/ChooseCountry.tsx`, `src/ui/sim/engine-adapter.ts` (`countryPreviews`) | E-A12 (`preview-capital` = Jakarta); other fields not asserted | implemented awaiting verification |
+| Region filters 22/34/18/22/21/3, searchable list, Indonesia featured | World 120, §1 | `src/ui/screens/ChooseCountry.tsx` | E-v-misc (exact button counts, each filter's list length, Indonesia featured first); E-core, E-A01 | implemented and tested |
+| Preview: capital, cities, resources, doctrine, coastline, neighbours, start difficulty, opening power | §1, Annex A intro | `src/ui/screens/ChooseCountry.tsx`, `src/ui/sim/engine-adapter.ts` (`countryPreviews`) | E-v-misc (capital, doctrine, region, provinces/cities/ports, coastline Coastal vs Bolivia Landlocked, land neighbours, start difficulty, starting cities, 7-row resources table, opening power composite/rank/leader); E-A12 | implemented and tested |
 | Difficulty = AI planning effort only, no resource handicap | World 120, §4 | `src/ai/turn.ts`, `src/engine/ai-host/scheduler.ts`, ChooseCountry difficulty fieldset | V: `tests/profiles/opening-power.test.ts › does not weaken or strengthen the U.S. by controller or difficulty` | implemented and tested |
 | Seed varies personalities / market / events within bounds; geography fixed | World 120 | `src/engine/scenario/create.ts`, `src/engine/rng.ts` | V: `tests/engine/determinism.test.ts › same seed reproduces, different seed diverges` | implemented and tested |
 | Opening paused at 06:00 UTC, map centred on capital | World 120, §1 | `src/engine/time.ts`, `src/ui/screens/Game.tsx` | E-core (tick 0, camera near Jakarta, pause pressed) | implemented and tested |
@@ -86,7 +98,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | --- | --- | --- | --- | --- |
 | Title: Continue (nation, day, difficulty, score, last save), New, Load, Settings | §1 | `src/ui/screens/Title.tsx` | E-core (Continue card shows Indonesia + Day 1 · 07:00) | implemented and tested |
 | Separate save slots, playing one leaves the other intact | A01 | `src/ui/persist/db.ts`, `src/ui/screens/LoadCampaign.tsx` | E-A01 | implemented and tested |
-| Active / archived / recovery lists; resume, archive, restore, delete | Annex A "Home and archives" | `src/ui/screens/LoadCampaign.tsx`, `src/ui/persist/db.ts` | E-archive (resume, archive → hidden from Active and listed under Archived, restore → resumes with identical tick/seed/stock/formations, delete with a cancellable confirmation); E-A01 (resume). The Recovery-copies list is not exercised by a test | implemented awaiting verification |
+| Active / archived / recovery lists; resume, archive, restore, delete | Annex A "Home and archives" | `src/ui/screens/LoadCampaign.tsx`, `src/ui/persist/db.ts` | E-archive (resume, archive, restore unchanged, delete with confirmation); E-v-recovery (revision conflict → recovery copy listed with its reason → restore as a new campaign with the conflicting tab's exact progress → delete) | implemented and tested |
 | Export / import JSON, validated, imported as a new campaign | §5, A13 | `src/ui/screens/LoadCampaign.tsx`, `src/workers/sim.worker.ts`, `src/engine/save/**` | E-A13; V: `tests/engine/save.test.ts › A13-style: export/import keeps seed, clock, roster, economy, pending jobs` | implemented and tested |
 | Settings: theme, interruption preferences, catch-up (named, max shown), sound | §2, §3, Readability | `src/ui/screens/Menus.tsx`, `src/ui/persist/prefs.ts`, `src/workers/sim.worker.ts` | E-settings (defaults, theme → `data-theme`, interruption, monochrome, sound and catch-up choices persist across reload; in-game Settings dialog shows the same preferences) | implemented and tested |
 | Sound effects | Annex A·C | stored preference only (no audio assets); `docs/UI.md` | — | deferred by stated product choice |
@@ -97,20 +109,20 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 
 | Feature | Spec | Implementation | Tests | Status |
 | --- | --- | --- | --- | --- |
-| Map ≥ 70 % of 1440×900 with drawers closed | Operations map | `src/ui/screens/Game.tsx`, `src/ui/styles.css` | none (layout not measured by a test) | implemented awaiting verification |
+| Map ≥ 70 % of 1440×900 with drawers closed | Operations map | `src/ui/screens/Game.tsx`, `src/ui/styles.css` | E-v-misc (map canvas area / (1440×900) ≥ 0.7 with inspector and panels closed) | implemented and tested |
 | Pan (drag, WASD/arrows, d-pad on touch), wheel/pinch zoom at pointer, reset to capital, dateline wrap | §2 Main map, Annex A·C | `src/ui/map/MapView.tsx`, `src/ui/map/renderer.ts`, `src/ui/map/projection.ts` | E-perf (wheel + pan probes); E-A15 (camera API) | implemented and tested |
 | Three zoom states with label priority (selection/alerts > pinned > capitals) | Operations map | `src/ui/map/renderer.ts` | E-perf (renders all zoom states); label priority not asserted | implemented awaiting verification |
 | Primary fill layers (political, terrain, morale, resources, relations, visibility) with patterned legend; restored on reload | §2 Map settings, Annex A·C | `src/ui/map/palette.ts`, `src/ui/map/renderer.ts`, `src/ui/persist/prefs.ts` | E-A15 (terrain legend, camera kept, restored after reload) | implemented and tested |
 | Visibility fill from the engine's `observedNodes`; sensor-coverage layer from `StackView.sightKm/radarKm` | §2 Map settings, Annex A·I | `src/ui/map/MapView.tsx` (`buildInput`), engine `src/engine/systems/visibility.ts` | V: `tests/engine/observed-nodes.test.ts` (all); UI drawing not asserted | implemented awaiting verification |
-| Independent toggles: borders, names, routes, symbols, sensor coverage, dim | §2, Annex A·C | `src/ui/map/MapView.tsx` (layers popover), `src/ui/map/renderer.ts` | none | implemented awaiting verification |
+| Independent toggles: borders, names, routes, symbols, sensor coverage, dim | §2, Annex A·C | `src/ui/map/MapView.tsx` (layers popover), `src/ui/map/renderer.ts` | E-v-map (unticking one toggle leaves the other five prefs unchanged; symbols off draws only the selected formation; names/sensors toggled independently) | implemented and tested |
 | Search grouped by army/city/province; same filtered dataset as hit testing and aria | Operations map, Annex A·C | `src/ui/map/objects.ts`, `src/ui/map/MapView.tsx` (`MapSearch`) | E-core, E-A12 (city search selects), E-A04 (family words never return a hidden contact) | implemented and tested |
-| Clicking ocean clears selection; empty province click selects province | §2, Annex A·E | `src/ui/map/MapView.tsx` | none | implemented awaiting verification |
+| Clicking ocean clears selection; empty province click selects province | §2, Annex A·E | `src/ui/map/MapView.tsx` | E-v-map (sea click → no selection; empty Indonesian land click → that province/city node) | implemented and tested |
 | Island port hit testing at continental zoom | A15, W09 | `src/ui/map/renderer.ts` (hit targets) | E-A15 (Ambon) | implemented and tested |
-| Cluster chooser (two-step picker for crowded sectors) | Mobile, Operations map | `src/ui/map/MapView.tsx`, `src/ui/screens/Game.tsx` | none | implemented awaiting verification |
-| Context menu (Inspect, Locate in roster, Orders, Pin report) by right-click and Shift+F10 | Operations map | `src/ui/map/MapView.tsx` | none | implemented awaiting verification |
-| Right-drag lasso, Shift/Ctrl-click multi-select, right-click cancels targeting | Annex A input chart | `src/ui/map/MapView.tsx` | none | implemented awaiting verification |
-| Locator arrow for off-screen selection; scale bar | Operations map | `src/ui/map/renderer.ts` | none | implemented awaiting verification |
-| Zoom buttons, fullscreen button | Annex A·C | `src/ui/map/MapView.tsx` (`FullscreenButton` added in this audit) | none | implemented awaiting verification |
+| Cluster chooser (two-step picker for crowded sectors) | Mobile, Operations map | `src/ui/map/MapView.tsx`, `src/ui/screens/Game.tsx` | E-v-map (desktop: listbox lists every object, focus, Escape, pick one); E-v-touch (tap on a crowded sector, tap an option) | implemented and tested |
+| Context menu (Inspect, Locate in roster, Orders, Pin report) by right-click and Shift+F10 | Operations map | `src/ui/map/MapView.tsx` | E-v-map (right-click: Inspect / Locate in roster / Orders: Move…, arrow-key focus, Locate focuses the roster row; Shift+F10 on the focused map; Escape returns focus to the map) | implemented and tested |
+| Right-drag lasso, Shift/Ctrl-click multi-select, right-click cancels targeting | Annex A input chart | `src/ui/map/MapView.tsx` | E-v-map (Shift adds, Ctrl toggles off, Shift on a cluster adds all; right-drag selects exactly the friendly symbols in the rectangle; right-click in Move mode cancels with no order) | implemented and tested |
+| Locator arrow for off-screen selection; scale bar | Operations map | `src/ui/map/renderer.ts` | E-v-map (edge arrow appears only while the selection is off-screen, is clear of overlays and recentres on the object); scale bar label changes with zoom. **Bug fixed** in this pass: the arrow sat under the legend and clicking it did nothing | implemented and tested |
+| Zoom buttons, fullscreen button | Annex A·C | `src/ui/map/MapView.tsx` (`FullscreenButton` added in this audit) | E-v-map (Zoom in/out change the camera zoom and back); the Fullscreen toggle is not exercised | implemented awaiting verification |
 | Planning layer: draw/rename/hide/delete, no sim change; "Issue order" opens validated preview | Operations map, W06 | `src/ui/components/Planning.tsx`, `src/engine/save/` (UI section) | E-W06, E-worked; V: `tests/engine/save.test.ts › W06: planning drawings live in the UI section…` | implemented and tested |
 | Drawings have author, creation time, optional expiry | Operations map | `src/engine/save/` drawing helpers, `Planning.tsx` | V: `tests/engine/save.test.ts › W06…` (fields not all asserted) | implemented awaiting verification |
 | Abstract missile origin→sector line without steering | Missiles | `src/ui/map/renderer.ts`, `engine-adapter.ts` (`view` adds `from`) | E-msl (launch has origin while in flight) | implemented and tested |
@@ -123,10 +135,10 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | --- | --- | --- | --- | --- |
 | One-line top bar: nation, date/UTC, pause, speed, score/target, save indicator, next event | Top status bar, §2 | `src/ui/components/TopBar.tsx` | E-core (clock, pause, save indicator) | implemented and tested |
 | Pause / speed / +1 h / jump to next event; real-time estimate only when running | Annex A·B, §2 Advisor/time | `TopBar.tsx`, `src/workers/sim.worker.ts` | E-core, E-A12 (+1 h by keyboard); next-event not e2e | implemented and tested |
-| Resource strip: stock, gross, consumption, committed, net, insufficient vs negative; shortage row with time to depletion; opens market | §2 Resource strip, Annex A·G | `src/ui/components/ResourceStrip.tsx` | V: `tests/engine/economy.test.ts › unpaid upkeep is recorded as a shortage…forecast & breakdown exposed`; UI not e2e | implemented awaiting verification |
-| Bottom time strip: arrivals, refits, research deadlines, dated reports; preview without advancing | Bottom time strip | `src/ui/components/TimeStrip.tsx` | none | implemented awaiting verification |
+| Resource strip: stock, gross, consumption, committed, net, insufficient vs negative; shortage row with time to depletion; opens market | §2 Resource strip, Annex A·G | `src/ui/components/ResourceStrip.tsx` | E-v-strips (Singapore: per-good spendable + signed net; negative net vs insufficient stock after escrowing all supplies; tooltip breakdown; shortage ledger row with time to depletion; opens the market on that good); V: `tests/engine/economy.test.ts › unpaid upkeep…` | implemented and tested |
+| Bottom time strip: arrivals, refits, research deadlines, dated reports; preview without advancing | Bottom time strip | `src/ui/components/TimeStrip.tsx` | E-v-strips (research deadline, build job, arrival, refit, dated report; sorted; selecting previews a marker or nothing and never advances the tick) | implemented and tested |
 | Toasts identify event + place, jump to object, dismiss without stopping, findable in history | Annex A·D | `src/ui/components/Toasts.tsx`, `src/ui/panels/Journal.tsx` | E-journal (a purchased report raises a placed toast; Go selects the place; the clock state is unchanged; dismiss removes it; the toast and a routine completion are both in Notification history, whose Go selects the recorded node) | implemented and tested |
-| Interrupt-and-pause defaults (war on me, capital change, game end); configurable | Readability | engine `GameEvent.interrupt`; `src/workers/sim.worker.ts`; Settings | V: `tests/engine/government.test.ts › human eliminated…` (interrupt flag present); worker pause not tested | implemented awaiting verification |
+| Interrupt-and-pause defaults (war on me, capital change, game end); configurable | Readability | engine `GameEvent.interrupt`; `src/workers/sim.worker.ts`; Settings | E-v-interrupt (worker pauses the running clock within one 15-min step of a war declaration on the human, dialog + Stay paused; preference off → clock keeps running); E-v-score (campaign end interrupts); E-settings (prefs persist) | implemented and tested |
 | Daily digest of routine completions | Readability | `src/engine/sim.ts` (day change digest) | none found | implemented awaiting verification |
 
 ## 5. Inspector (right sheet / bottom sheet)
@@ -136,13 +148,13 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Friendly stack: country, components/health, activity, strength, speed, efficiency, destination, duration vs arrival, terrain/group modifiers | Annex A·E | `src/ui/components/Inspector.tsx` (`StackSheet`) | E-core, E-worked (position), E-A12 (active order) | implemented and tested |
 | Friendly city: category, terrain, population, VP, output, morale + trend, buildings, WIP, prev/next | Annex A·E/F | `Inspector.tsx`, `src/ui/panels/Cities.tsx` (city sheet) | E-core, E-A15 (city sheet opens) | implemented and tested |
 | Morale current vs target with signed factors; uprising risk | Annex A·E Territory condition, §3 Conquest | engine `government.ts`; `Cities.tsx` | V: `tests/engine/government.test.ts › morale target exposes signed factors…` | implemented and tested |
-| Rural province sheet with own construction catalog, deposits, zero-output warning | Annex A·E, Annex B Territory actions | `Inspector.tsx` (`PlaceSheet`), engine `commands/national.ts` | V: `tests/engine/commands.test.ts › human-readable reasons with codes…`; UI not e2e | implemented awaiting verification |
+| Rural province sheet with own construction catalog, deposits, zero-output warning | Annex A·E, Annex B Territory actions | `Inspector.tsx` (`PlaceSheet`), engine `commands/national.ts` | E-v-rural (rural catalog without city buildings, deposit None, zero-output warning, still queued through the validator) | implemented and tested |
 | Foreign territory: public fields only, observation time | Annex A·E | `Inspector.tsx`, engine `provinceInspector` | V: `tests/engine/visibility.test.ts › a foreign city exposes only public fields`; `tests/engine/commands.test.ts › UI model helpers…inspector privacy…` | implemented and tested |
 | Contact sheet shows only observed fields (radar → domain + time) | §2 Workflow 3, A04 | `Inspector.tsx` (`ContactSheet`), `src/ui/map/objects.ts` | E-A04 | implemented and tested |
 | Report sheet: frozen snapshot, source, as-of, expiry | Annex A·I | `Inspector.tsx` (`ReportSheet`) | E-intel, E-worked (report frozen after +1 h) | implemented and tested |
 | Launch missile at a contact's / report's sector (shortcut added in this audit, validated dialog) | Missiles, Annex A·E Attack | `Inspector.tsx` (`LaunchAtSector`), `Orders.tsx` (`LaunchDialog target`) | E-clnch | implemented and tested |
-| Multi-selection: common actions + exceptions (move, merge) | Right inspector | `Inspector.tsx` (`MultiSheet`) | none | implemented awaiting verification |
-| Selected object disappears → explanation and graceful recovery | §2 Context inspector | `src/ui/screens/Game.tsx` + `Inspector.tsx` (`lost-selection`) | none | implemented awaiting verification |
+| Multi-selection: common actions + exceptions (move, merge) | Right inspector | `Inspector.tsx` (`MultiSheet`) | E-v-map (two formations: merge refused with reason when apart, Stop all disabled without orders, Move all moves both, Stop all stops both) | implemented and tested |
+| Selected object disappears → explanation and graceful recovery | §2 Context inspector | `src/ui/screens/Game.tsx` + `Inspector.tsx` (`lost-selection`) | E-v-journal (selected formation destroyed → "Selection lost … no longer exists — it may have been destroyed, merged or split" → Open journal) | implemented and tested |
 | Bottom sheet with visible close on narrow screens | §2 Compact layouts | `Game.tsx`, `styles.css` | E-A12 | implemented and tested |
 
 ## 6. Orders and combat
@@ -154,7 +166,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Re-check legality when rights change mid-route; no teleport | §2 Workflow 1, A03 | engine `movement.ts` | V: `tests/engine/movement.test.ts › A03: multi-waypoint land+strait route…`, `› a stack mid-edge into a newly illegal province turns back…` | implemented and tested |
 | Route failure classes (unreachable / no access / missing facility / outside) | §3 travel graph | engine `systems/mapindex.ts`, `movement.ts` | V: `tests/engine/movement.test.ts › distinguishes unreachable / no access…` | implemented and tested |
 | Stop | §3 Orders | `Inspector.tsx` (`action-stop`) | E-A12 | implemented and tested |
-| Attack (visible targets), delay, embark/disembark | §3 Orders, Annex A·E | `src/ui/components/Orders.tsx` | V: `tests/engine/commands.test.ts › intel agents, articles, deployables and explicit embark/disembark…`; UI not e2e | implemented awaiting verification |
+| Attack (visible targets), delay, embark/disembark | §3 Orders, Annex A·E | `src/ui/components/Orders.tsx` | E-v-orders (embark preview arrival + mode change; delay sets delayUntil = now+3 h, pushes the arrival and holds position; disembark at sea onto an own coast; attack lists only current non-air contacts without hidden types, act-of-war needs the checkbox and the order carries the confirmation). **Bug fixed**: confirmed act-of-war orders from these dialogs were rejected; V: `tests/engine/commands.test.ts › …explicit embark/disembark…` | implemented and tested |
 | Retreat with destination and forecast HP cost | Annex A·E, Annex B Engagements | `Orders.tsx` (`RetreatDialog`), engine `combat.ts` | E-ret; V: `tests/engine/combat.test.ts › retreat goes to a real adjacent destination and costs 10 % HP` | implemented and tested |
 | Split / merge with before/after roster, conservation | Annex A·E, A07 | `Inspector.tsx` (`SplitDialog`, merge) | V: `tests/engine/combat.test.ts › A07: split/merge conserve…`; E-split (dialog before/after counts, disabled reasons for 0 and all units, split adds a formation in the Forces list at the same node with unit count and HP conserved, Merge here restores the totals) | implemented and tested |
 | Fire control (hold / return fire / engage) | Annex A·E, Annex B Membership | `Inspector.tsx` (fire policy select), engine | E-split (Fire control select → `setFirePolicy` → inspector shows "Engage eligible contacts", then "Hold unless ordered") | implemented and tested |
@@ -178,7 +190,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Reservation at enqueue, cancel refund rule, concurrency per city | §3 Economy | engine `production.ts`, `docs/ENGINE.md` | V: `tests/engine/economy.test.ts › job reservation rule…` | implemented and tested |
 | Rally point applies to later mobilizations | Annex A·F | `Cities.tsx`, engine | V: `tests/engine/commands.test.ts › rally point applies to later mobilizations…` | implemented and tested |
 | Annexation and demolition with explicit target and consequence preview | Annex A·F | `Cities.tsx`, engine | V: `tests/engine/government.test.ts › A05…` (annex); demolition not tested | implemented awaiting verification |
-| Building detail: level, health, effects; repair | §3 Economy, Annex A·F | `Cities.tsx` | none | implemented awaiting verification |
+| Building detail: level, health, effects; repair | §3 Economy, Annex A·F | `Cities.tsx` | E-readable (effects as plain labels: "+10% production · +5% recruiting speed", "9 naval slots · +9 HP recovery/day"); V: `tests/ui/readable-copy.test.ts`. Level/health shown; repair not exercised | implemented awaiting verification |
 | Optional paid morale action | Annex A·E (reference "optional") | — | — | deferred by stated product choice |
 
 ## 8. Research
@@ -187,7 +199,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | --- | --- | --- | --- | --- |
 | Tree by branch: day gate, prerequisites, tier, cost, time, doctrine; locked/available/active/complete + time/prereq/facility/doctrine/unaffordable/busy/slots states | §3 Technology, Annex A Research, Annex B | `src/ui/panels/Research.tsx`, engine `systems/research.ts` | V: `tests/engine/research.test.ts › statuses…`; E-core (start research) | implemented and tested |
 | Exact refund preview before cancel | Annex A Research | `Research.tsx`, engine `researchRefund` | V: `tests/engine/research.test.ts › cancel refund is progress-dependent and quoted exactly`; UI not e2e | implemented and tested |
-| Current-vs-next comparison, eligible cities after completion | §3 Technology | `Research.tsx` | none | implemented awaiting verification |
+| Current-vs-next comparison, eligible cities after completion | §3 Technology | `Research.tsx` | E-v-research (L1 vs L2 table with HP/speed/sight/range; completed unlock → Eligible cities lists every city → opens that city's Mobilize tab) | implemented and tested |
 | One published upgrade rule for existing and new units; save during research completes once | §3, A08 | engine `research.ts` | V: `tests/engine/research.test.ts › A08 / cross-check 3…` | implemented and tested |
 | Specialization opportunity cost | §3 Technology | catalog | V: `tests/catalog/integrity.test.ts › specialization has an opportunity cost…` | implemented and tested |
 | Ten branches incl. land, support, aviation, naval, recon, officer, strategic | §3 Technology | `src/data/catalog/**` | V: `tests/catalog/integrity.test.ts › covers all ten branches…` | implemented and tested |
@@ -210,7 +222,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Launch dialog: possible outcomes + headline chance before commit, conditional-accuracy tooltip, inventory after commit | Missile resolution/accuracy | `Orders.tsx` (`LaunchDialog`) | E-msl, E-clnch | implemented and tested |
 | Each family and each terminal outcome; insufficient stock; double submit; save in flight; accelerated clock | W07 | engine `missiles.ts` | V: `tests/engine/missiles.test.ts` (all incl. statistical 10,000-launch checks) | implemented and tested |
 | Viewer-scoped report ("effect unconfirmed") | Missile resolution | engine; `Orders.tsx` strike reports | V: `tests/engine/missiles.test.ts › observed target sector → attacker learns the real outcome`; E-msl | implemented and tested |
-| Two peers can complete a hypersonic branch in a legal playthrough | W04 | catalog reachability | V: `tests/catalog/integrity.test.ts › a hypersonic branch is reachable by a peer within the campaign` (static chain only, no playthrough) | implemented awaiting verification |
+| Two peers can complete a hypersonic branch in a legal playthrough | W04 | catalog reachability | V: `tests/profiles/hypersonic-playthrough.test.ts › China (cruise), Russia and India (glide) research, qualify and produce through the validator before day 180…` (real World 120 data; every start via `submitCommand`; day/prerequisite/lab gates refused by `validateCommand` first; Russia/India build laboratories to reach level 5; ready inventory only after production: CHN d135, RUS d108, IND d107); static chain in `tests/catalog/integrity.test.ts` | implemented and tested |
 | Bot cancels a proposed procurement when its trade position deteriorates | Missile "Why build one?" | `src/ai/economic.ts` | V: `tests/ai/economy.test.ts › seeded example: a bot cancels a proposed missile procurement…` | implemented and tested |
 
 ## 11. Economy, ledger and market
@@ -260,7 +272,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Feature | Spec | Implementation | Tests | Status |
 | --- | --- | --- | --- | --- |
 | One typed event projected into private journal / public newspaper / inbox | Annex B Three distinct records | engine `events.ts`, `view/queries.ts` | V: `tests/engine/commands.test.ts › public newspaper never exposes private orders or composition; journal and inbox are private` | implemented and tested |
-| Journal UI: by day, filters (economy, research, diplomacy, combat, intelligence), opening a past event after the unit is gone | Annex A Private event history | `src/ui/panels/Journal.tsx` | E-journal (day sections, the five category filters show only their category, All restores the count, an event opens with recorded time/place/kind and the "keeps its place…" note); the specific case of opening an event after its unit is destroyed is not exercised | implemented awaiting verification |
+| Journal UI: by day, filters (economy, research, diplomacy, combat, intelligence), opening a past event after the unit is gone | Annex A Private event history | `src/ui/panels/Journal.tsx` | E-journal (day sections, filters, event detail, note); E-v-journal (the human's formation destroyed, its "was destroyed" event opened afterwards shows recorded time, place, kind and stack id, Go jumps to the place, same after save/reload); E-readable (readable offer rows) | implemented and tested |
 | Newspaper UI: editions with day selector (no future editions), ranked index, article composer with anonymous option | Annex A Global newspaper | `Journal.tsx` (`NewsPanel`), engine `newspaper` | E-journal (today's edition, Next disabled = no future edition, Previous/Next, ranked nation index, anonymous plain-text statement shows "Anonymous statement" and markup as text); E-W08-IDN (four editions, Previous disabled on day 1) | implemented and tested |
 | Article image attachment | Annex B Three records ("local attachment") | — (text only) | — | missing |
 
@@ -271,10 +283,10 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Published scoring rule: province 1, city tier, capital +4; denominator once; thresholds 24/40/48/55/60 % rounded up | World 120 Opening and scoring | engine `systems/score.ts`, `rules.ts` | V: `tests/engine/victory.test.ts › denominator computed once; thresholds rounded up; weights visible` | implemented and tested |
 | Settlement at day change; coalition as bloc; day-180 fraction; tie-break | World 120, A11 | engine `score.ts` | V: `tests/engine/victory.test.ts` (all 7) | implemented and tested |
 | Reload of a completed save is review mode, never re-awards | §1, A11 | engine `isReviewMode`; `src/ui/session.ts` | V: `tests/engine/victory.test.ts › solo victory crossing the threshold just before day change is recorded once; reload never re-awards…` | implemented and tested |
-| Score panel: current/target/next settlement, territory contributions, standings, fixed city score vs mutable population | §1, Annex A·B | `src/ui/panels/Score.tsx` | V: `tests/engine/commands.test.ts › UI model helpers…score breakdown`; UI not e2e | implemented awaiting verification |
-| End screen: winner, coalition roster + contributions, score history, territory, research, losses | §1, Annex A·B | `Score.tsx` (`EndPanel`; losses derived from journal kinds) | none | implemented awaiting verification |
+| Score panel: current/target/next settlement, territory contributions, standings, fixed city score vs mutable population | §1, Annex A·B | `src/ui/panels/Score.tsx` | E-v-score (score/target, solo/coalition thresholds, ranked standings with own row marked, territory contributions summing to the score, fixed city score note, next settlement, history after two settlements, territory row jumps to the place); V: `tests/engine/commands.test.ts › UI model helpers…score breakdown` | implemented and tested |
+| End screen: winner, coalition roster + contributions, score history, territory, research, losses | §1, Annex A·B | `Score.tsx` (`EndPanel`; losses derived from journal kinds) | E-v-score (final settlement through the clock: winner/score/threshold/reason, final score, research, losses, captures, history, standings; opens automatically). Coalition roster + contributions (coalition winner) not exercised | implemented awaiting verification |
 | Human eliminated → run concluded, can watch bots finish, still one human | §1, Annex B cross-check 1 | engine `hooks.ts`; `EndPanel` defeat card | V: `tests/engine/government.test.ts › human eliminated with no territory and no recovery force…` | implemented and tested |
-| Local career XP, separate from VP, no double award on replay | Annex B Career | engine `career`; `Score.tsx` | none found | implemented awaiting verification |
+| Local career XP, separate from VP, no double award on replay | Annex B Career | engine `career`; `Score.tsx` | E-v-score (China wins the final settlement: one `victory` career entry; reopening the completed save in review mode and stepping leaves it at one, one `campaign_end` event); V: `tests/engine/victory.test.ts › …no re-award on reload` | implemented and tested |
 
 ## 16. Help, briefing and tutorial
 
@@ -282,18 +294,18 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | --- | --- | --- | --- | --- |
 | New-game briefing with three nation-specific decisions linked to screens | Readability | `src/ui/components/Briefing.tsx`, profile `openingDecisions` | V: `tests/profiles/profiles.test.ts › has two or three distinctive opening decisions linked to screens…`; E-core/E-A12 close it | implemented and tested |
 | Tutorial lessons (select city, read resource, unlock + mobilize, move, check arrival); skip / reopen; saved in the campaign | Annex A·A | `Briefing.tsx` (tutorial), `state.ui` | E-tut (start from the briefing, Show me focuses the control, Skip step, reopen, select-city and read-resources complete from real actions, close + Reopen tutorial from the game menu, progress in `uiPrefs` survives save/reload) | implemented and tested |
-| Advisor/help panel with keyboard chart and current-save examples | Annex A·A, input chart | `src/ui/panels/Help.tsx` | none | implemented awaiting verification |
+| Advisor/help panel with keyboard chart and current-save examples | Annex A·A, input chart | `src/ui/panels/Help.tsx` | E-v-misc (13-row keyboard chart; lessons name the selected city and this save's capital; Open city sheet works) | implemented and tested |
 
 ## 17. Keyboard, touch and accessibility
 
 | Feature | Spec | Implementation | Tests | Status |
 | --- | --- | --- | --- | --- |
 | Keyboard-only from title to first orders on a narrow screen; Escape closes the right layer and restores focus | A12 | `src/ui/screens/*`, `common.tsx` (`Modal`), `PanelHost.tsx` | E-A12 | implemented and tested |
-| WASD/arrows not stolen while typing | Input chart | `common.tsx` (`isTypingTarget`) | E-A12 types into search (indirect) | implemented awaiting verification |
-| Previous/next army and city (arrows + buttons) | Input chart | `src/ui/actions.ts` (`cycle`) | none | implemented awaiting verification |
+| WASD/arrows not stolen while typing | Input chart | `common.tsx` (`isTypingTarget`) | E-v-misc (typing "wasd" in search keeps the camera; D on the focused map pans) | implemented and tested |
+| Previous/next army and city (arrows + buttons) | Input chart | `src/ui/actions.ts` (`cycle`) | E-v-misc (← → on the map and the new Prev/Next formation buttons follow roster order; cities alphabetical by arrows and Prev/Next city buttons). Buttons for formations added in this pass | implemented and tested |
 | Disabled actions show a reason | §2 | `common.tsx` (`ActionButton`) | E-A12 ("No active order to stop."), E-clnch ("No ready missiles") | implemented and tested |
 | Monochrome / colour-independent encodings (patterns, frames, age badge) | §2, W05, W10 | `palette.ts`, `renderer.ts`, symbol overlays | E-W10-touch (monochrome setting on: renderer `mono`, affiliation/dimension read from SIDC frame digits, planned vs present via APP-6 status digit + "Planned" text, contact age in words); E-gallery (monochrome and planned/damaged/stale gallery variants hash-checked against the reviewed manifest); E-shots | implemented and tested |
-| Touch: tap-select, pinch, two-step picker, d-pad | Mobile, W10 | `MapView.tsx` | E-m-worked, E-W10-touch (tap search results, Forces list, roster contacts, bottom sheet More/Less/Close, two map taps to draw); pinch zoom, the two-step cluster picker and the d-pad are not exercised | implemented awaiting verification |
+| Touch: tap-select, pinch, two-step picker, d-pad | Mobile, W10 | `MapView.tsx` | E-m-worked, E-W10-touch (taps); E-v-touch (each d-pad arrow moves the camera centre that way; CDP two-finger pinch zooms in/out anchored between the fingers and selects nothing; tap on a crowded sector → picker → tap selects) | implemented and tested |
 
 ## 18. Persistence and multi-tab
 
@@ -411,7 +423,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | W01 Roster | V: `tests/engine/world120.test.ts › W01 roster…`; `tests/profiles/opening-power.test.ts › every seat can issue a legal opening recruit order`; map capital tests | implemented and tested |
 | W02 One campaign | V: `tests/engine/world120.test.ts › exposes exactly one campaign mode (W02)`, `› W02: save/reload/replay…`; rebel flag test (government) | implemented and tested |
 | W03 Opening power | V: `tests/profiles/opening-power.test.ts › W03 opening power` (8 tests); `tests/engine/power.test.ts`; `docs/reports/opening-power.md` (USA 117.98, lead 17.98 %) | implemented and tested |
-| W04 Technology | Data and opening checks tested (`profiles`/`opening-power` W04 blocks; blueprints never inventory); E-W08-USA demonstrates carrier aviation and lift in ordinary real-data play. Not demonstrated: two peers completing a hypersonic branch in a legal playthrough (only static reachability) | implemented awaiting verification |
+| W04 Technology | Data and opening checks tested (`profiles`/`opening-power` W04 blocks; blueprints never inventory); E-W08-USA (carrier aviation and lift in ordinary play); V: `tests/profiles/hypersonic-playthrough.test.ts` (China cruise, Russia and India glide: legal real-data playthrough to ready inventory before day 180) | implemented and tested |
 | W05 Symbols | V: `tests/catalog/symbols.test.ts`; E-A04 (map/roster/inspector agree; unknown contact SIDC entity 000000); E-gallery (all affiliations × families and state variants diffed against the reviewed manifest); E-shots (map snapshots); E-W10-touch (monochrome map, symbol meaning by touch) | implemented and tested |
 | W06 Planning | E-W06, E-worked; V: `tests/engine/save.test.ts › W06…` | implemented and tested |
 | W07 Missile outcomes | V: `tests/engine/missiles.test.ts` (all families, all terminal outcomes, insufficient stock, double submit, missing observation, save in flight, accelerated clock); E-msl | implemented and tested |
@@ -442,8 +454,8 @@ Counted from the last cell of every data row in sections 1–24 and the A/W/cros
 
 | Status | Rows |
 | --- | ---: |
-| implemented and tested | 172 |
-| implemented awaiting verification | 52 |
+| implemented and tested | 199 |
+| implemented awaiting verification | 25 |
 | deferred by stated product choice | 9 |
 | missing | 5 |
 
@@ -454,5 +466,5 @@ Counted from the last cell of every data row in sections 1–24 and the A/W/cros
 3. **AI depth**: peace terms with territory/resources and multi-round haggling.
 4. **Heavy-war simulation day** still 530–640 ms with ~650 movers (target 400 ms; engine agent working on it).
 5. Helicopter air-mobile embark rules; newspaper article image attachment.
-6. W04: two peers completing a hypersonic branch in a legal real-data playthrough.
-7. UI rows still "awaiting verification" that most need an e2e test next: resource strip / time strip, interrupt-and-pause in the worker, attack/delay/embark dialogs, multi-selection, context menu / lasso, pinch + cluster picker + d-pad on touch, journal event after its unit is destroyed, recovery-copies list, score/end panels.
+6. ~~W04: two peers completing a hypersonic branch~~ — done (`tests/profiles/hypersonic-playthrough.test.ts`).
+7. UI rows still "awaiting verification": fullscreen toggle, building repair, end screen with a coalition winner, failed-write recovery checkpoint, storage-cannot-persist explanation, small-state marker click, label priority, visibility/sensor drawing, drawings metadata, first economic report in the UI (the resource/time strip, interrupt-and-pause, order dialogs, multi-selection, context menu/lasso, pinch/picker/d-pad, journal-after-destruction, recovery list and score/end rows are now covered by E-v-*).

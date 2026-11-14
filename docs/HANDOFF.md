@@ -47,6 +47,30 @@ Perf probe (E-perf, 1440×900, 2,000 synthetic stacks, software rendering): Euro
 28.5 ms, pan 57.7 fps; SE Asia p95 19.3 ms; local Java p95 19.3 ms; world p95 17.5 ms; click→painted
 frame p95 33.5 ms. Targets (p95 < 100 ms, ≥ 45 fps) met on this machine.
 
+## Verification pass 2 (2026-11-14, verification agent #2) — latest results
+
+| Command | Result |
+| --- | --- |
+| `npx tsc --noEmit` | **pass** |
+| `npx vitest run` | **286 passed, 0 failed** (35 files) |
+| `npm run build` | **pass** |
+| `npx playwright test --trace off` | **45 passed, 0 failed, 45 skipped** (by-design per-project skips) |
+
+* **W04 hypersonics:** `tests/profiles/hypersonic-playthrough.test.ts` — real World 120 data, idle other
+  seats, every order through `submitCommand`: China completes the cruise branch, Russia and India the
+  glide branch (India/Russia first build research laboratories to level 5), each produces a ready batch
+  before day 180 (CHN d135, RUS d108, IND d107); locked nodes are refused by `validateCommand` first. No
+  catalog/profile data changed (opening power unchanged).
+* New e2e: `e2e/verification.spec.ts` (E-v-*) and `e2e/screens.spec.ts › readable copy…` (E-readable);
+  new Vitest `tests/ui/readable-copy.test.ts`. COVERAGE: 199 tested · 25 awaiting · 9 deferred · 5 missing.
+* UI bugs fixed: act-of-war confirmation lost in attack/disembark/deployable dialogs (order always
+  rejected); locator arrow hidden under the legend and inert; no prev/next formation buttons; raw ids in
+  offer/journal text and stacked offer toasts; raw effect keys in the city sheet. Test-hook fix:
+  `debugContact` now replaces the contact table object (the engine agent's new per-table memo hid the
+  injected contact, failing A04, the launch shortcut and the W10 touch test). Test race fixed in
+  E-W08-USA (counted research nodes before the panel rendered).
+* New `?e2e=1` worker op `debugScheduleWar`; `debugEngage` takes `{ stack, strongest }`.
+
 ## Verification pass (2026-11-14, verification agent) — latest results
 
 | Command | Result |
@@ -93,7 +117,7 @@ duplicate sample ids.
 
 ## Outstanding work (see the linked COVERAGE sections)
 
-Status totals in COVERAGE (after the verification pass): 172 implemented and tested · 52 implemented awaiting verification ·
+Status totals in COVERAGE (after verification pass 2): 199 implemented and tested · 25 implemented awaiting verification ·
 9 deferred by stated product choice · 5 missing.
 
 **Missing** (COVERAGE rows marked `missing`):
@@ -106,14 +130,11 @@ Status totals in COVERAGE (after the verification pass): 172 implemented and tes
 
 **Awaiting verification** (code exists, no end-to-end test). Highest value next:
 * W08: run the observer suite at a longer horizon — `npm run report:observer -- --runs 120 --days 30 --long 4 --long-days 180` (≈ 3.5 h on 4 vCPU) — §21.
-* W04: a real-data test that two peers can finish a hypersonic branch, and that U.S. carrier/lift
-  advantages work in an ordinary real-data playthrough — §10, §21.
-* W04: two peers completing a hypersonic branch in a legal real-data playthrough (carrier/lift now covered by E-W08-USA).
-* e2e still missing for: resource strip / time strip, worker interrupt-and-pause, attack/delay/embark
-  dialogs, multi-selection, context menu / lasso, pinch + cluster picker + d-pad, journal event after
-  its unit is destroyed, recovery-copies list, score/end panels (W10 touch pass, market, coalitions,
-  journal/newspaper, dossier, split/merge, fire control, tutorial, archive/restore, settings and toasts
-  are now covered — see COVERAGE short IDs E-market … E-gallery).
+* ~~W04 hypersonic peers~~ — done (`tests/profiles/hypersonic-playthrough.test.ts`).
+* e2e still missing for: fullscreen toggle, building repair, end screen with a coalition winner,
+  failed-write recovery checkpoint, storage-cannot-persist message, small-state marker click (see the
+  25 COVERAGE "awaiting" rows; the strip/interrupt/dialog/map-input/journal/recovery/score rows are now
+  covered by E-v-*).
 * ~~`tests/ai/world120.test.ts` invalid-command failure (USA `rebase` × 4)~~ — fixed.
 * Engine+AI ≤ 1 s per game day (now ≈ 1.4 s on a loaded container) — ENGINE.md known gaps.
 * Engine rules suggested by the AI: blockade effects, coalition co-belligerence without a war declaration — AI.md #12, #14.

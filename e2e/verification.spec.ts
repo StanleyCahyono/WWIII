@@ -609,7 +609,10 @@ test.describe('verification pass 2 (desktop)', () => {
   test('score panel and end of campaign: standings, territories, settlement and history; the final settlement opens the end panel; review mode of the completed save never awards victory twice', async ({ page }) => {
     test.setTimeout(300_000);
     await clearStorage(page);
-    await newCampaign(page, 'USA', 9191);
+    // China: the highest score fraction when this save reaches the final settlement, so the victory
+    // (and its one-time career award) is exercised for the human side.
+    const HUMAN = 'CHN', HUMAN_NAME = 'China';
+    await newCampaign(page, HUMAN, 9191);
     await page.getByTestId('score-button').click();
     const sp = page.getByTestId('score-panel');
     await expect(sp).toBeVisible();
@@ -621,9 +624,9 @@ test.describe('verification pass 2 (desktop)', () => {
     await expect(sp).toContainText(`Solo ${b.thresholds.solo}; coalition 2: ${b.thresholds['2']}`);
     // standings: ranked, my row marked; territory contributions sum to my score; fixed city score vs mutable population
     const std = page.getByTestId('standings');
-    const myRank = b.standings.findIndex((e) => e.members.includes('USA'));
+    const myRank = b.standings.findIndex((e) => e.members.includes(HUMAN));
     await expect(std.locator('tr[aria-current="true"] td').first()).toHaveText(String(myRank + 1));
-    await expect(std.locator('tr[aria-current="true"]')).toContainText('United States');
+    await expect(std.locator('tr[aria-current="true"]')).toContainText(HUMAN_NAME);
     await expect(sp.getByRole('heading', { name: `Your territories (${b.territories.length})` })).toBeVisible();
     expect(b.territories.reduce((a, t) => a + t.vp, 0)).toBe(b.myEntry?.score ?? b.mine);
     await expect(sp).toContainText("City score is fixed by the city's initial tier; its population (economic, mutable) changes with morale and war but never changes VP.");
@@ -652,7 +655,7 @@ test.describe('verification pass 2 (desktop)', () => {
     await page.getByTestId('import-input').setInputFiles({ name: 'late.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(env)) });
     await page.getByTestId('confirm-import').click();
     const row = page.getByTestId('campaign-list').locator('tbody tr').filter({ hasText: '(imported)' });
-    await row.getByRole('button', { name: 'Resume United States' }).click();
+    await row.getByRole('button', { name: `Resume ${HUMAN_NAME}` }).click();
     await expect(page.getByTestId('game')).toBeVisible({ timeout: 60_000 });
     expect(await frame<number>(page, 'f => f.view.day')).toBe(180);
     const xp0 = await wc<{ entries: { kind: string }[] }>(page, 'wc.host().query("career")');
@@ -664,9 +667,10 @@ test.describe('verification pass 2 (desktop)', () => {
     const res = await frame<{ reason: string; day: number; winner: { id: string; members: string[]; score: number; threshold: number }; standings: unknown[] }>(page, 'f => f.view.result');
     expect(res.reason).toBe('final_day');
     expect(res.day).toBe(180);
-    const won = res.winner.members.includes('USA');
+    const won = res.winner.members.includes(HUMAN);
     // eslint-disable-next-line no-console
     console.log(`[E-v-score] final settlement winner ${res.winner.id} (${res.winner.score}/${res.winner.threshold} VP); human won: ${won}`);
+    expect(won, 'the human side wins this final settlement (highest fraction)').toBe(true);
     await expect(end.getByRole('heading', { level: 3 })).toHaveText(won ? 'Victory' : 'Campaign concluded');
     await expect(end).toContainText(`Winner: ${await wc<string>(page, `wc.countryName(${JSON.stringify(res.winner.id)})`)} with ${res.winner.score} of ${res.winner.threshold} VP (highest fraction at day 180)`);
     await expect(end).toContainText('Results are frozen. Reloading this save opens review mode and never awards victory twice.');
@@ -689,7 +693,7 @@ test.describe('verification pass 2 (desktop)', () => {
     await page.getByTestId('load-campaign').click();
     const done = page.getByTestId('campaign-list').locator('tbody tr').filter({ hasText: '(imported)' });
     await expect(done).toContainText('completed');
-    await done.getByRole('button', { name: 'Resume United States' }).click();
+    await done.getByRole('button', { name: `Resume ${HUMAN_NAME}` }).click();
     await expect(page.getByTestId('game')).toBeVisible({ timeout: 60_000 });
     expect(await frame<boolean>(page, 'f => f.meta.reviewMode')).toBe(true);
     await expect(page.getByTestId('pause-toggle')).toBeDisabled();
