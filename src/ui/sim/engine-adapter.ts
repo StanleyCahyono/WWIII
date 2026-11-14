@@ -6,7 +6,12 @@
  */
 import * as E from '../../engine/index';
 import type { Command, CountryController, GameState, Scenario, SimHost } from '../../engine/index';
-import { CATALOG, unitById, buildingById } from '../../data/catalog/index';
+import { CATALOG, unitById, buildingById, missileById } from '../../data/catalog/index';
+// Read-only helpers from engine internals (not mutating): air ranges, base checks, building effects.
+import { airEndurance, airRange, checkBase, nodeAirSlots, isCarrier } from '../../engine/systems/air';
+import { sumEffect } from '../../engine/systems/economy';
+import { grantTech } from '../../engine/systems/research';
+import { declareWarInternal } from '../../engine/systems/diplomacy';
 import type { CountryPreview, QueryName, ScenarioSummary } from './protocol';
 
 export type { GameState, Scenario, Command };
@@ -75,7 +80,14 @@ export const formatGameTime = E.formatGameTime;
 export function view(state: GameState, viewer: string) {
   const v = E.getCountryView(state, viewer, { journalLimit: 80 });
   const { rules: _rules, ...rest } = v;
-  return rest;
+  const sc = E.scenarioOf(state);
+  // own launches: add the (own, known) origin so the map can draw an abstract origin→sector line
+  const launches = rest.launches.map((l) => {
+    const raw = state.launches[l.id];
+    const from = l.mine && raw ? sc.map.nodes[raw.fromNode]?.center ?? null : null;
+    return { ...l, from, to: sc.map.nodes[l.target]?.center ?? null };
+  });
+  return { ...rest, launches };
 }
 
 export function submit(state: GameState, cmd: Command) {
@@ -242,6 +254,63 @@ export function query(state: GameState, viewer: string, name: QueryName, args: u
       return { hash: E.stateHash(state), rng: { ...state.rng }, tick: state.clock.tick };
     case 'rules':
       return E.RULES;
+    case 'airInfo': {
+      const s = state.stacks[args[0] as string];
+      if (!s || s.owner !== viewer || !s.air) return null;
+      const sc = E.scenarioOf(state);
+      const bases: { base: { node: number } | { stack: string }; name: string; ok: boolean; reason: string | null; km: number }[] = [];
+      const ll = s.pos.kind === 'node' ? sc.map.nodes[s.pos.node].center : s.pos.kind === 'air' ? s.pos.to : sc.map.nodes[s.pos.to].center;
+      for (const p of state.provinces) {
+        if (!p || p.owner !== viewer || nodeAirSlots(state, p.node) <= 0) continue;
+        const v = checkBase(state, viewer, { node: p.node });
+        const c = sc.map.nodes[p.node].center;
+        bases.push({ base: { node: p.node }, name: sc.map.nodes[p.node].name, ok: v.ok, reason: v.ok ? null : v.reason ?? 'Unavailable', km: Math.round(E.distKm(ll[0], ll[1], c[0], c[1])) });
+      }
+      for (const o of Object.values(state.stacks)) {
+        if (o.owner !== viewer || o.id === s.id || !isCarrier(state, o)) continue;
+        const v = checkBase(state, viewer, { stack: o.id });
+        bases.push({ base: { stack: o.id }, name: `${o.name} (carrier)`, ok: v.ok, reason: v.ok ? null : v.reason ?? 'Unavailable', km: 0 });
+      }
+      bases.sort((a, b) => a.km - b.km);
+      return { enduranceMin: airEndurance(state, s), rangeKm: Math.round(airRange(state, s)), refuelMin: E.rules.REFUEL_MIN, defaultRadiusKm: E.rules.DEFAULT_PATROL_RADIUS_KM, bases: bases.slice(0, 60) };
+    }
+    case 'stackOptions': {
+      // adjacent embark/disembark nodes and retreat neighbours for one of the viewer's stacks
+      const s = state.stacks[args[0] as string];
+      if (!s || s.owner !== viewer || s.pos.kind !== 'node') return null;
+      const sc = E.scenarioOf(state);
+      const node = s.pos.node;
+      const adj: { node: number; kind: string; name: string }[] = [];
+      for (const e of sc.map.edges) {
+        if (e.a !== node && e.b !== node) continue;
+        const other = e.a === node ? e.b : e.a;
+        adj.push({ node: other, kind: e.kind, name: sc.map.nodes[other].name });
+      }
+      return { node, land: sc.map.nodes[node].kind === 'land', coastal: sc.map.nodes[node].coastal, adjacent: adj };
+    }
+    case 'missileInfo': {
+      const cs = state.countries[viewer];
+      const sc = E.scenarioOf(state);
+      const sites: { from: { node: number }; name: string; slots: number }[] = [];
+      for (const c of Object.values(state.cities)) {
+        const p = state.provinces[c.node];
+        if (!p || p.owner !== viewer) continue;
+        const slots = sumEffect(state, [...p.buildings, ...c.buildings], 'missileSlots', false);
+        if (slots > 0) sites.push({ from: { node: c.node }, name: c.name, slots });
+      }
+      const types = CATALOG.missiles.map((mt) => {
+        const inv = cs.missiles[mt.id] ?? null;
+        const backlog = cs.jobs.filter((j) => j.kind === 'missile' && j.missile === mt.id).map((j) => ({ id: j.id, batch: j.batch ?? mt.batchSize, startedAt: j.startedAt, endsAt: j.endsAt }));
+        const platforms = Object.values(state.stacks)
+          .filter((st) => st.owner === viewer && st.units.some((u) => (mt.launchFrom as string[]).includes(unitById.get(u.type)?.family ?? '')))
+          .map((st) => ({ from: { stack: st.id }, name: st.name }));
+        return { id: mt.id, inv, backlog, platforms, sites: mt.launchFrom.includes('missile_complex') ? sites : [], techs: { blueprint: mt.blueprintTech, blueprintDone: !!cs.techs[mt.blueprintTech], qualify: mt.qualifyTech, qualifyDone: mt.qualifyTech ? !!cs.techs[mt.qualifyTech] : true } };
+      });
+      void sc;
+      return { types };
+    }
+    case 'career':
+      return { xp: state.career.xp, entries: state.career.entries.slice(-200).reverse() };
     case 'profile': {
       const p = E.scenarioOf(state).profiles[viewer];
       if (!p) return null;
@@ -250,6 +319,29 @@ export function query(state: GameState, viewer: string, name: QueryName, args: u
     default:
       throw new Error(`Unknown query ${name}`);
   }
+}
+
+/** Test-only helpers (only reachable when the worker received debugEnable from ?e2e=1). */
+export function debugMissileSetup(state: GameState, viewer: string, missile = 'msl_cruise') {
+  const mt = missileById.get(missile);
+  if (!mt) throw new Error('Unknown missile');
+  for (const t of [mt.blueprintTech, mt.qualifyTech]) if (t) grantTech(state, viewer, t, 'domestic');
+  const cap = state.countries[viewer].capitalCity;
+  const city = cap ? state.cities[cap] : null;
+  if (city && !city.buildings.some((b) => b.type === 'missile_complex')) city.buildings.push({ type: 'missile_complex', level: 1, condition: 100 });
+  return { missile, inv: state.countries[viewer].missiles[missile] ?? null, site: city?.name ?? null };
+}
+export function debugEngage(state: GameState, viewer: string) {
+  const sc = E.scenarioOf(state);
+  const mine = Object.values(state.stacks).find((s) => s.owner === viewer && s.moveClass === 'ground' && s.pos.kind === 'node');
+  if (!mine || mine.pos.kind !== 'node') throw new Error('No ground stack');
+  const node = mine.pos.node;
+  const foe = Object.values(state.stacks).find((s) => s.owner !== viewer && s.moveClass === 'ground' && s.pos.kind === 'node' && s.units.length > 0);
+  if (!foe) throw new Error('No foreign ground stack');
+  declareWarInternal(state, foe.owner, viewer, 'test engagement');
+  foe.pos = { kind: 'node', node };
+  foe.order = null;
+  return { stack: mine.id, foeOwner: foe.owner, node, name: sc.map.nodes[node].name };
 }
 
 export function buildingName(id: string): string {

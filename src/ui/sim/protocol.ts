@@ -126,7 +126,9 @@ export type Request =
   | { op: 'perf'; stacks?: number }
   /** Test-only (enabled by ?e2e=1): inject a radar-only contact over a real hidden foreign stack. */
   | { op: 'debugEnable' }
-  | { op: 'debugContact' };
+  | { op: 'debugContact' }
+  | { op: 'debugMissileSetup'; missile?: string }
+  | { op: 'debugEngage' };
 
 export type QueryName =
   | 'cityList'
@@ -148,6 +150,10 @@ export type QueryName =
   | 'eventDetail'
   | 'hashInfo'
   | 'profile'
+  | 'airInfo'
+  | 'missileInfo'
+  | 'career'
+  | 'stackOptions'
   | 'rules';
 
 export type Envelope = { id: number } & Request;

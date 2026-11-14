@@ -122,7 +122,8 @@ function incEffectsRaw(bt: BuildingType, level: number): BuildingLevel['effects'
   for (const k of Object.keys(L.effects) as (keyof BuildingLevel['effects'])[]) {
     const cur = L.effects[k];
     const prev = P?.effects[k];
-    if (typeof cur === 'number') out[k] = cur - (typeof prev === 'number' ? prev : 0);
+    // `*Mult` effects use catalog multiplier semantics (1 = no change; engine combines Σ(mult − 1))
+    if (typeof cur === 'number') out[k] = cur - (typeof prev === 'number' ? prev : /Mult$/.test(k) ? 1 : 0);
     else if (cur && typeof cur === 'object') {
       const o: Record<string, number> = {};
       for (const r of Object.keys(cur)) o[r] = ((cur as Record<string, number>)[r] ?? 0) - (((prev ?? {}) as Record<string, number>)[r] ?? 0);

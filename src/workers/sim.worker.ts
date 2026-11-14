@@ -423,6 +423,18 @@ async function handle(req: Request): Promise<unknown> {
     }
     case 'perf':
       return { ok: true };
+    case 'debugMissileSetup': {
+      if (!debugEnabled || !state || !viewer) throw new Error('Debug operations are disabled.');
+      const r = A.debugMissileSetup(state, viewer, req.missile);
+      pushFrame();
+      return r;
+    }
+    case 'debugEngage': {
+      if (!debugEnabled || !state || !viewer) throw new Error('Debug operations are disabled.');
+      const r = A.debugEngage(state, viewer);
+      pushFrame();
+      return r;
+    }
     case 'debugEnable':
       debugEnabled = true;
       return { ok: true };
