@@ -1,5 +1,6 @@
 /** UI-only state (never part of the simulation). */
 import { createStore } from './store';
+import { targeting, clearTargetHover, fromKeyboard } from './targeting';
 
 export type Screen = 'boot' | 'title' | 'new' | 'load' | 'settings' | 'credits' | 'diagnostics' | 'game';
 export type Panel =
@@ -35,6 +36,25 @@ export type MapMode =
   | { kind: 'move'; stacks: string[]; waypoints: number[]; dest: number | null }
   | { kind: 'draw'; drawKind: 'phase_line' | 'area' | 'route' | 'objective' | 'label' | 'bookmark'; points: [number, number][] }
   | { kind: 'pick'; purpose: string; prompt: string; land?: boolean };
+
+/** Orders that pick their target directly on the map (OrderHost renders the targeting bar). */
+export type OrderKind = 'attack' | 'patrol' | 'rebase' | 'embark' | 'retreat' | 'launch' | 'deploy' | 'airmobile' | 'rally';
+export interface OrderRequest {
+  kind: OrderKind;
+  seq: number;
+  stack?: string;
+  unit?: string;
+  missile?: string;
+  target?: number | null;
+  city?: string;
+}
+
+/** A panel hidden while the map is being targeted; restored when targeting ends. */
+export interface PanelRestore {
+  panel: Panel;
+  panelArg: unknown;
+  panelStack: { panel: Panel; arg: unknown }[];
+}
 
 export interface Toast {
   id: string;
@@ -83,6 +103,10 @@ export interface UiState {
   marketResource: string | null;
   focusReturn: HTMLElement | null;
   ledgerOpen: string | null;
+  /** Active map-targeted order (patrol, rebase, attack, landing zone, missile target, rally…). */
+  order: OrderRequest | null;
+  /** Panel hidden by map targeting (order or move), restored when targeting ends. */
+  restorePanel: PanelRestore | null;
 }
 
 export const ui = createStore<UiState>({
@@ -110,7 +134,54 @@ export const ui = createStore<UiState>({
   marketResource: null,
   focusReturn: null,
   ledgerOpen: null,
+  order: null,
+  restorePanel: null,
 });
+
+let orderSeq = 1;
+
+/** Hide an open panel while the map is targeted (remember it once). */
+function hidePanelForTargeting(s: UiState): Partial<UiState> {
+  if (!s.panel) return {};
+  return { restorePanel: s.restorePanel ?? { panel: s.panel, panelArg: s.panelArg, panelStack: s.panelStack }, panel: null, panelArg: null, panelStack: [] };
+}
+
+/**
+ * Start a map-targeted order: the map enters targeting mode (crosshair, hover preview, click sets
+ * the target) and a compact order bar holds the preview and Confirm/Cancel. An open panel is
+ * hidden while the map is targeted and comes back when targeting ends. `e` = the activating event:
+ * started from the keyboard, the accessible list fallback opens expanded.
+ */
+export function startOrder(req: Omit<OrderRequest, 'seq'>, e?: { detail?: number; nativeEvent?: Event } | null) {
+  const s = ui.get();
+  targeting.patch({ listOpen: fromKeyboard(e) });
+  clearTargetHover();
+  ui.patch({ ...hidePanelForTargeting(s), order: { ...req, seq: orderSeq++ }, mode: { kind: 'idle' }, contextMenu: null, chooser: null });
+}
+
+/** End the active map-targeted order (confirmed or cancelled). */
+export function endOrder() {
+  const s = ui.get();
+  if (!s.order) return;
+  clearTargetHover();
+  ui.patch({ order: null, ...(s.mode.kind === 'pick' ? { mode: { kind: 'idle' as const } } : {}) });
+}
+
+/** Targeting has ended (no order, idle map): bring back a panel hidden for it. */
+export function restorePanelAfterTargeting() {
+  const s = ui.get();
+  const r = s.restorePanel;
+  if (!r || s.order || s.mode.kind !== 'idle') return;
+  ui.patch({ restorePanel: null, ...(s.panel ? {} : { panel: r.panel, panelArg: r.panelArg, panelStack: r.panelStack }) });
+}
+
+/** Enter move targeting for one or more formations (any open targeted order is ended first). */
+export function startMove(stacks: string[], e?: { detail?: number; nativeEvent?: Event } | null) {
+  if (ui.get().order) endOrder();
+  targeting.patch({ listOpen: fromKeyboard(e) });
+  clearTargetHover();
+  ui.patch({ ...hidePanelForTargeting(ui.get()), mode: { kind: 'move', stacks, waypoints: [], dest: null }, contextMenu: null, chooser: null });
+}
 
 let camSeq = 1;
 export function centerOn(lon: number, lat: number, zoom?: number) {

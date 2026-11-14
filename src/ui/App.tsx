@@ -40,6 +40,8 @@ import { unitById, countryName } from './data/static';
     return out.length;
   },
   countryName: (id: string) => countryName(id),
+  /** Public map geometry: a sector's label point (lon, lat). */
+  nodeCenter: (n: number) => NODES[n]?.center ?? null,
   project: (lon: number, lat: number) => {
     const r = mapRef.current;
     if (!r) return null;

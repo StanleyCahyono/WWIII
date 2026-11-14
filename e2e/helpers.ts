@@ -94,8 +94,20 @@ export async function selectFormation(page: Page, id: string, isMobile = false) 
   await expect(page.getByTestId('inspector-title')).toBeVisible();
 }
 
+/**
+ * Map-targeted orders pick their target on the map; the list selectors are the accessible fallback,
+ * collapsed unless the order was started from the keyboard. Expand it (idempotent).
+ */
+export async function openTargetList(page: Page) {
+  const t = page.getByTestId('target-list-toggle');
+  await expect(t).toBeVisible();
+  if ((await t.getAttribute('aria-expanded')) !== 'true') await t.click();
+  await expect(t).toHaveAttribute('aria-expanded', 'true');
+}
+
 /** Choose a move destination in the open move panel: the nearest listed province owned by `owner`. */
 export async function pickOwnedDestination(page: Page, owner: string, exclude: number | null) {
+  await openTargetList(page);
   const sel = page.getByTestId('dest-select');
   await expect(sel.locator('option').nth(2)).toBeAttached();
   const values = await sel.locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));

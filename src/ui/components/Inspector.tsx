@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useStore } from '../state/store';
-import { ui, select, openPanel, centerOn, type Selection } from '../state/ui';
+import { ui, select, openPanel, centerOn, startOrder, startMove, type Selection } from '../state/ui';
 import { useFrame, useQuery, Sym, ActionButton, Modal, FlagChip, useIsMobile, PlannedUnitSym } from './common';
 import { useObjects, objectToSelection } from '../map/MapView';
 import { NODES, unitById, buildingById, countryName, placeName, TERRAIN_LABEL, RESOURCE_LABEL, cityByNode, techById } from '../data/static';
 import { gameTime, duration, ageLabel, milli, num, signed, cap, dayOf, hourLabel } from '../format';
 import { exec } from '../sim/exec';
 import { cycle } from '../actions';
-import { AttackDialog, PatrolDialog, RebaseDialog, DelayDialog, EmbarkDialog, RetreatDialog, LaunchDialog, DeployableDialog, AircraftPanel } from './Orders';
+import { DelayDialog, AircraftPanel } from './Orders';
 import type { StackView } from '../../engine/index';
 import type { Frame } from '../sim/protocol';
 import type { MapObject } from '../map/objects';
@@ -208,8 +208,9 @@ function Stat({ icon, label, value, sub, tone }: { icon: IconName; label: string
 
 export function StackSheet({ s, o, frame, layout = 'panel' }: { s: StackView; o: MapObject; frame: Frame; layout?: 'dock' | 'sheet' | 'panel' }) {
   const [split, setSplit] = useState(false);
-  const [dlg, setDlg] = useState<null | 'attack' | 'patrol' | 'rebase' | 'delay' | 'embark' | 'retreat' | 'launch'>(null);
-  const [deploy, setDeploy] = useState<string | null>(null);
+  const [dlg, setDlg] = useState<null | 'delay'>(null);
+  // orders with a map target run in the targeting bar (OrderHost): the map stays live, hover previews, click sets the target
+  const orderBtn = (kind: 'attack' | 'patrol' | 'rebase' | 'embark' | 'retreat' | 'launch') => (e: React.MouseEvent) => startOrder(kind === 'launch' ? { kind } : { kind, stack: s.id }, e);
   const [more, setMore] = useState(false);
   const isAir = s.moveClass === 'air' && !!s.air;
   const deployables = s.units.filter((u) => !!unitById.get(u.type)?.deployable);
@@ -242,25 +243,25 @@ export function StackSheet({ s, o, frame, layout = 'panel' }: { s: StackView; o:
   const primary = (
     <>
       {!isAir && (
-        <ActionButton className="btn primary act" disabledReason={RO} onClick={() => ui.patch({ mode: { kind: 'move', stacks: [s.id], waypoints: [], dest: null } })} data-testid="action-move">
+        <ActionButton className="btn primary act" disabledReason={RO} onClick={(e) => startMove([s.id], e)} data-testid="action-move">
           <Icon name="move" size={20} />
           Move…
         </ActionButton>
       )}
       {!isAir && (
-        <ActionButton className="btn act danger-soft" disabledReason={RO ?? (s.pos.kind === 'air' ? 'Airborne.' : null)} onClick={() => setDlg('attack')} data-testid="action-attack">
+        <ActionButton className="btn act danger-soft" disabledReason={RO ?? (s.pos.kind === 'air' ? 'Airborne.' : null)} onClick={orderBtn('attack')} data-testid="action-attack">
           <Icon name="attack" size={20} />
           Attack…
         </ActionButton>
       )}
       {isAir && (
-        <ActionButton className="btn primary act" disabledReason={RO ?? airReason(s, ['landed', 'on_station'])} onClick={() => setDlg('patrol')} data-testid="action-patrol">
+        <ActionButton className="btn primary act" disabledReason={RO ?? airReason(s, ['landed', 'on_station'])} onClick={orderBtn('patrol')} data-testid="action-patrol">
           <Icon name="patrol" size={20} />
           Patrol…
         </ActionButton>
       )}
       {isAir && (
-        <ActionButton className="btn act" disabledReason={RO ?? airReason(s, ['landed'])} onClick={() => setDlg('rebase')} data-testid="action-rebase">
+        <ActionButton className="btn act" disabledReason={RO ?? airReason(s, ['landed'])} onClick={orderBtn('rebase')} data-testid="action-rebase">
           <Icon name="rebase" size={20} />
           Rebase / ferry…
         </ActionButton>
@@ -276,19 +277,19 @@ export function StackSheet({ s, o, frame, layout = 'panel' }: { s: StackView; o:
         </ActionButton>
       )}
       {s.moveClass === 'ground' && (
-        <ActionButton className="btn act" disabledReason={RO ?? (s.pos.kind !== 'node' ? 'Only from a province or sea zone.' : node !== null && NODES[node].kind === 'land' && !NODES[node].coastal ? 'Embarking requires a coastal province.' : null)} onClick={() => setDlg('embark')} data-testid="action-embark">
+        <ActionButton className="btn act" disabledReason={RO ?? (s.pos.kind !== 'node' ? 'Only from a province or sea zone.' : node !== null && NODES[node].kind === 'land' && !NODES[node].coastal ? 'Embarking requires a coastal province.' : null)} onClick={orderBtn('embark')} data-testid="action-embark">
           <Icon name={node !== null && NODES[node].kind === 'sea' ? 'disembark' : 'embark'} size={20} />
           {node !== null && NODES[node].kind === 'sea' ? 'Disembark…' : 'Embark…'}
         </ActionButton>
       )}
       {!isAir && (
-        <ActionButton className="btn act" disabledReason={RO ?? (s.pos.kind !== 'node' ? 'Retreat is possible only while engaged at a province.' : null)} onClick={() => setDlg('retreat')} data-testid="action-retreat">
+        <ActionButton className="btn act" disabledReason={RO ?? (s.pos.kind !== 'node' ? 'Retreat is possible only while engaged at a province.' : null)} onClick={orderBtn('retreat')} data-testid="action-retreat">
           <Icon name="retreat" size={20} />
           Retreat…
         </ActionButton>
       )}
       {canLaunch && (
-        <ActionButton className="btn act" disabledReason={RO} onClick={() => setDlg('launch')} data-testid="action-launch">
+        <ActionButton className="btn act" disabledReason={RO} onClick={orderBtn('launch')} data-testid="action-launch">
           <Icon name="launch" size={20} />
           Launch missile…
         </ActionButton>
@@ -468,7 +469,7 @@ export function StackSheet({ s, o, frame, layout = 'panel' }: { s: StackView; o:
             <span className="grow">
               {ut.name} · {u.uses ?? 0} use(s) left{cd ? ` · cooldown until ${gameTime(cd)}` : ' · ready'}
             </span>
-            <ActionButton className="btn small" disabledReason={RO ?? ((u.uses ?? 0) <= 0 ? 'No uses remaining.' : cd ? `On cooldown until ${gameTime(cd)}.` : null)} onClick={() => setDeploy(u.id)}>
+            <ActionButton className="btn small" disabledReason={RO ?? ((u.uses ?? 0) <= 0 ? 'No uses remaining.' : cd ? `On cooldown until ${gameTime(cd)}.` : null)} onClick={(e) => startOrder({ kind: 'deploy', stack: s.id, unit: u.id }, e)}>
               Use…
             </ActionButton>
           </div>
@@ -480,14 +481,7 @@ export function StackSheet({ s, o, frame, layout = 'panel' }: { s: StackView; o:
   const dialogs = (
     <>
       {split && <SplitDialog s={s} onClose={() => setSplit(false)} />}
-      {dlg === 'attack' && <AttackDialog s={s} onClose={() => setDlg(null)} />}
-      {dlg === 'patrol' && <PatrolDialog s={s} onClose={() => setDlg(null)} />}
-      {dlg === 'rebase' && <RebaseDialog s={s} onClose={() => setDlg(null)} />}
       {dlg === 'delay' && <DelayDialog s={s} onClose={() => setDlg(null)} />}
-      {dlg === 'embark' && <EmbarkDialog s={s} onClose={() => setDlg(null)} />}
-      {dlg === 'retreat' && <RetreatDialog s={s} onClose={() => setDlg(null)} />}
-      {dlg === 'launch' && <LaunchDialog onClose={() => setDlg(null)} />}
-      {deploy && <DeployableDialog s={s} unitId={deploy} onClose={() => setDeploy(null)} />}
     </>
   );
 
@@ -697,16 +691,14 @@ function ContactSheet({ o, frame }: { o: MapObject; frame: Frame }) {
  *  (validated preview, outcomes, war confirmation); the sector is a public node id, never the hidden
  *  stack. Disabled with a reason when there is no ready inventory. */
 function LaunchAtSector({ node, frame }: { node: number | null; frame: Frame }) {
-  const [open, setOpen] = useState(false);
   if (node === null) return null;
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   const ready = Object.values(frame.view.self.missiles ?? {}).reduce((a, m) => a + (m?.ready ?? 0), 0);
   return (
     <>
-      <ActionButton className="btn" disabledReason={ro ? 'Read-only campaign' : ready < 1 ? 'No ready missiles — research and produce a batch in Forces first.' : null} onClick={() => setOpen(true)} data-testid="contact-launch">
+      <ActionButton className="btn" disabledReason={ro ? 'Read-only campaign' : ready < 1 ? 'No ready missiles — research and produce a batch in Forces first.' : null} onClick={(e) => startOrder({ kind: 'launch', target: node }, e)} data-testid="contact-launch">
         Launch missile at this sector…
       </ActionButton>
-      {open && <LaunchDialog target={node} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -989,7 +981,7 @@ function MultiSheet({ ids, frame }: { ids: string[]; frame: Frame }) {
       <div className="sect">
         <h4>Common actions</h4>
         <div className="actions">
-          <ActionButton className="btn primary" disabledReason={ro ? 'Read-only campaign' : null} onClick={() => ui.patch({ mode: { kind: 'move', stacks: stacks.map((s) => s.id), waypoints: [], dest: null } })}>
+          <ActionButton className="btn primary" disabledReason={ro ? 'Read-only campaign' : null} onClick={(e) => startMove(stacks.map((s) => s.id), e)}>
             Move all…
           </ActionButton>
           <ActionButton disabledReason={ro ? 'Read-only campaign' : stacks.every((s) => !s.order) ? 'None of these formations has an order.' : null} onClick={async () => { for (const s of stacks) if (s.order) await exec({ type: 'stop', stack: s.id }); }}>

@@ -59,7 +59,28 @@ export interface Hit {
   label: string;
   /** Off-screen selection locator arrow: activating it brings the object into view. */
   locate?: boolean;
+  /** Anchor point (symbol frame centre / marker centre) used to break ties between overlapping items. */
+  cx?: number;
+  cy?: number;
 }
+
+/** Map-pointer state the renderer draws: idle hover ring, or the targeting highlight while an
+ *  order picks its target (node outline + object ring, coloured by the validator's answer). */
+export interface TargetHighlight {
+  node: number | null;
+  ids: string[];
+  state: 'ok' | 'warn' | 'bad' | 'pending';
+}
+
+/** Distance in CSS px from a point to a hit rectangle (0 inside). */
+export function rectDistance(h: { x: number; y: number; w: number; h: number }, x: number, y: number): number {
+  const dx = x < h.x ? h.x - x : x > h.x + h.w ? x - (h.x + h.w) : 0;
+  const dy = y < h.y ? h.y - y : y > h.y + h.h ? y - (h.y + h.h) : 0;
+  return Math.hypot(dx, dy);
+}
+
+/** Forgiving margin (CSS px) around every drawn map marker, by pointer type. */
+export const HIT_SLOP = { mouse: 6, touch: 12 } as const;
 
 interface FillGroup {
   key: string;
@@ -87,7 +108,10 @@ export class MapRenderer {
   /** Screen rectangles (canvas pixels) covered by DOM overlays (toolbar, legend, search…); the
    *  off-screen locator arrow is placed outside them so it stays visible and clickable. */
   overlayRects: (() => { x: number; y: number; w: number; h: number }[]) | null = null;
-  hover: { x: number; y: number } | null = null;
+  /** Ids of the map object/cluster under the mouse (idle hover ring). */
+  hoverIds: string[] = [];
+  /** Targeting highlight while an order picks its target on the map. */
+  target: TargetHighlight | null = null;
   onFrame: ((ms: number) => void) | null = null;
 
   private shapePaths: (Path2D | null)[] = [];
@@ -266,13 +290,49 @@ export class MapRenderer {
     return seaHit;
   }
 
-  /** Topmost interactive item at a screen point. */
-  hitAt(x: number, y: number, slop = 4): Hit | null {
+  /**
+   * The interactive item a click at (x, y) means. Every hit box is the marker's drawn bounds; a
+   * point within `slop` px of a box still counts. Map objects (formations, contacts, reports,
+   * locator arrows) win over place markers; among candidates of the same class the one whose box
+   * is nearest wins, then the one whose anchor is nearest, then the topmost (last drawn).
+   */
+  hitAt(x: number, y: number, slop: number = HIT_SLOP.mouse): Hit | null {
+    let best: Hit | null = null;
+    let bestPri = -1, bestD = Infinity, bestC = Infinity;
     for (let i = this.hits.length - 1; i >= 0; i--) {
       const h = this.hits[i];
-      if (x >= h.x - slop && x <= h.x + h.w + slop && y >= h.y - slop && y <= h.y + h.h + slop) return h;
+      const d = rectDistance(h, x, y);
+      if (d > slop) continue;
+      const pri = h.kind === 'object' || h.kind === 'cluster' ? 2 : 1;
+      const c = Math.hypot((h.cx ?? h.x + h.w / 2) - x, (h.cy ?? h.y + h.h / 2) - y);
+      if (pri > bestPri || (pri === bestPri && (d < bestD - 0.01 || (Math.abs(d - bestD) <= 0.01 && c < bestC - 0.01)))) {
+        best = h;
+        bestPri = pri;
+        bestD = d;
+        bestC = c;
+      }
     }
-    return null;
+    return best;
+  }
+
+  /** Every map object (not places) within `slop` px of a point, nearest first — targeting uses it. */
+  objectsAt(x: number, y: number, slop: number = HIT_SLOP.mouse): Hit[] {
+    return this.hits
+      .filter((h) => (h.kind === 'object' || h.kind === 'cluster') && !h.locate && rectDistance(h, x, y) <= slop)
+      .sort((a, b) => rectDistance(a, x, y) - rectDistance(b, x, y));
+  }
+
+  setHover(ids: string[]) {
+    if (ids.length === this.hoverIds.length && ids.every((v, i) => v === this.hoverIds[i])) return;
+    this.hoverIds = ids;
+    this.requestDraw();
+  }
+
+  setTarget(t: TargetHighlight | null) {
+    const a = this.target;
+    if (a === t || (a && t && a.node === t.node && a.state === t.state && a.ids.join() === t.ids.join())) return;
+    this.target = t;
+    this.requestDraw();
   }
 
   hitsInRect(x0: number, y0: number, x1: number, y1: number): Hit[] {
@@ -502,6 +562,7 @@ export class MapRenderer {
       }
       if (this.prefs.sensors) this.drawSensors(input);
       if (input.selectedNode !== null) this.drawNodeHighlight(input.selectedNode);
+      if (this.target && this.target.node !== null) this.drawTargetNode(this.target.node, this.target.state);
       this.drawDrawings(input);
       if (this.prefs.routes) this.drawRoutes(input, false);
       this.drawRoutes(input, true);
@@ -586,6 +647,30 @@ export class MapRenderer {
       ctx.setLineDash([4 / z, 3 / z]);
       ctx.stroke(p);
       ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  /** Hovered target sector while an order picks its target: tinted fill + solid outline. */
+  private drawTargetNode(node: number, state: TargetHighlight['state']) {
+    const p = this.shapePaths[node];
+    if (!p) return;
+    const ctx = this.ctx;
+    const z = this.cam.z;
+    const col = targetColor(state, this.theme.select);
+    ctx.save();
+    for (const k of [-1, 0, 1]) {
+      ctx.setTransform(z * this.dpr, 0, 0, z * this.dpr, ((k * 360 - this.cam.cx) * z + this.w / 2) * this.dpr, (-this.cam.cy * z + this.h / 2) * this.dpr);
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = col;
+      ctx.fill(p);
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 3.4 / z;
+      ctx.strokeStyle = '#000';
+      ctx.stroke(p);
+      ctx.lineWidth = 2 / z;
+      ctx.strokeStyle = col;
+      ctx.stroke(p);
     }
     ctx.restore();
   }
@@ -923,7 +1008,7 @@ export class MapRenderer {
         ctx.lineTo(c.x + r + 4, c.y + r + 4.5);
         ctx.stroke();
       }
-      this.hits.push({ x: c.x - 7, y: c.y - 7, w: 14, h: 14, kind: 'city', ids: [], node: c.node, label: c.name });
+      this.hits.push({ x: c.x - r - 2, y: c.y - r - 2, w: 2 * r + 4, h: 2 * r + 4, cx: c.x, cy: c.y, kind: 'city', ids: [], node: c.node, label: c.name });
     }
     // labels: selection first, then cities by priority, then countries
     for (const c of cityItems) {
@@ -953,7 +1038,7 @@ export class MapRenderer {
         this.text(l.text, ox, oy, { size: 11, align: 'left', collide: true, color: th.text });
         const cap = MAP.countryById.get(l.id)?.capital;
         const capNode = cap ? MAP.cityByKey.get(cap)?.node : undefined;
-        this.hits.push({ x: l.x - 8, y: l.y - 8, w: 16, h: 16, kind: 'small', ids: [l.id], node: capNode, label: l.text });
+        this.hits.push({ x: l.x - 6, y: l.y - 6, w: 12, h: 12, cx: l.x, cy: l.y, kind: 'small', ids: [l.id], node: capNode, label: l.text });
         continue;
       }
       const mine = l.id === input.me;
@@ -1048,7 +1133,34 @@ export class MapRenderer {
         const lab = lead.o.designation ?? lead.o.label;
         this.text(lab.length > 26 ? lab.slice(0, 25) + '…' : lab, cl.x, top + ih + 8, { size: 11, collide: !isSel, color: isSel ? th.select : th.text });
       }
-      this.hits.push({ x: cl.x - size * 0.6, y: cl.y - size * 0.5, w: size * 1.2, h: size, kind: cl.items.length > 1 ? 'cluster' : 'object', ids: cl.items.map((p) => p.o.id), label: cl.items.length > 1 ? `${cl.items.length} objects` : lead.o.label });
+      // hover ring (idle pointer) and targeting ring (an order is picking this object)
+      const ids = cl.items.map((p) => p.o.id);
+      const tgt = this.target && this.target.ids.length && ids.some((i) => this.target!.ids.includes(i)) ? this.target : null;
+      if (tgt || (!isSel && this.hoverIds.length && ids.some((i) => this.hoverIds.includes(i)))) {
+        const r = size * 0.95;
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+        ctx.beginPath();
+        ctx.arc(cl.x, cl.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = tgt ? targetColor(tgt.state, th.select) : th.text;
+        ctx.setLineDash(tgt ? [] : [4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      // hit box = the drawn marker (symbol image or counter plate, plus the stack-count pill)
+      let hx0 = left, hy0 = top, hx1 = left + iw, hy1 = top + ih;
+      if (cl.items.length > 1 && !counters) {
+        hx1 = Math.max(hx1, cl.x + size * 0.75 + 14);
+        hy1 = Math.max(hy1, cl.y + size * 0.55 + 3);
+      }
+      // never smaller than the symbol size itself (tiny glyphs stay easy to hit)
+      hx0 = Math.min(hx0, cl.x - size * 0.6);
+      hx1 = Math.max(hx1, cl.x + size * 0.6);
+      hy0 = Math.min(hy0, cl.y - size * 0.5);
+      hy1 = Math.max(hy1, cl.y + size * 0.5);
+      this.hits.push({ x: hx0, y: hy0, w: hx1 - hx0, h: hy1 - hy0, cx: cl.x, cy: cl.y, kind: cl.items.length > 1 ? 'cluster' : 'object', ids, label: cl.items.length > 1 ? `${cl.items.length} objects` : lead.o.label });
     }
   }
 
@@ -1193,7 +1305,7 @@ export class MapRenderer {
       ctx.stroke();
       ctx.restore();
       this.text(o.label.slice(0, 22), ex - Math.cos(ang) * 22, ey - Math.sin(ang) * 22 + 4, { size: 11, color: this.theme.select });
-      this.hits.push({ x: ex - 12, y: ey - 12, w: 24, h: 24, kind: 'object', ids: [o.id], label: `Locate ${o.label}`, locate: true });
+      this.hits.push({ x: ex - 12, y: ey - 12, w: 24, h: 24, cx: ex, cy: ey, kind: 'object', ids: [o.id], label: `Locate ${o.label}`, locate: true });
     }
   }
 
@@ -1294,6 +1406,10 @@ export class MapRenderer {
     const km = nice.reduce((b, v) => (v <= target ? v : b), 1);
     return { px: km / kpp, label: `${km.toLocaleString()} km` };
   }
+}
+
+function targetColor(state: TargetHighlight['state'], select: string): string {
+  return state === 'ok' ? '#5fe08a' : state === 'bad' ? '#ff5a4f' : state === 'warn' ? '#ffb347' : select;
 }
 
 function compatible(a: MapObject, b: MapObject): boolean {

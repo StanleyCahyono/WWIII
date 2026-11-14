@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearStorage, newCampaign, frame, shot } from './helpers';
+import { clearStorage, newCampaign, frame, shot, openTargetList } from './helpers';
 
 test.describe('core loop (desktop)', () => {
   test.skip(({ isMobile }) => !!isMobile, 'desktop flow; mobile covered by a12');
@@ -58,6 +58,7 @@ test.describe('core loop (desktop)', () => {
     await page.locator('[data-testid="roster"] [data-roster-id^="S:"]').first().click();
     await page.getByTestId('action-move').click();
     await expect(page.getByTestId('move-panel')).toBeVisible();
+    await openTargetList(page);
     const sel = page.getByTestId('dest-select');
     const opt = await sel.locator('option').nth(4).getAttribute('value');
     await sel.selectOption(opt!);

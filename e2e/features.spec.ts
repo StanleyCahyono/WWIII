@@ -1,11 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
-import { clearStorage, newCampaign, frame, advance, shot } from './helpers';
+import { clearStorage, newCampaign, frame, advance, shot, openTargetList } from './helpers';
 
 const wc = <T = unknown>(page: Page, expr: string) => page.evaluate(`(() => { const wc = window.__wc; return ${expr}; })()`) as Promise<T>;
 
 async function pickFirst(page: Page, testid: string, index = 1) {
   const sel = page.getByTestId(testid);
   await expect(sel.locator('option').nth(index)).toBeAttached({ timeout: 15_000 });
+  // map-targeted orders keep their list selector under the collapsed "Choose from a list" fallback
+  if (!(await sel.isVisible())) await openTargetList(page);
   const v = await sel.locator('option').nth(index).getAttribute('value');
   await sel.selectOption(v!);
 }

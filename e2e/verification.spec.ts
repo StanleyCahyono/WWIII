@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { clearStorage, newCampaign, frame, wc, advance, advanceUntil, selectFormation, pickOwnedDestination } from './helpers';
+import { clearStorage, newCampaign, frame, wc, advance, advanceUntil, selectFormation, pickOwnedDestination, openTargetList } from './helpers';
 
 /**
  * Verification pass 2: UI rows that had no end-to-end test (COVERAGE "awaiting verification").
@@ -230,6 +230,7 @@ test.describe('verification pass 2 (desktop)', () => {
     const emb = page.getByRole('dialog', { name: `Embark ${pick!.name}` });
     await expect(emb).toBeVisible();
     await expect(emb.getByTestId('embark-confirm')).toHaveAttribute('aria-disabled', 'true');
+    await openTargetList(page);
     await emb.getByTestId('embark-node').selectOption(String(pick!.sea));
     await expect(emb).toContainText('Arrival');
     await expect(emb).toContainText(/Mode change.*Land → Sea|Ground → Naval|→/);
@@ -263,6 +264,7 @@ test.describe('verification pass 2 (desktop)', () => {
     const coasts = await dis.getByTestId('embark-node').locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
     const home = await frame<string | null>(page, `f => { const vals = ${JSON.stringify(coasts)}; return vals.find(v => f.view.owners[Number(v)] === f.view.viewer) ?? null; }`);
     expect(home, 'an Indonesian coast next to this sea zone').not.toBeNull();
+    await openTargetList(page);
     await dis.getByTestId('embark-node').selectOption(home!);
     await expect(dis).toContainText('Mode change');
     await dis.getByRole('button', { name: 'Confirm landing' }).click();
@@ -286,6 +288,7 @@ test.describe('verification pass 2 (desktop)', () => {
     const options = await ad.getByTestId('attack-node-select').locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
     const target = await frame<{ node: number; owner: string } | null>(page, `f => { const vals = ${JSON.stringify(options)}; const v = vals.find(v => { const o = f.view.owners[Number(v)]; return o && o !== f.view.viewer && !f.view.relations.find(r => r.country === o && r.war); }); return v ? { node: Number(v), owner: f.view.owners[Number(v)] } : null; }`);
     expect(target, 'a foreign province in range').not.toBeNull();
+    await openTargetList(page);
     await ad.getByTestId('attack-node-select').selectOption(String(target!.node));
     await expect(ad.getByRole('alert').filter({ hasText: 'Act of war' })).toBeVisible();
     await expect(ad.getByTestId('attack-confirm')).toHaveAttribute('aria-disabled', 'true');

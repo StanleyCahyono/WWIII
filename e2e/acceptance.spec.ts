@@ -183,9 +183,17 @@ test.describe('acceptance (desktop)', () => {
     await expect(page.getByTestId('city-sheet')).toBeVisible();
     await page.getByTestId('panel-close').click();
     const cam1 = (await wc(page, 'wc.camera()')) as typeof cam0;
-    expect(cam1.cx).toBeCloseTo(cam0.cx, 5);
+    // The view is kept: the inspector that opened on the right shrinks the map but the map stays
+    // anchored (nothing slides under the pointer), so the selected port is drawn exactly where it was
+    // clicked; zoom and latitude are unchanged. Dismissing the inspection restores the camera centre.
+    const p1 = (await wc(page, 'wc.project(128.18, -3.7)')) as { x: number; y: number };
+    expect(Math.abs(p1.x - p.x)).toBeLessThan(1);
+    expect(Math.abs(p1.y - p.y)).toBeLessThan(1);
     expect(cam1.cy).toBeCloseTo(cam0.cy, 5);
     expect(cam1.z).toBeCloseTo(cam0.z, 5);
+    await page.locator('#map-canvas').focus();
+    await page.keyboard.press('Escape');
+    await expect.poll(async () => ((await wc(page, 'wc.camera()')) as typeof cam0).cx).toBeCloseTo(cam0.cx, 5);
     await shot(page, 'a15-terrain');
     // reload restores the layer choice
     await page.reload();

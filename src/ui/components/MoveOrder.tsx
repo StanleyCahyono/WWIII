@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, createStore } from '../state/store';
 import { ui, select } from '../state/ui';
 import { getHost } from '../sim/host';
@@ -8,6 +8,8 @@ import { gameTime, duration, cap } from '../format';
 import { exec } from '../sim/exec';
 import type { RouteLine } from '../map/renderer';
 import { routeFromSegments } from '../map/MapView';
+import { targeting, pointKey } from '../state/targeting';
+import { TargetList } from './Orders';
 
 interface Seg { from: number; to: number; mode: string; kind: string; km: number; terrain: string; hours: number; arriveTick: number; owner: string | null; actOfWar: string | null; label?: string }
 interface Plan { ok: boolean; segments: Seg[]; arriveTick: number; totalHours: number; actOfWar: string[]; modeChanges: { at: number; from: string; to: string }[]; reason?: string; detail?: string; blockingOwners?: string[] }
@@ -41,6 +43,18 @@ export function MoveOrder() {
   const [confirmWar, setConfirmWar] = useState(false);
   const [busy, setBusy] = useState(false);
   const host = getHost();
+  const confirmRef = useRef<{ reason: string | null; confirm: () => void } | null>(null);
+  useEffect(() => {
+    // Enter on the focused map confirms (same validation as the button)
+    const f = () => {
+      const c = confirmRef.current;
+      if (c && !c.reason && !busyRef.current) c.confirm();
+    };
+    window.addEventListener('wc-confirm-order', f);
+    return () => window.removeEventListener('wc-confirm-order', f);
+  }, []);
+  const busyRef = useRef(false);
+  busyRef.current = busy;
   const m = mode.kind === 'move' ? mode : null;
   const key = m ? JSON.stringify([m.stacks, m.waypoints, m.dest, frame?.view.tick]) : '';
 
@@ -69,6 +83,7 @@ export function MoveOrder() {
   useEffect(() => {
     setConfirmWar(false);
   }, [m?.dest, m?.waypoints.length]);
+  useMoveHoverPreview(m);
 
   useEffect(() => {
     const cancel = () => {
@@ -109,20 +124,23 @@ export function MoveOrder() {
     void okCount;
   };
   const reason = m.dest === null ? 'Pick a destination on the map (Shift-click adds a waypoint).' : stale ? 'Computing route preview…' : blocked.length === m.stacks.length ? val?.reason ?? 'No legal route.' : needsWar && !confirmWar ? 'Confirm the border consequence first.' : null;
+  confirmRef.current = { reason, confirm };
 
   return (
     <div className="mode-banner" role="dialog" aria-label="Move order" style={{ flexDirection: 'column', alignItems: 'stretch', width: 'min(560px, calc(100% - 20px))', top: 'auto', bottom: 12 }} data-testid="move-panel" onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), cancel())}>
       <div className="row">
         <strong>Move {stacks.length === 1 ? stacks[0]!.name : `${stacks.length} formations`}</strong>
-        <span className="muted" style={{ fontSize: 12 }}>Click destination · Shift-click waypoint · Right-click or Esc cancels</span>
+        <span className="muted" style={{ fontSize: 12 }}>Hover to preview · click destination · Shift-click waypoint · Right-click or Esc cancels</span>
       </div>
       <div className="row wrap" style={{ fontSize: 13 }}>
         <span>
           Destination: <strong data-testid="move-dest">{m.dest !== null ? placeName(m.dest) : '—'}</strong>
         </span>
         {m.waypoints.length > 0 && <span>via {m.waypoints.map(placeName).join(' → ')}</span>}
-        <DestPicker />
       </div>
+      <TargetList>
+        <DestPicker />
+      </TargetList>
       {m.dest !== null && plan && !stale && (
         <div className="col" style={{ gap: 4, fontSize: 12.5 }}>
           {plan.ok ? (
@@ -203,6 +221,60 @@ export function MoveOrder() {
       </div>
     </div>
   );
+}
+
+/**
+ * Live hover preview while picking a move destination on the map: route ETA / distance for the
+ * first formation, or the exact reason (unreachable, illegal), and a border-consequence warning.
+ */
+function useMoveHoverPreview(m: { stacks: string[]; waypoints: number[]; dest: number | null } | null) {
+  const hover = useStore(targeting, (s) => s.hover);
+  const host = getHost();
+  const tick = useFrame()?.view.tick;
+  const cache = useRef(new Map<string, { plan: Plan | null; v: { ok: boolean; code?: string; reason?: string } }>());
+  useEffect(() => cache.current.clear(), [tick]);
+  const first = m?.stacks[0];
+  const wps = m ? m.waypoints.join(',') : '';
+  useEffect(() => {
+    if (!m || !first || !hover) return;
+    const key = pointKey(hover);
+    const node = hover.node;
+    if (node === null) {
+      targeting.patch({ tip: { key, title: 'Off the map', lines: ['Not a destination.'], ok: false, node: null } });
+      return;
+    }
+    const title = `Move to ${placeName(node)}`;
+    const show = (r: { plan: Plan | null; v: { ok: boolean; code?: string; reason?: string } }) => {
+      if (pointKey(targeting.get().hover) !== key) return;
+      const p = r.plan;
+      if (!p || !p.ok) return targeting.patch({ tip: { key, title, lines: [p ? `Route impossible: ${p.detail ?? p.reason ?? 'no legal route'}` : 'No legal route.'], ok: false, node } });
+      if (!r.v.ok && r.v.code !== 'act_of_war') return targeting.patch({ tip: { key, title, lines: [r.v.reason ?? 'Not possible.'], ok: false, node } });
+      const km = Math.round(p.segments.reduce((a, g) => a + g.km, 0));
+      const lines = [`Arrives ${gameTime(p.arriveTick)} (${duration(p.totalHours * 60)})`, `${p.segments.length} legs · ${km} km`];
+      const war = p.actOfWar.length > 0 || r.v.code === 'act_of_war';
+      if (war) lines.push(`Border: entering ${p.actOfWar.map(countryName).join(', ') || 'foreign territory'} is a declaration of war — you confirm in the move bar`);
+      if (m.stacks.length > 1) lines.push(`Preview for ${m.stacks.length} formations shows the first; each is validated on confirm`);
+      targeting.patch({ tip: { key, title, lines, ok: true, warn: war, node } });
+    };
+    const ck = `${first}|${node}|${wps}`;
+    const hit = cache.current.get(ck);
+    if (hit) return show(hit);
+    targeting.patch({ tip: { key, title, lines: ['Computing route…'], ok: null, node } });
+    let alive = true;
+    const t = setTimeout(async () => {
+      const wp = wps ? wps.split(',').map(Number) : [];
+      const plan = await host.query<Plan | null>('planRoute', first, node, wp).catch(() => null);
+      const v = await host.preview({ type: 'move', stack: first, dest: node, waypoints: wp }).catch(() => ({ ok: false, code: 'error', reason: 'Preview failed.' }));
+      const r = { plan, v: v.ok ? { ok: true } : { ok: false, code: (v as { code: string }).code, reason: (v as { reason: string }).reason } };
+      cache.current.set(ck, r);
+      if (alive) show(r);
+    }, 70);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hover, first, wps]);
 }
 
 /** Accessible list alternative to precise map clicks: choose destination from nearby places. */

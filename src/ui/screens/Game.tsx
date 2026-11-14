@@ -14,6 +14,7 @@ import { Inspector } from '../components/Inspector';
 import { TimeStrip } from '../components/TimeStrip';
 import { Toasts, InterruptDialog } from '../components/Toasts';
 import { MoveOrder, useMoveRoutes } from '../components/MoveOrder';
+import { OrderHost } from '../components/OrderHost';
 import { DrawBanner } from '../components/Planning';
 import { Briefing, Tutorial } from '../components/Briefing';
 import { PanelHost } from '../panels/PanelHost';
@@ -209,9 +210,11 @@ export function Game() {
           </div>
         )}
         <Toasts />
-        {dock && <Inspector dock />}
+        {/* while an order targets the map the order bar replaces the unit dock (more map, one bottom bar) */}
+        {dock && mode.kind !== 'pick' && mode.kind !== 'move' && <Inspector dock />}
         {!isMobile && <TimeStrip />}
         {mode.kind === 'move' && <MoveOrder />}
+        <OrderHost />
         {mode.kind === 'draw' && <DrawBanner />}
         {panel && <PanelHost />}
         {isMobile && mode.kind === 'idle' && <Inspector mobile />}

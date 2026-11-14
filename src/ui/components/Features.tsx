@@ -3,9 +3,9 @@
  * Both go through the engine view / validator only (preview on every change, commit via exec()).
  */
 import React, { useState } from 'react';
-import { CommandDialog, NodePicker } from './Orders';
+import { CommandDialog, NodePicker, type TargetingSpec } from './Orders';
 import { useFrame } from './common';
-import { unitById, placeName } from '../data/static';
+import { unitById, placeName, NODES } from '../data/static';
 import { gameTime, duration, resM } from '../format';
 import type { StackView, BlockadeView } from '../../engine/index';
 
@@ -25,12 +25,29 @@ export function AirmobileDialog({ s, onClose }: { s: StackView; onClose: () => v
     const t = unitById.get(u.type);
     return t?.family === 'helicopter' ? a + (t.airmobileCapacity ?? 0) : a;
   }, 0);
+  const here = s.pos.kind === 'node' ? s.pos.node : null;
+  const spec: TargetingSpec = {
+    id: 'airmobile-dest',
+    prompt: 'Click the landing zone (a land province in range)',
+    chosen: dest !== null ? placeName(dest) : null,
+    resolve: (p) => {
+      if (p.node === null) return null;
+      const n = p.node;
+      if (NODES[n].kind !== 'land') return { label: placeName(n), reason: 'Landing zones are land provinces.' };
+      if (NODES[n].outside) return { label: placeName(n), reason: 'Outside the campaign map.' };
+      if (n === here) return { label: placeName(n), reason: 'The formation is already here.' };
+      return { label: placeName(n), cmd: { type: 'airmobile', stack: s.id, dest: n }, apply: () => setDest(n) };
+    },
+    brief: (p) => [`${Math.round(p.km as number)} km of ${Math.round(p.rangeKm as number)} km range`, `Lands ${gameTime(p.arriveAt as number)}`, `Interception risk ${Math.round((p.riskEstimate as number) * 100)} % (estimate)`],
+    list: <NodePicker id="airmobile-dest" label="Landing zone" origin={s.lonlat} value={dest} onChange={setDest} maxKm={800} filter={(n) => n.kind === 'land' && !(s.pos.kind === 'node' && s.pos.node === n.id)} />,
+  };
   return (
     <CommandDialog
       title={`Air assault — ${s.name}`}
       testid="airmobile"
       okLabel="Confirm air-mobile hop"
       onClose={onClose}
+      targeting={spec}
       build={(war) => (dest === null ? null : { type: 'airmobile', stack: s.id, dest, confirmActOfWar: war })}
       describe={(p) => {
         const fuel = p.fuel as Record<string, number>;
@@ -59,10 +76,9 @@ export function AirmobileDialog({ s, onClose }: { s: StackView; onClose: () => v
         );
       }}
     >
-      <p className="dim" style={{ margin: 0, fontSize: 12.5 }}>
+      <p className="dim" style={{ margin: 0, fontSize: 12 }}>
         Helicopters lift light infantry and officers straight to a land province in range ({seats} seat(s) in this formation; air-assault infantry flies itself). Armour and guns must be split off first. Hostile air defence near the flight path or forces at the landing zone may intercept the lift; the estimate counts only what you have observed. After landing the helicopters need {duration(120)} to refuel. Landing in enemy territory captures it by the normal rule once no defender remains.
       </p>
-      <NodePicker id="airmobile-dest" label="Landing zone" origin={s.lonlat} value={dest} onChange={setDest} maxKm={800} filter={(n) => n.kind === 'land' && !(s.pos.kind === 'node' && s.pos.node === n.id)} />
     </CommandDialog>
   );
 }

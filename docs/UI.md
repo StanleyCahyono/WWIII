@@ -76,10 +76,47 @@ main thread (React 18)                         Web Worker (src/workers/sim.worke
   symbols, sensor coverage, dim-under-overlays. Outside-campaign land has a hatch (close zoom) and a
   tooltip. Symbols: milsymbol SVG → cached `Image` per SIDC/size/mono; selection ring, age badge,
   report tag and ×N count are drawn outside the frame. Off-screen selection locator arrows.
-* Input: drag pan (5 px click threshold), wheel/pinch zoom at pointer, WASD/arrows, ± keys,
-  right-drag lasso (own formations), Shift/Ctrl-click additive selection, right-click = cancel
-  targeting or context menu (Inspect, Locate in roster, Orders, Pin report), Shift+F10/Menu key for
-  the same menu, cluster click → chooser. Clicking ocean clears selection.
+* Input: drag pan, wheel/pinch zoom at pointer, WASD/arrows, ± keys, right-drag lasso (own
+  formations), Shift/Ctrl-click additive selection, right-click = cancel targeting or context menu
+  (Inspect, Locate in roster, Orders, Pin report), Shift+F10/Menu key for the same menu, cluster
+  click → chooser. Clicking ocean clears selection.
+* **Selection hit testing** (`renderer.hitAt`, `MapView` pointer handlers):
+  - every object hit box is the marker as drawn — the APP-6 symbol image (frame + amplifiers) or the
+    game-counter plate (1.7 × size wide), plus the ×N pill of a cluster, never smaller than the
+    symbol size — and a point within `HIT_SLOP` (mouse 6 px, touch 12 px) of a box still counts;
+  - map objects (formations, contacts, reports, locator arrows) win over city/small-state markers
+    and provinces; among overlapping candidates the nearest box, then the nearest anchor wins;
+  - click vs drag: a press that moves less than `CLICK_SLOP` (mouse 6 px, touch/pen 10 px) is a
+    click, and the click acts at the **press point** (hand jitter during the press no longer moves
+    it off the marker); further movement pans;
+  - opening/closing the right-hand inspector keeps the map anchored at the left edge (world points
+    stay under the pointer) unless a "centre on" request was just applied;
+  - a double click on a marker (or while targeting) does not zoom the map away from it;
+  - hover: pointer cursor + dashed ring + tooltip with the formation name (cluster: "N here — click
+    to choose" with the names) over whatever a click would select (`data-testid="map-tooltip"`).
+* **Direct map targeting** (`src/ui/state/targeting.ts`, `components/Orders.tsx` `CommandDialog` +
+  `TargetingSpec`, `components/OrderHost.tsx`, `components/MoveOrder.tsx`): every order that needs a
+  target — move destination, attack target (contact or province), patrol area, rebase base/carrier,
+  embark/disembark, retreat destination, deployable placement, air-assault landing zone, missile
+  target sector, city rally point — enters a targeting mode when its button is pressed: crosshair
+  cursor; hovering highlights the candidate (sector fill/outline, object ring) green / amber / red
+  and shows a live tooltip (`data-testid="target-tip"`, `data-state` ok|warn|bad|pending) built
+  from the engine's validated preview (`host.preview`, `planRoute` for moves; debounced, cached per
+  command and tick): ETA and distance, time on station, landing time, interception risk, headline
+  chance, or the exact legality reason. One click sets the target; the compact non-modal order bar
+  (`role="dialog"` named like the old dialog, `data-testid="order-bar"`, `order-target`,
+  `order-cancel`) then shows the full preview, the act-of-war confirmation where needed and
+  Confirm/Cancel. Esc, right-click or Cancel ends targeting; Enter on the focused map confirms. A
+  panel that started the order (Forces › Air assault, missile programs, city rally point) is hidden
+  while the map is targeted and restored afterwards; the unit dock is hidden while targeting.
+  Every confirmation still goes through `exec()` (the shared validator). The previous list
+  selectors (`dest-select`, `patrol-node-select`, `rebase-base`, `attack-contact`,
+  `attack-node-select`, `embark-node`, `retreat-dest`, `deploy-node-select`,
+  `airmobile-dest-select`, `launch-node-select`, `rally-select`) remain as the accessible fallback
+  under **Choose from a list** (`target-list-toggle`), collapsed by default and opened (and
+  focused) when the order was started from the keyboard. Hover only reads viewer-safe data: a node
+  id and the ids of the filtered `MapObject`s under the pointer; contact labels are the observation
+  labels.
 
 ## Visual design (redesign 2026-11-14)
 
@@ -205,9 +242,9 @@ Briefing,Features}.tsx` (they inherit the shell's modal styling).
 | Advisor + keyboard chart | `panels/Help.tsx` |
 | Planning layer (draw/rename/hide/delete, Issue order → move preview) | `components/Planning.tsx` |
 | Stack orders: attack (current contacts or a province), retreat (adjacent destination + forecast HP cost), delay, embark/disembark, deployables (uses, cooldown, placement range); aircraft patrol (area, radius, time on station, home, refuel) and rebase/ferry (new home); aircraft panel (mission, elapsed endurance, footprint, diversion/loss/landing events) | `components/Orders.tsx` (+ `components/Inspector.tsx`) |
-| Missiles: program table (research flags, maturity badges with distinct prototype art, backlog, batch cost, ceiling, replacement time), production dialog, launch dialog (facility/platform, range-limited sector picker or map pick, all four outcomes + headline chance before commit, conditional-accuracy definition, war confirmation, inventory after commit), strike reports (“effect unconfirmed” when unobserved), map origin→sector line without steering | `components/Orders.tsx`, `panels/Forces.tsx`, `map/renderer.ts` |
+| Missiles: program table (research flags, maturity badges with distinct prototype art, backlog, batch cost, ceiling, replacement time), production dialog, launch dialog (facility/platform, target sector clicked on the map with hover preview (range-limited list fallback), all four outcomes + headline chance before commit, conditional-accuracy definition, war confirmation, inventory after commit), strike reports (“effect unconfirmed” when unobserved), map origin→sector line without steering | `components/Orders.tsx`, `panels/Forces.tsx`, `map/renderer.ts` |
 | Career ledger (local XP, separate from VP) | `panels/Score.tsx` (Campaign info) |
-| Helicopter air assault (Forces › formation row › **Air assault…** for formations with helicopter lift: landing-zone picker or map pick, previewed distance vs range, load vs seats, landing time, fuel, interception-risk estimate from own observations, act-of-war confirmation; "Air-mobile hop to …, lands …" activity while airborne) | `components/Features.tsx` (`AirmobileDialog`), `panels/Forces.tsx` |
+| Helicopter air assault (Forces › formation row › **Air assault…** for formations with helicopter lift: landing zone clicked on the map with hover preview (list fallback), previewed distance vs range, load vs seats, landing time, fuel, interception-risk estimate from own observations, act-of-war confirmation; "Air-mobile hop to …, lands …" activity while airborne) | `components/Features.tsx` (`AirmobileDialog`), `panels/Forces.tsx` |
 | Blockade report (Economy: own blockaded ports with since/effect/how to lift — blockaders never named; enemy ports our warships blockade) — journal rows come from the engine events `blockade_started` / `blockade_lifted` | `components/Features.tsx` (`BlockadeReport`), `panels/Economy.tsx` |
 | Peace settlements: composer territory clauses at war ("<them> cedes" / "I cede", own capital never offered), offer cards show cessions and the negotiation round, **Counter…** on a received offer opens the composer pre-filled with the mirrored terms (disabled in the final round) | `panels/Diplomacy.tsx` |
 
@@ -224,6 +261,7 @@ Briefing,Features}.tsx` (they inherit the shell's modal styling).
 | Shift+F10 / Menu | Context menu for the selection |
 | F E R G I J Y M N V | Forces, Economy, Research, Diplomacy, Intelligence, Journal, Cities, Market, News, Score |
 | Shift-click (Move) | Add waypoint; right-click cancels |
+| Enter (map focused, targeting) | Confirm the targeted order (same validation as the Confirm button) |
 | Enter (drawing) | Finish drawing |
 
 ## Tests (Playwright, `npm run build && npx playwright test --trace off`)
@@ -235,6 +273,7 @@ Briefing,Features}.tsx` (they inherit the shell's modal styling).
 | `e2e/workflows.spec.ts` | Bulk construction preview/confirm charges the previewed total; bot negotiation reply in the thread; SPEC worked interaction (Indonesia → Surabaya → maritime formation selected from the roster = map selection, inspector names its port → private route idea survives a switch to Economy → +1 h, the formation has no orders → a purchased dated report stays frozen) |
 | `e2e/mobile-keyboard.spec.ts` | A12 on iPhone 13 viewport, keyboard only: title → campaign → city → mobilize → Esc restores focus → Forces list → move preview/confirm → Stop → advance hour |
 | `e2e/military.spec.ts` | Missiles research (test hook) → production job → ready → launch dialog (4 outcomes, headline) → in flight with origin → report in viewer terms; contact-sheet launch shortcut (disabled with a reason without inventory, then opens the validated dialog with the contact's sector preselected; cancel commits nothing); aircraft patrol preview → on station → landed → rebase → new home; retreat with forecast HP cost (test hook engages a foreign stack); intelligence agent mission + purchased report |
+| `e2e/map-direct.spec.ts` | Direct map interaction (desktop): clicking a formation's drawn centre and its four edges selects it at zooms 14/24/45 with APP-6 symbols and with game counters, and with 3–4 px press jitter; hover tooltip/cursor/ring; a drag pans instead of selecting; selecting a province (side inspector opens) does not shift the map. Patrol and rebase purely by map clicks (crosshair, Esc and right-click cancel, keyboard start opens the list, hover preview "Time on station"/landing, a non-base sector explains why, click sets the target, Confirm issues), move purely by map clicks (hover ETA, click sets destination, Confirm). Unit level: `tests/ui/map-hit-test.test.ts` (drawn box + slop, formations over cities, nearest anchor, keyboard-start detection) |
 | `e2e/perf.spec.ts` | Map input response / pan fps probe with 2,000 synthetic render-only stacks |
 | `e2e/walkthroughs.spec.ts` | W08 walkthroughs (desktop). **U.S.**: force screen separates fielded/ready/committed; day-1 research tree shows Sealift I time-locked "Available from day 4"; Norfolk construction, Washington MBT mobilization, right-of-way request to Canada, homeland move, carrier air wing rebased onto its carrier then patrols from it; outcomes verified (arrival, +1 MBT, building level, bot answer); day 4 Sealift I researched → lift +4; save/reload identical. **Bolivia (5 days)**: no naval project/unit/building/embark anywhere; mobilize, move, economic report + 24 h forecast checked against the real outcome; market buy crossing a computer ask; accept an incoming bot offer (no second accept); apply to a computer coalition; score panel; save/reload identical. **Indonesia (3 days)**: research, Surabaya naval base, fleet to a sea zone, 24 h forecast, four newspaper editions, save/reload |
 | `e2e/screens.spec.ts` | Annex A walkthrough 5 (market sell order → partial computer fill via `debugMarketOrder` → abort the rest → stock/escrow/cash/history reconcile before and after reload); coalition create/details/thread/leave with 24 h notice; journal (day groups, five filters, event detail, notification history + Go) and toasts (jump-to, dismiss, clock unaffected); newspaper (no future edition, previous/next, nation index, anonymous plain-text statement); unit dossier; split/merge conservation and fire control; tutorial skip/reopen/auto-complete/persisted; archive/restore/delete; settings persistence, credits, diagnostics, closed-app catch-up |
@@ -339,6 +378,21 @@ Remaining gaps (worked around; nice to have in the engine):
   - **Building effects** in the city sheet use one shared formatter (`src/ui/effects.ts`):
     "+10% production · +5% recruiting speed", "9 naval slots · +9 HP recovery/day"; demolish previews
     name lost effects the same way.
+* Map interaction pass (2026-11-14) — "sometimes clicking the army doesn't select it". Reproduced
+  with Playwright (clicks at the centre/edges of stack markers, zoom 14/24/45, both marker styles,
+  0/3/5 px jitter): 18–38 of 48–72 clicks per configuration missed (every 5 px slip, 3 px slips
+  near a marker edge, the outer edges of counters and wide APP-6 frames). Root causes: (1) the hit box was a
+  fixed 1.2 × size rectangle, narrower than the drawn marker — game counters are 1.7 × size wide and
+  APP-6 friendly/hostile frames ~1.5 × size — so clicks on the visible edge fell through to the city
+  marker or province underneath; (2) the click used the *release* point, so 3 px of hand jitter
+  moved it off the marker; (3) any movement over 5 px from the press turned the click into a pan;
+  (4) the 14 px city boxes won whenever the point was just outside the narrow stack box; (5) city,
+  province and multi selections open the right-hand inspector, which re-centred the shrunken map and
+  slid every army ~half the inspector width (~180 px) under the pointer before the next click;
+  (6) double-click zoomed the map out from under the unit; (7) no hover state showed what a click
+  would select (a cluster opens a chooser instead). All fixed as described under *Selection hit
+  testing*; the same repro with 0/3/4 px jitter now misses 0 of 48–72 per configuration
+  (`e2e/map-direct.spec.ts` keeps it covered).
 * Day-1 research for the U.S. is open (Sealift I) — the earlier note about day 4 is obsolete.
 * The End screen derives losses/captures from journal event kinds; a dedicated engine summary would
   be more precise.

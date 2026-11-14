@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapRenderer, type MapInput, type RouteLine, type Hit } from './renderer';
+import { MapRenderer, HIT_SLOP, type MapInput, type RouteLine, type Hit } from './renderer';
 import { buildObjects, searchPlaces, type MapObject } from './objects';
 import { loadGeometry, NODES, countryName, cityByNode, TERRAIN_LABEL, MAP } from '../data/static';
 import { prefs, setMapPrefs, type FillLayer } from '../persist/prefs';
 import { useStore } from '../state/store';
-import { ui, select, centerOn, type Selection, openPanel } from '../state/ui';
+import { ui, select, centerOn, type Selection, openPanel, startMove } from '../state/ui';
+import { targeting, pointKey, type MapPoint } from '../state/targeting';
 import { getHost } from '../sim/host';
 import { useFrame, Icon, Sym, isTypingTarget, useIsMobile } from '../components/common';
 import { legendFor, THEMES } from './palette';
-import { screenToWorld, worldToScreen } from './projection';
+import { screenToWorld, worldToScreen, clampCamera } from './projection';
 import { setSymbolReadyCallback } from './symbols';
 import type { Frame } from '../sim/protocol';
 
@@ -199,7 +200,10 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
   const previewMarker = useStore(ui, (s) => s.previewMarker);
   const ctxMenu = useStore(ui, (s) => s.contextMenu);
   const chooser = useStore(ui, (s) => s.chooser);
-  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [tip, setTip] = useState<{ x: number; y: number; text: string; sub?: string } | null>(null);
+  const tstate = useStore(targeting);
+  /** Last time a camera request (centre on an object) was applied: a resize right after it keeps the centre. */
+  const camReqAt = useRef(0);
   const [showLayers, setShowLayers] = useState(false);
   const [showLegend, setShowLegend] = useState(() => !window.matchMedia('(max-width: 760px)').matches);
   const [scale, setScale] = useState({ px: 100, label: '' });
@@ -224,14 +228,21 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     r.overlayRects = () => {
       const cb = c.getBoundingClientRect();
       const scope = wrapRef.current?.parentElement ?? wrapRef.current;
-      return [...(scope?.querySelectorAll<HTMLElement>('.map-tools, .legend, .map-search, .scalebar, .dpad, .layers-pop, .hud-card, .side-tabs, .roster, .unit-dock, .timestrip') ?? [])].map((el) => {
+      return [...(scope?.querySelectorAll<HTMLElement>('.map-tools, .legend, .map-search, .scalebar, .dpad, .layers-pop, .hud-card, .side-tabs, .roster, .unit-dock, .timestrip, .order-bar, .mode-banner') ?? [])].map((el) => {
         const b = el.getBoundingClientRect();
         return { x: b.left - cb.left, y: b.top - cb.top, w: b.width, h: b.height };
       });
     };
+    let sized = false;
     const ro = new ResizeObserver(() => {
       const b = wrapRef.current!.getBoundingClientRect();
+      const w0 = r.w;
       r.resize(b.width, b.height, window.devicePixelRatio);
+      // The inspector opens/closes on the right of the map: keep every world point at the same screen
+      // x (anchor the left edge) instead of re-centring, so the map does not slide under the pointer
+      // between two clicks. Right after an explicit "centre on" request the centre is kept instead.
+      if (sized && r.w !== w0 && performance.now() - camReqAt.current > 600) r.cam = clampCamera({ ...r.cam, cx: r.cam.cx + (r.w - w0) / 2 / r.cam.z }, r.w, r.h);
+      sized = true;
       r.requestDraw();
     });
     ro.observe(wrapRef.current!);
@@ -260,6 +271,7 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
   useEffect(() => {
     if (camReq && rRef.current) {
       const r = rRef.current;
+      camReqAt.current = performance.now();
       r.center(camReq.lon, camReq.lat, camReq.zoom ?? r.cam.z);
     }
   }, [camReq]);
@@ -275,7 +287,8 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
   }, [frame, objects, selection, pinned, extraRoutes, draft, previewMarker, p.map.fill]);
 
   // ───────── pointer handling ─────────
-  const ptr = useRef<{ id: number; x: number; y: number; button: number; moved: boolean; shift: boolean; ctrl: boolean } | null>(null);
+  /** Pointer gesture: (x0, y0) = where it went down (a click acts there); (x, y) = last pan point. */
+  const ptr = useRef<{ id: number; x0: number; y0: number; x: number; y: number; button: number; moved: boolean; shift: boolean; ctrl: boolean; touch: boolean } | null>(null);
   const pinch = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchDist = useRef<number | null>(null);
 
@@ -305,7 +318,15 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     if (o) select(objectToSelection(o));
   }
 
-  function onClick(x: number, y: number, shift: boolean, ctrl: boolean) {
+  /** Viewer-safe description of what is under a screen point (targeting): sector + map objects. */
+  function mapPointAt(x: number, y: number, slop: number): MapPoint {
+    const r = rRef.current!;
+    const ll = screenToWorld(r.cam, r.w, r.h, x, y) as [number, number];
+    const ids = [...new Set(r.objectsAt(x, y, slop).flatMap((h) => h.ids))];
+    return { node: r.nodeAt(ll[0], ll[1]), objects: ids, lonlat: ll };
+  }
+
+  function onClick(x: number, y: number, shift: boolean, ctrl: boolean, slop: number = HIT_SLOP.mouse) {
     const r = rRef.current!;
     const m = ui.get().mode;
     if (m.kind === 'move') {
@@ -322,11 +343,11 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
       return;
     }
     if (m.kind === 'pick') {
-      const n = nodeAtScreen(x, y);
-      if (n !== null) window.dispatchEvent(new CustomEvent('wc-pick', { detail: { purpose: m.purpose, node: n } }));
+      const pt = mapPointAt(x, y, slop);
+      if (pt.node !== null || pt.objects.length) window.dispatchEvent(new CustomEvent('wc-pick', { detail: { purpose: m.purpose, ...pt } }));
       return;
     }
-    const h = r.hitAt(x, y);
+    const h = r.hitAt(x, y, slop);
     if (h) {
       if (h.kind === 'object' && h.locate) {
         // locator arrow at the viewport edge: bring the off-screen selection into view
@@ -377,7 +398,7 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
       ptr.current = null;
       return;
     }
-    ptr.current = { id: e.pointerId, x, y, button: e.button, moved: false, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey };
+    ptr.current = { id: e.pointerId, x0: x, y0: y, x, y, button: e.button, moved: false, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, touch: e.pointerType !== 'mouse' };
     try {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } catch {
@@ -401,35 +422,69 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     }
     const pd = ptr.current;
     if (pd && pd.id === e.pointerId) {
-      const dx = x - pd.x, dy = y - pd.y;
-      if (!pd.moved && Math.hypot(dx, dy) > 5) pd.moved = true;
+      // click vs drag: a press that wanders less than the threshold is still a click (at the press point)
+      if (!pd.moved && Math.hypot(x - pd.x0, y - pd.y0) > (pd.touch ? CLICK_SLOP.touch : CLICK_SLOP.mouse)) pd.moved = true;
       if (pd.moved) {
         if (pd.button === 2 && ui.get().mode.kind === 'idle') {
-          r.lasso = { x0: pd.x, y0: pd.y, x1: x, y1: y };
+          r.lasso = { x0: pd.x0, y0: pd.y0, x1: x, y1: y };
           r.requestDraw();
         } else if (pd.button === 0 || e.pointerType !== 'mouse') {
-          r.panBy(dx, dy);
+          r.panBy(x - pd.x, y - pd.y);
           pd.x = x;
           pd.y = y;
         }
+        setTip(null);
+        r.setHover([]);
       }
+      return;
+    }
+    if (e.pointerType === 'mouse') hoverAt(x, y);
+  };
+
+  /** Mouse hover: idle → pointer cursor + ring + name over what a click would select; targeting →
+   *  crosshair + the active order's live preview of the target under the pointer. */
+  function hoverAt(x: number, y: number) {
+    const r = rRef.current!;
+    const c = canvasRef.current!;
+    const m = ui.get().mode;
+    if (m.kind === 'pick' || m.kind === 'move') {
+      c.style.cursor = 'crosshair';
+      r.setHover([]);
+      const pt = mapPointAt(x, y, HIT_SLOP.mouse);
+      if (pointKey(pt) !== pointKey(targeting.get().hover)) targeting.patch({ hover: pt, tip: null });
+      setTip({ x, y, text: '' });
+      return;
+    }
+    if (m.kind === 'draw') {
+      c.style.cursor = 'crosshair';
       setTip(null);
       return;
     }
-    if (e.pointerType === 'mouse') {
-      const h = r.hitAt(x, y);
-      if (h) setTip({ x, y, text: h.label });
-      else {
-        const n = nodeAtScreen(x, y);
-        if (n !== null) {
-          const node = NODES[n];
-          const owner = frame?.view.owners[n] ?? null;
-          const txt = node.kind === 'sea' ? `${node.name} · ${TERRAIN_LABEL[node.terrain]}` : node.outside ? `${node.territory?.name ?? node.name} — Outside campaign: no seat, no production, no score; land transit blocked.` : `${node.name} · ${countryName(owner)} · ${TERRAIN_LABEL[node.terrain]}`;
-          setTip({ x, y, text: txt });
-        } else setTip(null);
-      }
+    const h = r.hitAt(x, y, HIT_SLOP.mouse);
+    if (h && (h.kind === 'object' || h.kind === 'cluster')) {
+      c.style.cursor = 'pointer';
+      r.setHover(h.locate ? [] : h.ids);
+      if (h.kind === 'cluster') {
+        const names = h.ids.map((id) => objects.find((o) => o.id === id)?.label).filter(Boolean) as string[];
+        setTip({ x, y, text: `${names.length} here — click to choose`, sub: names.slice(0, 5).join(' · ') + (names.length > 5 ? ` · +${names.length - 5} more` : '') });
+      } else setTip({ x, y, text: h.label, sub: h.locate ? 'Click to bring into view' : undefined });
+      return;
     }
-  };
+    r.setHover([]);
+    if (h && (h.kind === 'city' || h.kind === 'small')) {
+      c.style.cursor = 'pointer';
+      setTip({ x, y, text: h.label });
+      return;
+    }
+    c.style.cursor = '';
+    const n = nodeAtScreen(x, y);
+    if (n !== null) {
+      const node = NODES[n];
+      const owner = frame?.view.owners[n] ?? null;
+      const txt = node.kind === 'sea' ? `${node.name} · ${TERRAIN_LABEL[node.terrain]}` : node.outside ? `${node.territory?.name ?? node.name} — Outside campaign: no seat, no production, no score; land transit blocked.` : `${node.name} · ${countryName(owner)} · ${TERRAIN_LABEL[node.terrain]}`;
+      setTip({ x, y, text: txt });
+    } else setTip(null);
+  }
   const onPointerUp = (e: React.PointerEvent) => {
     const r = rRef.current;
     pinch.current.delete(e.pointerId);
@@ -454,10 +509,13 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
         window.dispatchEvent(new CustomEvent('wc-cancel-mode'));
         return;
       }
-      openContext(x, y);
+      openContext(pd.x0, pd.y0);
       return;
     }
-    if (!pd.moved) onClick(x, y, pd.shift, pd.ctrl);
+    if (!pd.moved) {
+      onClick(pd.x0, pd.y0, pd.shift, pd.ctrl, pd.touch ? HIT_SLOP.touch : HIT_SLOP.mouse);
+      if (!pd.touch) hoverAt(x, y);
+    }
   };
   const onWheel = (e: React.WheelEvent) => {
     const r = rRef.current;
@@ -468,9 +526,14 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
   };
   const onDoubleClick = (e: React.MouseEvent) => {
     const m = ui.get().mode;
-    if (m.kind === 'draw') return;
+    // targeting: a double click must not move the map between picking and confirming
+    if (m.kind !== 'idle') return;
     const { x, y } = local(e);
-    rRef.current?.zoomAt(2, x, y);
+    const r = rRef.current;
+    if (!r) return;
+    // a double click on a formation/city selects it (twice) — never zoom the map out from under it
+    if (r.hitAt(x, y, HIT_SLOP.mouse)) return;
+    r.zoomAt(2, x, y);
   };
   const onKeyDown = (e: React.KeyboardEvent) => {
     const r = rRef.current;
@@ -491,6 +554,10 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     } else if (e.key === 'Enter' && mode.kind === 'draw') {
       window.dispatchEvent(new CustomEvent('wc-finish-draw'));
       e.preventDefault();
+    } else if (e.key === 'Enter' && (mode.kind === 'pick' || mode.kind === 'move')) {
+      // keyboard confirm of the targeted order (the order bar validates exactly as its button)
+      window.dispatchEvent(new CustomEvent('wc-confirm-order'));
+      e.preventDefault();
     }
   };
 
@@ -501,6 +568,25 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     if (c) centerOn(c.lonlat[0], c.lonlat[1], 18);
     else if (fallback) centerOn(NODES[fallback.node].center[0], NODES[fallback.node].center[1], 18);
   };
+
+  const targeting_ = mode.kind === 'pick' || mode.kind === 'move';
+  // targeting highlight: the candidate the active order resolved (coloured by the validator), else the hovered sector
+  useEffect(() => {
+    const r = rRef.current;
+    const c = canvasRef.current;
+    if (!r || !c) return;
+    if (!targeting_) {
+      r.setTarget(null);
+      if (c.style.cursor === 'crosshair') c.style.cursor = '';
+      return;
+    }
+    c.style.cursor = 'crosshair';
+    r.setHover([]);
+    const h = tstate.hover;
+    if (!h) return r.setTarget(null);
+    const t = tstate.tip && tstate.tip.key === pointKey(h) ? tstate.tip : null;
+    r.setTarget(t ? { node: t.node === undefined ? h.node : t.node, ids: t.ids ?? [], state: t.ok === true ? (t.warn ? 'warn' : 'ok') : t.ok === false ? 'bad' : 'pending' } : { node: h.node, ids: [], state: 'pending' });
+  }, [targeting_, tstate]);
 
   const legend = legendFor(p.map.fill, THEMES[p.theme]);
   const objCount = objects.length;
@@ -522,7 +608,11 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
           ptr.current = null;
           pinch.current.clear();
         }}
-        onPointerLeave={() => setTip(null)}
+        onPointerLeave={() => {
+          setTip(null);
+          rRef.current?.setHover([]);
+          if (targeting.get().hover) targeting.patch({ hover: null, tip: null });
+        }}
         onWheel={onWheel}
         onDoubleClick={onDoubleClick}
         onKeyDown={onKeyDown}
@@ -587,17 +677,48 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
         <div className="b" style={{ width: scale.px }} />
         {scale.label} · <span style={{ textTransform: 'capitalize' }}>{zs}</span>
       </div>
-      {tip && !ctxMenu && !chooser && (
-        <div className="tooltip" style={{ left: Math.min(tip.x + 14, (rRef.current?.w ?? 800) - 300), top: tip.y + 14 }} role="tooltip">
-          {tip.text}
-        </div>
-      )}
+      {tip && !ctxMenu && !chooser && (targeting_ ? (
+        <TargetTooltip x={tip.x} y={tip.y} w={rRef.current?.w ?? 800} />
+      ) : (
+        tip.text && (
+          <div className="tooltip" style={{ left: Math.min(tip.x + 14, (rRef.current?.w ?? 800) - 300), top: tip.y + 14 }} role="tooltip" data-testid="map-tooltip">
+            {tip.text}
+            {tip.sub && <div className="muted" style={{ fontSize: 11.5 }}>{tip.sub}</div>}
+          </div>
+        )
+      ))}
       {ctxMenu && <ContextMenu objects={objects} />}
       {chooser && <Chooser objects={objects} />}
     </div>
   );
 }
 
+
+/** Click-vs-drag threshold (CSS px): a press that moves less than this is a click at the press point. */
+const CLICK_SLOP = { mouse: 6, touch: 10 } as const;
+
+/** Live preview next to the crosshair while an order picks its target (from the validator). */
+function TargetTooltip({ x, y, w }: { x: number; y: number; w: number }) {
+  const t = useStore(targeting);
+  const h = t.hover;
+  if (!h) return null;
+  const tip = t.tip && t.tip.key === pointKey(h) ? t.tip : null;
+  const place = h.node !== null ? placeLabel(h.node) : 'Off the map';
+  return (
+    <div className={`tooltip target-tip${tip ? (tip.ok === false ? ' bad' : tip.warn ? ' warn' : tip.ok ? ' ok' : '') : ''}`} style={{ left: Math.min(x + 18, w - 300), top: y + 18 }} role="tooltip" data-testid="target-tip" data-state={tip ? (tip.ok === false ? 'bad' : tip.warn ? 'warn' : tip.ok ? 'ok' : 'pending') : 'pending'}>
+      <strong>{tip?.title ?? place}</strong>
+      {(tip?.lines ?? ['Checking…']).map((l) => (
+        <div key={l}>{l}</div>
+      ))}
+      {tip && tip.ok !== false && <div className="muted" style={{ fontSize: 11 }}>Click to set the target</div>}
+    </div>
+  );
+}
+
+function placeLabel(n: number): string {
+  const node = NODES[n];
+  return node.kind === 'sea' ? `${node.name} (sea)` : node.outside ? `${node.territory?.name ?? node.name} (outside campaign)` : node.name;
+}
 
 function Swatch({ color, pattern }: { color: string; pattern: string }) {
   const bg: React.CSSProperties = { background: color };
@@ -708,10 +829,10 @@ function ContextMenu({ objects }: { objects: MapObject[] }) {
     ui.patch({ contextMenu: null });
     document.getElementById('map-canvas')?.focus();
   };
-  const items: { label: string; act: () => void }[] = [{ label: 'Inspect', act: () => ui.patch({ inspectorOpen: true, sheetExpanded: true }) }];
+  const items: { label: string; act: (e?: React.MouseEvent) => void }[] = [{ label: 'Inspect', act: () => ui.patch({ inspectorOpen: true, sheetExpanded: true }) }];
   if (o.kind === 'stack') {
     items.push({ label: 'Locate in roster', act: () => { ui.patch({ rosterOpen: true }); setTimeout(() => document.querySelector<HTMLElement>(`[data-roster-id="${o.id}"]`)?.focus(), 30); } });
-    items.push({ label: 'Orders: Move…', act: () => ui.patch({ mode: { kind: 'move', stacks: [o.ref], waypoints: [], dest: null } }) });
+    items.push({ label: 'Orders: Move…', act: (e) => startMove([o.ref], e) });
   }
   if (o.kind !== 'stack') items.push({ label: ui.get().pinned.includes(o.id) ? 'Unpin report' : 'Pin report', act: () => { const pins = ui.get().pinned; ui.patch({ pinned: pins.includes(o.id) ? pins.filter((x) => x !== o.id) : [...pins, o.id] }); } });
   if (o.kind === 'contact' || o.kind === 'report') items.push({ label: 'Open intelligence', act: () => openPanel('intel') });
@@ -727,7 +848,7 @@ function ContextMenu({ objects }: { objects: MapObject[] }) {
     }}>
       <div className="muted" style={{ padding: '4px 10px', fontSize: 12 }}>{o.label}</div>
       {items.map((it) => (
-        <button key={it.label} type="button" role="menuitem" onClick={() => { it.act(); ui.patch({ contextMenu: null }); }}>
+        <button key={it.label} type="button" role="menuitem" onClick={(e) => { ui.patch({ contextMenu: null }); it.act(e); }}>
           {it.label}
         </button>
       ))}

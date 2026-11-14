@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { clearStorage, newCampaign, frame, shot, wc, advance, advanceUntil, selectFormation, pickOwnedDestination } from './helpers';
+import { clearStorage, newCampaign, frame, shot, wc, advance, advanceUntil, selectFormation, pickOwnedDestination, openTargetList } from './helpers';
 
 /**
  * W08 country-viability walkthroughs (SPEC "Depth, pacing and acceptance": complete the U.S.,
@@ -118,6 +118,7 @@ test.describe('W08 walkthroughs (desktop)', () => {
     await selectFormation(page, wing.id);
     await expect(page.getByTestId('aircraft-panel')).toBeVisible();
     await page.getByTestId('action-rebase').click();
+    await openTargetList(page);
     const base = page.getByTestId('rebase-base');
     await expect(base.locator('option', { hasText: `${carrierName} (carrier)` })).toBeAttached({ timeout: 15_000 });
     await base.selectOption({ label: `${carrierName} (carrier)` });
@@ -147,6 +148,7 @@ test.describe('W08 walkthroughs (desktop)', () => {
     expect(await frame<unknown>(page, `f => f.view.stacks.find(s => s.id === "${wing.id}").air.home`)).toEqual({ stack: carrier });
     await selectFormation(page, wing.id);
     await page.getByTestId('action-patrol').click();
+    await openTargetList(page);
     const pnode = page.getByTestId('patrol-node-select');
     await expect(pnode.locator('option').nth(1)).toBeAttached({ timeout: 15_000 });
     await pnode.selectOption((await pnode.locator('option:not([disabled])').nth(1).getAttribute('value'))!);
@@ -338,6 +340,7 @@ test.describe('W08 walkthroughs (desktop)', () => {
     const fleet = await frame<{ id: string; node: number }>(page, 'f => { const s = f.view.stacks.find(s => s.moveClass === "naval" && s.pos.kind === "node"); return { id: s.id, node: s.pos.node }; }');
     await selectFormation(page, fleet.id);
     await page.getByTestId('action-move').click();
+    await openTargetList(page);
     const sel = page.getByTestId('dest-select');
     await expect(sel.locator('option', { hasText: '(sea)' }).first()).toBeAttached();
     const seaVal = await sel.locator('option', { hasText: '(sea)' }).first().getAttribute('value');

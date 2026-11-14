@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useFrame, Sym, ActionButton, useIsMobile } from '../components/common';
 import { useObjects } from '../map/MapView';
-import { select, centerOn, openPanel, backPanel, ui } from '../state/ui';
+import { select, centerOn, openPanel, backPanel, ui, startOrder } from '../state/ui';
 import { unitById, placeName, missileById, techById, TERRAIN_LABEL, buildingById } from '../data/static';
 import { num, resM, duration, cap, gameTime } from '../format';
 import { MissileProgramTable } from '../components/Orders';
-import { AirmobileDialog, airLiftActivity, hasAirLift, inAirLift } from '../components/Features';
+import { airLiftActivity, hasAirLift, inAirLift } from '../components/Features';
 import { TARGET_CLASSES, TERRAINS } from '../../engine/data-types';
 import { Icon, familyIcon } from '../icons';
 import { StatTile, Progress, SectionHead } from './panelKit';
@@ -22,8 +22,6 @@ export function ForcesPanel() {
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   const stacks = frame.view.stacks;
   const missiles = Object.entries(frame.view.self.missiles);
-  const [lift, setLift] = useState<string | null>(null);
-  const liftStack = lift ? stacks.find((x) => x.id === lift) : undefined;
   return (
     <div className="col p-root" data-testid="forces-panel">
       <div className="p-tiles">
@@ -91,7 +89,7 @@ export function ForcesPanel() {
                   <td>{cap(s.supply)}</td>
                   <td>
                     {hasAirLift(s) && (
-                      <ActionButton className="btn small" disabledReason={ro ? 'Read-only campaign' : inAirLift(s) ? 'Already airborne.' : s.pos.kind !== 'node' ? 'Must be stationary at a province.' : null} onClick={() => setLift(s.id)} data-testid={`airmobile-${s.id}`}>
+                      <ActionButton className="btn small" disabledReason={ro ? 'Read-only campaign' : inAirLift(s) ? 'Already airborne.' : s.pos.kind !== 'node' ? 'Must be stationary at a province.' : null} onClick={(e) => startOrder({ kind: 'airmobile', stack: s.id }, e)} data-testid={`airmobile-${s.id}`}>
                       Air assault…
                     </ActionButton>
                     )}
@@ -102,7 +100,6 @@ export function ForcesPanel() {
           </tbody>
         </table>
       )}
-      {liftStack && <AirmobileDialog s={liftStack} onClose={() => setLift(null)} />}
       <SectionHead icon={<Icon name="launch" size={18} />} title="Strategic inventory" />
       <MissileProgramTable />
     </div>

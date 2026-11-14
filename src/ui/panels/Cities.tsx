@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useFrame, useQuery, ActionButton, Modal, newNonce, PlannedUnitSym } from '../components/common';
 import { getHost } from '../sim/host';
-import { ui, select, centerOn, openPanel, toast } from '../state/ui';
+import { ui, select, centerOn, openPanel, toast, startOrder } from '../state/ui';
 import { NODES, CATALOG, buildingById, unitById, RESOURCE_LABEL, placeName, TERRAIN_LABEL, MAP, missileById } from '../data/static';
 import { milli, num, signed, resM, gameTime, duration, cap } from '../format';
 import { effectsText, effectName } from '../effects';
@@ -700,18 +700,23 @@ function RallyPicker({ cityKey, current, disabled }: { cityKey: string; current:
   const frame = useFrame()!;
   const own = frame.view.provinces.map((p) => p.node).sort((a, b) => placeName(a).localeCompare(placeName(b)));
   return (
-    <label className="row p-rally">
-      <RallyIcon size={16} />
-      Rally point for new units
-      <select value={current ?? ''} disabled={disabled} onChange={(e) => exec({ type: 'setRally', city: cityKey, node: e.target.value === '' ? null : Number(e.target.value) }, 'Rally point set.')}>
-        <option value="">None (stay in city)</option>
-        {own.map((n) => (
-          <option key={n} value={n}>
-            {placeName(n)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <span className="row wrap" style={{ gap: 6 }}>
+      <label className="row p-rally">
+        <RallyIcon size={16} />
+        Rally point for new units
+        <select value={current ?? ''} disabled={disabled} onChange={(e) => exec({ type: 'setRally', city: cityKey, node: e.target.value === '' ? null : Number(e.target.value) }, 'Rally point set.')}>
+          <option value="">None (stay in city)</option>
+          {own.map((n) => (
+            <option key={n} value={n}>
+              {placeName(n)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button type="button" className="btn small" disabled={disabled} onClick={(e) => startOrder({ kind: 'rally', city: cityKey }, e)} data-testid="rally-on-map" title="Pick the rally point directly on the map (hover previews, click sets it)">
+        Pick on map
+      </button>
+    </span>
   );
 }
 

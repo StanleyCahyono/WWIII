@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { clearStorage, newCampaign, frame, shot } from './helpers';
+import { clearStorage, newCampaign, frame, shot, openTargetList } from './helpers';
 
 const wc = (page: Page, expr: string) => page.evaluate(`(() => { const wc = window.__wc; return ${expr}; })()`);
 
@@ -17,6 +17,8 @@ async function selectStack(page: Page, id: string) {
 async function pickFirst(page: Page, testid: string, index = 1) {
   const sel = page.getByTestId(testid);
   await expect(sel.locator('option').nth(index)).toBeAttached({ timeout: 15_000 });
+  // map-targeted orders keep their list selector under the collapsed "Choose from a list" fallback
+  if (!(await sel.isVisible())) await openTargetList(page);
   const opts = sel.locator('option:not([disabled])');
   const v = await opts.nth(index).getAttribute('value');
   await sel.selectOption(v!);

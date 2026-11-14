@@ -270,6 +270,23 @@ table.data th button.sort { background: none; border: 0; padding: 0; cursor: poi
 .layers-pop label { padding: 2px 0; }
 .mode-banner { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 17; background: var(--glass-strong); border: 1px solid var(--select); border-radius: var(--radius-lg); padding: 8px 12px; box-shadow: var(--shadow); display: flex; gap: 8px; align-items: center; max-width: calc(100% - 20px); }
 .tooltip { position: absolute; z-index: 9; pointer-events: none; background: var(--glass-strong); border: 1px solid var(--line-2); border-radius: 6px; padding: 5px 9px; font-size: 12px; max-width: 320px; box-shadow: var(--shadow); }
+/* map targeting: live preview next to the crosshair (green = legal, amber = needs confirmation, red = not possible) */
+.tooltip.target-tip { border-left: 4px solid var(--text-3); display: flex; flex-direction: column; gap: 1px; }
+.tooltip.target-tip.ok { border-left-color: var(--ok); }
+.tooltip.target-tip.warn { border-left-color: var(--warn); }
+.tooltip.target-tip.bad { border-left-color: var(--bad); }
+.tooltip.target-tip.bad > div:not(.muted) { color: var(--bad); }
+/* non-modal order bar of a map-targeted order (patrol, rebase, attack, landing zone, missile, rally…) */
+.order-bar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 17; width: min(600px, calc(100% - 20px)); max-height: calc(100% - 120px); overflow-y: auto; background: var(--glass-strong); border: 1px solid var(--select); border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.order-bar .ob-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.order-bar .ob-title { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.05em; }
+.order-bar .ob-hint { font-size: 11.5px; margin-left: auto; }
+.order-bar .ob-body { display: flex; flex-direction: column; gap: 6px; }
+.order-bar .ob-body .card { margin-top: 0 !important; }
+.order-bar .ob-foot { display: flex; gap: 8px; justify-content: flex-end; align-items: flex-start; }
+.order-bar fieldset { margin: 0; }
+.target-list > .btn { align-self: flex-start; }
+.target-list > div { margin-top: 4px; }
 .ctxmenu, .chooser { position: absolute; z-index: 20; background: var(--glass-strong); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 190px; padding: 4px; }
 .ctxmenu button, .chooser button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 0; padding: 7px 10px; border-radius: 5px; cursor: pointer; }
 .ctxmenu button:hover, .ctxmenu button:focus-visible, .chooser button:hover, .chooser button:focus-visible { background: var(--panel-3); }
@@ -528,6 +545,8 @@ table.data th button.sort { background: none; border: 0; padding: 0; cursor: poi
   .map-tools { gap: 6px; right: 8px; top: 62px; bottom: auto; }
   .map-search { left: 8px; right: 8px; top: 8px; width: auto; }
   .mode-banner { left: 0; right: 0; transform: none; width: auto !important; bottom: 0 !important; top: auto; border-radius: 14px 14px 0 0; max-height: 60%; overflow-y: auto; }
+  .order-bar { left: 0; right: 0; transform: none; width: auto; bottom: 0; border-radius: 14px 14px 0 0; max-height: 60%; }
+  .order-bar .ob-hint { display: none; }
   .legend { display: none; }
   .legend.open { display: block; left: 8px; right: 8px; width: auto; bottom: 90px; }
   .layers-pop { left: 8px; right: 8px; width: auto; top: 62px; bottom: auto; }
