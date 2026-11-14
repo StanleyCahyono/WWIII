@@ -35,6 +35,9 @@ export function freshMemory(ctx: PlannerContext): AiMemory {
     warStartedAt: {},
     coalition: null,
     capitalsLost: 0,
+    commitments: {},
+    assist: [],
+    help: null,
   };
 }
 
@@ -71,6 +74,8 @@ export function pruneMemory(mem: AiMemory, view: CountryView): void {
   mem.intel = mem.intel.filter((i) => now - i.at < 3 * 1440).slice(-MAX_INTEL);
   const alive = new Set(view.stacks.map((s) => s.id));
   for (const k of Object.keys(mem.tasks)) if (!alive.has(k) || mem.tasks[k].until <= now) delete mem.tasks[k];
+  mem.assist = mem.assist.filter((x) => x.until > now).slice(-4);
+  for (const k of Object.keys(mem.commitments)) if (mem.commitments[k].until <= now) delete mem.commitments[k];
 }
 
 export function bump(map: Record<string, number>, k: string, d: number, cap = 100): void {

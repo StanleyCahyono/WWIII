@@ -24,7 +24,7 @@ import {
 } from '../rules';
 import { S } from '../scenario/registry';
 import { hopDistances } from './mapindex';
-import { cmpId, isFriendlyTerritory, utype, sortedStacks, stacksReadonly } from './world';
+import { cmpId, isFriendlyTerritory, utype, sortedStacks, stacksReadonly, stacksOfOwner } from './world';
 import { sumEffect } from './economy';
 import { unitCost } from './production';
 import { valueAt } from '../fixed';
@@ -43,7 +43,7 @@ export interface LiftBreakdown {
  * construction, destruction and unit losses are reflected immediately.
  */
 export function liftBreakdown(state: GameState, c: CountryId): LiftBreakdown {
-  const all = derived(state, 'liftAll', () => {
+  const all = derived(state, '@liftAll', () => {
     const bld = new Map<CountryId, number>();
     const un = new Map<CountryId, number>();
     for (const k of Object.keys(state.cities)) {
@@ -157,7 +157,7 @@ export interface ForceSummary {
 
 /** Fielded vs ready vs committed strength (replacement value × HP fraction). */
 export function forceSummary(state: GameState, c: CountryId): ForceSummary {
-  return derived(state, `force:${c}`, () => computeForce(state, c, stacksReadonly(state).filter((s) => s.owner === c)));
+  return derived(state, `@force:${c}`, () => computeForce(state, c, stacksOfOwner(state, c).filter((s) => state.stacks[s.id] === s)));
 }
 
 function computeForce(state: GameState, c: CountryId, stacks: Stack[]): ForceSummary {

@@ -24,7 +24,7 @@ import { CITY_SIGHT_KM, IDENTIFY_FRACTION, STALE_KEEP_MIN, STEALTH_VISUAL_FRACTI
 import { S } from '../scenario/registry';
 import { distKm, fineBin as vbin, fineCover as visCover } from './mapindex';
 import { hash32 } from '../rng';
-import { cmpId, sortedStacks, stacksReadonly, stackLL, takeOwnerChanges, ustats, utype, visionSources } from './world';
+import { cmpId, sortedStacks, stacksOfOwner, stacksReadonly, stackLL, takeOwnerChanges, ustats, utype, visionSources } from './world';
 import { econChangesSince, sumEffect } from './economy';
 import { derived } from '../derived';
 
@@ -1043,8 +1043,14 @@ export function alliedContacts(state: GameState, viewer: CountryId): Contact[] {
   const ids = cidCache(state, viewer);
   const out: Contact[] = [];
   const t = state.clock.tick;
-  for (const s of sortedStacks(state)) {
-    if (s.owner === viewer || s.aboard || !srcs.includes(s.owner)) continue;
+  // per-owner lists are each in sortedStacks order; with several sources merge them by id
+  const list: Stack[] = [];
+  for (const src of srcs) {
+    if (src === viewer) continue;
+    for (const s of stacksOfOwner(state, src)) if (state.stacks[s.id] === s && !s.aboard) list.push(s);
+  }
+  if (srcs.length > 2) list.sort(cmpId);
+  for (const s of list) {
     let cid = ids.get(s.id);
     if (!cid) {
       cid = contactId(state, viewer, s.id);
@@ -1112,7 +1118,7 @@ function nodesByCell(state: GameState): Map<number, NodeId[]> {
  * VISIBILITY_INTERVAL_MIN, so a target inside coverage appears at the next refresh. Memoized per step.
  */
 export function observedNodes(state: GameState, viewer: CountryId): NodeId[] {
-  return derived(state, `obsNodes:${viewer}`, () => {
+  return derived(state, `@obsNodes:${viewer}`, () => {
     const mm = S(state).map;
     const cells = nodesByCell(state);
     const srcs = visionSources(state, viewer);

@@ -4,7 +4,7 @@ import type { Coalition, DiploLevel, DiploStatus, GameState, Stack, Unit } from 
 import { dirKey, pairKey } from '../ids';
 import { S, unitStats } from '../scenario/registry';
 import { lerpLonLat, nodeLL } from './mapindex';
-import { derived } from '../derived';
+import { derived, memoByVersion } from '../derived';
 
 const ownerChanges = new WeakMap<GameState, { ownv: number; countries: Set<CountryId>; nodes: Set<NodeId> }>();
 /** Record an ownership change (used by incremental visibility to limit recomputation). */
@@ -89,6 +89,13 @@ export function atWar(state: GameState, a: CountryId, b: CountryId): boolean {
 const grantCache = new WeakMap<GameState, { v: number; g: object; m: Map<CountryId, Map<CountryId, DiploLevel>> }>();
 /** Level granted by `from` to `to` (peace if none). Cached; keyed by the relations version counter. */
 export function grantLevel(state: GameState, from: CountryId, to: CountryId): DiploLevel {
+  return grantIndex(state).get(from)?.get(to) ?? 'peace';
+}
+/** Grants made by `from` (to → level; absent = peace). Shared, read-only. */
+export function grantsFrom(state: GameState, from: CountryId): ReadonlyMap<CountryId, DiploLevel> | undefined {
+  return grantIndex(state).get(from);
+}
+function grantIndex(state: GameState): Map<CountryId, Map<CountryId, DiploLevel>> {
   const v = state.ids.grv ?? 0;
   let c = grantCache.get(state);
   if (!c || c.v !== v || c.g !== state.grants) {
@@ -100,7 +107,7 @@ export function grantLevel(state: GameState, from: CountryId, to: CountryId): Di
     c = { v, g: state.grants, m };
     grantCache.set(state, c);
   }
-  return c.m.get(from)?.get(to) ?? 'peace';
+  return c.m;
 }
 export function grantLevelUncached(state: GameState, from: CountryId, to: CountryId): DiploLevel {
   const g = state.grants[dirKey(from, to)];
@@ -114,12 +121,15 @@ const LEVEL_RANK: Record<DiploLevel, number> = { peace: 0, right_of_way: 1, shar
 export function levelAtLeast(l: DiploLevel, min: DiploLevel): boolean {
   return LEVEL_RANK[l] >= LEVEL_RANK[min];
 }
+function hasAnyKey(o: object): boolean {
+  for (const _ in o) return true;
+  return false;
+}
 export function coalitionOf(state: GameState, c: CountryId): Coalition | null {
-  const ids = Object.keys(state.coalitions);
-  if (!ids.length) return null;
+  if (!hasAnyKey(state.coalitions)) return null;
   const idx = derived(state, `coMember:${state.ids.cov ?? 0}`, () => {
     const m = new Map<CountryId, string>();
-    for (const id of ids.sort()) {
+    for (const id of Object.keys(state.coalitions).sort()) {
       const co = state.coalitions[id];
       if (co.dissolvedAt) continue;
       for (const mem of co.members) if (!m.has(mem.country)) m.set(mem.country, id);
@@ -311,9 +321,28 @@ function sortStacks(state: GameState): Stack[] {
     .sort((a, b) => a[0] - b[0] || (a[1].id < b[1].id ? -1 : 1))
     .map((x) => x[1]);
 }
+/**
+ * Stacks of one owner in `stacksReadonly` order. Memoized per step (derived '@' key: cleared at
+ * step boundaries and by commands that can create/remove stacks) and re-validated against the
+ * stack-id counter and the stacks object, so stacks created directly are picked up. Removed stacks
+ * may linger in the memo: callers must skip entries with `state.stacks[s.id] !== s`.
+ */
+export function stacksOfOwner(state: GameState, c: CountryId): readonly Stack[] {
+  const e = derived(state, '@stacksByOwner', () => ({ counter: -1, obj: null as object | null, m: new Map<CountryId, Stack[]>() }));
+  const counter = state.ids.stack ?? 0;
+  if (e.counter !== counter || e.obj !== state.stacks) {
+    const m = new Map<CountryId, Stack[]>();
+    for (const s of stacksReadonly(state)) (m.get(s.owner) ?? m.set(s.owner, []).get(s.owner)!).push(s);
+    e.counter = counter;
+    e.obj = state.stacks;
+    e.m = m;
+  }
+  return e.m.get(c) ?? [];
+}
 /** Nodes and city keys owned by a country (memoized per step / ownership change). */
 export function territoryOf(state: GameState, c: CountryId): { nodes: NodeId[]; cities: string[] } {
-  const idx = derived(state, '~territoryByOwner', () => {
+  // every ownership change goes through transferNode, which bumps `ownv`
+  const idx = memoByVersion(state, 'territoryByOwner', `${state.ids.ownv ?? 0}`, [state.provinces, state.cities], () => {
     const m = new Map<CountryId, { nodes: NodeId[]; cities: string[] }>();
     for (const p of state.provinces) {
       if (!p || !p.owner) continue;

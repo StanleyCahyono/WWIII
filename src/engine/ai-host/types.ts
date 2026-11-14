@@ -31,9 +31,29 @@ export interface PlannerContext {
   rng: Rng;
 }
 
+/** What the scheduler knows about a due call before building any view (see `CountryController.wants`). */
+export interface WantsInfo {
+  country: CountryId;
+  reviews: ReviewKind[];
+  wake: string[];
+  /** The controller's saved memory blob (`state.ai.memory[country]`); read-only — do not mutate. */
+  memory: unknown;
+}
+
 export interface CountryController {
   /** Return commands to submit (each goes through submitCommand; invalid ones are rejected and counted). */
   decide(view: CountryView, ctx: PlannerContext): Command[];
+  /**
+   * Optional pre-check, called before the view is built: return false to skip this call (no view,
+   * no decide). Must be a pure function of its argument (deterministic across save/reload).
+   */
+  wants?(info: WantsInfo): boolean;
+  /**
+   * Opt in to the planner ("lite") view: `self.force`, `self.lift`, `self.liftBreakdown`,
+   * `observedNodes`, stack `sightKm`/`radarKm` and `market.myFills` are left as zero/empty
+   * placeholders (`view.lite === true`). Only for controllers that never read those fields.
+   */
+  liteView?: boolean;
 }
 
 export type ControllerRegistry = Partial<Record<CountryId, CountryController>> | ((country: CountryId) => CountryController | undefined);

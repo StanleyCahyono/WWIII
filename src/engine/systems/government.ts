@@ -126,7 +126,7 @@ export function transferNode(state: GameState, node: NodeId, to: CountryId | nul
     category: 'government',
     node,
     public: city || cause === 'rebellion' ? { headline: cause === 'rebellion' ? `Uprising: rebels seize ${what}` : `${to} takes ${what} from ${from ?? 'rebels'}`, countries: [from, to].filter((x): x is string => !!x) } : null,
-    private: { ...toAll([from], textFrom, { node, city: ck ?? null }), ...toAll([to], textTo, { node, city: ck ?? null }) },
+    private: { ...toAll([from], textFrom, { node, city: ck ?? null, from, to, cause }), ...toAll([to], textTo, { node, city: ck ?? null, from, to, cause }) },
     interrupt,
   });
   if (to && cause === 'capture') awardXp(state, to, ev.id, 'capture');

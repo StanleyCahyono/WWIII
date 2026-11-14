@@ -57,6 +57,35 @@ const handlers: Record<Command['type'], Handler<any, any>> = {
 
 export const COMMAND_TYPES = Object.keys(handlers) as Command['type'][];
 
+/**
+ * Commands whose `apply` never touches stacks (set, rosters, positions, orders, air state),
+ * territory, relations, grants or coalition membership — they only queue jobs/research, move
+ * resources, place market orders, create/resolve offers (effects are scheduled events), agents,
+ * reports, articles and messages. They keep forces-scoped derived caches (`@` keys, e.g. force
+ * summaries, lift, observed nodes, stacks by owner). Paths they call that do change relations
+ * (diplomacy/coalition internals) invalidate on their own.
+ */
+const FORCE_NEUTRAL: ReadonlySet<Command['type']> = new Set<Command['type']>([
+  'build',
+  'cancelJob',
+  'annex',
+  'mobilize',
+  'setRally',
+  'startResearch',
+  'cancelResearch',
+  'produceMissile',
+  'marketOrder',
+  'cancelMarketOrder',
+  'proposeOffer',
+  'respondOffer',
+  'withdrawOffer',
+  'assignAgent',
+  'recallAgent',
+  'buyIntelReport',
+  'publishArticle',
+  'sendMessage',
+]);
+
 export function validateCommand(state: GameState, cmd: Command): Validation {
   if (!cmd || typeof cmd !== 'object' || typeof (cmd as Command).type !== 'string') return { ok: false, code: 'unknown_command', reason: 'Malformed command.' };
   const h = handlers[cmd.type];
@@ -91,7 +120,7 @@ export function submitCommand(state: GameState, cmd: Command): CommandResult {
     return v;
   }
   const result = applyCommand(state, cmd, v.preview);
-  invalidateDerived(state, cmd.type === 'demolish' ? 'all' : 'command');
+  invalidateDerived(state, cmd.type === 'demolish' ? 'all' : FORCE_NEUTRAL.has(cmd.type) ? 'national' : 'command');
   cs.stats.accepted[cmd.type] = (cs.stats.accepted[cmd.type] ?? 0) + 1;
   if (cmd.nonce) {
     cs.nonces.push({ nonce: cmd.nonce, at: state.clock.tick, result: JSON.stringify(result ?? null).slice(0, 200) });

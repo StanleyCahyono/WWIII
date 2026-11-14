@@ -16,6 +16,7 @@ import { S } from '../scenario/registry';
 import { planRoute } from '../systems/movement';
 import { IdleController } from './controllers';
 import type { Command } from '../commands/types';
+import { wakeAi } from './wake';
 
 const KINDS: ReviewKind[] = ['strategic', 'economic', 'diplomatic', 'operational'];
 
@@ -61,13 +62,7 @@ export function collectWakes(state: GameState): void {
     else if (e.kind === 'coalition_application') tag = 'coalition_application';
     else if (e.kind === 'offer_accepted' || e.kind === 'offer_declined') tag = 'offer_answered';
     if (!tag) continue;
-    for (const c of Object.keys(e.private).sort()) {
-      const sch = state.ai.schedule[c];
-      if (!sch || state.countries[c]?.controller !== 'ai') continue;
-      const w = `${tag}:${e.id}`;
-      if (!sch.wake.includes(w)) sch.wake.push(w);
-      if (sch.wake.length > 20) sch.wake.splice(0, sch.wake.length - 20);
-    }
+    for (const c of Object.keys(e.private).sort()) wakeAi(state, c, `${tag}:${e.id}`);
   }
 }
 
@@ -102,6 +97,17 @@ export function runAi(state: GameState, host: SimHost): void {
 function invoke(state: GameState, host: SimHost, c: CountryId, reviews: ReviewKind[], wake: string[]): void {
   const ctl = controllerFor(host, c);
   if (ctl === IdleController) return; // nothing to decide; skip building the view
+  // Pre-check (pure function of the call info and the SAVED memory): skip the view entirely when
+  // the controller declares it has nothing to decide. A throwing pre-check counts as "wants".
+  if (ctl.wants) {
+    let want = true;
+    try {
+      want = ctl.wants({ country: c, reviews, wake, memory: state.ai.memory[c] ?? null }) !== false;
+    } catch {
+      want = true;
+    }
+    if (!want) return;
+  }
   const st = S(state);
   const budget = AI_COMMANDS_PER_REVIEW[state.meta.difficulty] ?? 8;
   const ctx: PlannerContext = {
@@ -112,7 +118,7 @@ function invoke(state: GameState, host: SimHost, c: CountryId, reviews: ReviewKi
     difficulty: state.meta.difficulty,
     memory: state.ai.memory[c] ?? null,
     setMemory: (m) => {
-      state.ai.memory[c] = m === undefined ? null : JSON.parse(JSON.stringify(m));
+      state.ai.memory[c] = m === undefined ? null : jsonClone(m);
     },
     preview: (cmd: Command) => previewCommand(state, { ...cmd, country: c } as Command),
     map: st.scenario.map,
@@ -126,7 +132,7 @@ function invoke(state: GameState, host: SimHost, c: CountryId, reviews: ReviewKi
   };
   let cmds: Command[] = [];
   try {
-    cmds = ctl.decide(getCountryView(state, c, { journalLimit: 15, journalScan: 400 }), ctx) ?? [];
+    cmds = ctl.decide(getCountryView(state, c, { journalLimit: 15, journalScan: 400, lite: ctl.liteView === true }), ctx) ?? [];
   } catch (e) {
     cmds = [];
     const cs = state.countries[c];
@@ -142,5 +148,43 @@ function invoke(state: GameState, host: SimHost, c: CountryId, reviews: ReviewKi
     }
     used++;
     submitCommand(state, cmd);
+  }
+}
+
+/**
+ * Deep copy with exactly the result of `JSON.parse(JSON.stringify(v))` for plain data (what a save
+ * round-trip produces): non-finite numbers → null, undefined/function members dropped (null inside
+ * arrays), `toJSON` honoured. Faster than the string round-trip for the planner memory blobs.
+ */
+export function jsonClone(v: unknown): unknown {
+  return cloneJ(v, false);
+}
+function cloneJ(v: unknown, inArray: boolean): unknown {
+  switch (typeof v) {
+    case 'number':
+      return Number.isFinite(v) ? v : null;
+    case 'string':
+    case 'boolean':
+      return v;
+    case 'object': {
+      if (v === null) return null;
+      const tj = (v as { toJSON?: unknown }).toJSON;
+      if (typeof tj === 'function') return JSON.parse(JSON.stringify(v));
+      if (Array.isArray(v)) {
+        const out = new Array(v.length);
+        for (let i = 0; i < v.length; i++) out[i] = cloneJ(v[i], true);
+        return out;
+      }
+      const out: Record<string, unknown> = {};
+      for (const k of Object.keys(v)) {
+        const x = cloneJ((v as Record<string, unknown>)[k], false);
+        if (x !== undefined) out[k] = x;
+      }
+      return out;
+    }
+    case 'bigint':
+      return JSON.parse(JSON.stringify(v)); // throws, like JSON.stringify
+    default:
+      return inArray ? null : undefined; // undefined, function, symbol
   }
 }

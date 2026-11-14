@@ -12,29 +12,9 @@ import type { Turn } from './turn';
 import { defenceAt, type Analysis } from './analysis';
 import { km, landBfs } from './geo';
 import { canCapture, stackAirPower, stackGroundPower } from './value';
-
-const HOUR = 60;
-const DAY = 1440;
-
-function idleGround(s: StackView): boolean {
-  return s.moveClass === 'ground' && s.pos.kind === 'node' && !s.aboard && (!s.order || (s.order.kind === 'move' && s.order.route.length === 0));
-}
-function orderDest(s: StackView): NodeId | null {
-  if (!s.order) return null;
-  if (s.order.kind === 'move') return s.order.dest;
-  return s.order.targetNode;
-}
-
-function issueMove(t: Turn, s: StackView, dest: NodeId, kind: string, reason: string, hold = 12 * HOUR): boolean {
-  if (t.movedStacks.has(s.id)) return false;
-  if (orderDest(s) === dest) return false; // already heading there: avoid a repeated no-op
-  if (s.pos.kind === 'node' && s.pos.node === dest) return false;
-  const r = t.add({ type: 'move', country: t.me, stack: s.id, dest }, 'operational', kind, reason, { path: true });
-  if (!r) return false;
-  t.movedStacks.add(s.id);
-  t.mem.tasks[s.id] = { dest, until: t.now + hold, kind };
-  return true;
-}
+import { DAY, HOUR, heldByTask, idleGround, issueMove, orderDest } from './orders';
+import { allianceDefence, callForHelp } from './alliance';
+import { navalReview } from './naval';
 
 function defend(t: Turn, a: Analysis, stacks: StackView[]): void {
   // cities short of their requirement, capital first
@@ -88,8 +68,7 @@ function offence(t: Turn, a: Analysis, stacks: StackView[]): void {
   // free stacks: capture-capable, idle, not needed as garrison
   const free = stacks.filter((s) => {
     if (t.movedStacks.has(s.id) || !canCapture(t.ix, s) || !idleGround(s)) return false;
-    const task = t.mem.tasks[s.id];
-    if (task && task.until > t.now && task.kind === 'defend') return false;
+    if (heldByTask(t, s)) return false;
     const at = a.cities.find((x) => x.node === (s.pos as { node: NodeId }).node);
     return !at || at.present - stackGroundPower(t.ix, s) >= at.required * 0.9;
   });
@@ -162,35 +141,9 @@ function staging(t: Turn, a: Analysis, stacks: StackView[]): void {
   for (const s of spare.slice(0, 1)) issueMove(t, s, best, 'stage', `stage at frontier facing objective ${o.target}`, DAY);
 }
 
-function naval(t: Turn, a: Analysis): void {
-  if (t.mem.geography === 'landlocked') return; // never issue naval orders without a coast
-  const g = t.geo, v = t.view;
-  const ships = v.stacks.filter((s) => s.moveClass === 'naval' && s.pos.kind === 'node' && !s.order && !t.movedStacks.has(s.id));
-  if (!ships.length) return;
-  const enemyPorts = v.publicCities.filter((c) => c.port && c.owner && a.enemies.includes(c.owner));
-  for (const s of ships.slice(0, 2)) {
-    if (t.full || t.pathLeft <= 0) return;
-    const at = (s.pos as { node: NodeId }).node;
-    if (t.mem.tasks[s.id] && t.mem.tasks[s.id].until > t.now) continue;
-    if (enemyPorts.length) {
-      const port = [...enemyPorts].sort((x, y) => km(g, at, x.node) - km(g, at, y.node) || (x.key < y.key ? -1 : 1))[0];
-      const seaZ = g.coast[port.node].filter((n) => !g.isLand[n]);
-      if (seaZ.length && km(g, at, port.node) < 2500) {
-        issueMove(t, s, seaZ[0], 'naval_strike', `naval pressure on ${port.owner} port ${port.key}`, DAY);
-        continue;
-      }
-    }
-    // peace: ships hold position (no patrol churn); at sea far from any port, return home once
-    if (!g.isLand[at] && !enemyPorts.length) {
-      const home = v.cities.filter((c) => c.port).sort((x, y) => km(g, at, x.node) - km(g, at, y.node) || (x.key < y.key ? -1 : 1))[0];
-      if (home && km(g, at, home.node) > 600) issueMove(t, s, home.node, 'naval_return', 'return to a home port', 3 * DAY);
-    }
-  }
-}
-
 function air(t: Turn, a: Analysis): void {
   const v = t.view, g = t.geo;
-  const planes = v.stacks.filter((s) => s.moveClass === 'air' && s.air && s.air.state === 'landed' && !s.air.grounded && stackAirPower(t.ix, s) > 0);
+  const planes = v.stacks.filter((s) => s.moveClass === 'air' && s.air && s.air.state === 'landed' && !s.air.grounded && !t.movedStacks.has(s.id) && stackAirPower(t.ix, s) > 0);
   if (!planes.length) return;
   const threatened = a.cities.filter((c) => c.threat > 0).sort((x, y) => y.threat - x.threat);
   const front = Object.values(t.mem.tasks).filter((x) => x.kind === 'attack').map((x) => x.dest);
@@ -281,15 +234,23 @@ function intel(t: Turn, a: Analysis): void {
 export function operationalReview(t: Turn, a: Analysis): void {
   const ground = t.view.stacks.filter((s) => s.moveClass === 'ground');
   defend(t, a, ground);
+  callForHelp(t, a);
+  allianceDefence(t, a, ground);
   offence(t, a, ground);
   staging(t, a, ground);
-  naval(t, a);
+  navalReview(t, a);
   air(t, a);
   missiles(t, a);
   intel(t, a);
 }
 
-/** Peace-time frontier staging only (called from the economic review). */
+/**
+ * Peace-time review riding on the economic review (no extra wake-ups): mutual defence of
+ * coalition partners (their wars do not wake us), frontier staging, fleet/carrier housekeeping.
+ */
 export function stagingOnly(t: Turn, a: Analysis): void {
-  staging(t, a, t.view.stacks.filter((s) => s.moveClass === 'ground'));
+  const ground = t.view.stacks.filter((s) => s.moveClass === 'ground');
+  allianceDefence(t, a, ground);
+  staging(t, a, ground);
+  navalReview(t, a);
 }

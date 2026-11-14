@@ -11,7 +11,7 @@
  */
 import { invalidateDerived } from '../derived';
 import type { CountryId } from '../data-types';
-import type { DiploLevel, GameState, Message, Offer, OfferTerm } from '../state';
+import type { DiploLevel, GameState, Message, Offer, OfferTerm, TrustState } from '../state';
 import { MAX_PENDING_OFFERS_PER_PAIR, OFFER_DEFAULT_EXPIRY_MIN, OFFER_EFFECT_DELAY_MIN, TRUST, AGREEMENT_FULFILLED_AFTER_MIN } from '../rules';
 import { dirKey, nextId, pairKey } from '../ids';
 import { schedule } from './queue';
@@ -21,10 +21,11 @@ import { charge, credit } from './ledger';
 import { zero, fmtVec } from '../fixed';
 import { streamRng } from '../rng';
 import { scenarioOf } from '../scenario/registry';
+import { wakeAi, WAKING_INTENTS } from '../ai-host/wake';
 
 // ───────────────────────────── trust ─────────────────────────────
 
-const initialTrustCache = new WeakMap<GameState, Map<string, number>>();
+const initialTrustCache = new WeakMap<GameState, Map<CountryId, Map<CountryId, number>>>();
 /** Opening trust of `from` toward `to`: authored profile trust + seeded variation (stream "trust"). */
 export function initialTrust(state: GameState, from: CountryId, to: CountryId): number {
   if (from === to) return 0;
@@ -33,21 +34,78 @@ export function initialTrust(state: GameState, from: CountryId, to: CountryId): 
     m = new Map();
     initialTrustCache.set(state, m);
   }
-  const k = dirKey(from, to);
-  let v = m.get(k);
+  let row = m.get(from);
+  if (!row) {
+    row = new Map();
+    m.set(from, row);
+  }
+  let v = row.get(to);
   if (v === undefined) {
+    const k = dirKey(from, to);
     const r = streamRng(state.seed, 'trust', k);
     const authored = scenarioOf(state).profiles[from]?.relations?.find((x) => x.with === to);
     v = Math.round(((authored?.trust ?? 0) + TRUST.initialVariation * (2 * r.next() - 1)) * 100) / 100;
-    m.set(k, v);
+    row.set(to, v);
   }
   return v;
 }
+const decayMemo = { days: -1, f: 1 };
 /** Trust value of a pair never touched by an event: the opening value decayed for every day change so far. */
 function lazyTrust(state: GameState, from: CountryId, to: CountryId): number {
   const v0 = initialTrust(state, from, to);
   const days = state.ids.trustDays ?? 0;
-  return days ? Math.round(v0 * Math.pow(1 - TRUST.decayPerDay, days) * 100) / 100 : v0;
+  if (!days) return v0;
+  if (decayMemo.days !== days) {
+    decayMemo.days = days;
+    decayMemo.f = Math.pow(1 - TRUST.decayPerDay, days);
+  }
+  return Math.round(v0 * decayMemo.f * 100) / 100;
+}
+const trustRowKeys = new WeakMap<readonly CountryId[], Map<CountryId, string[]>>();
+const initialRows = new WeakMap<GameState, Map<CountryId, Float64Array>>();
+/**
+ * `trustOf(state, from, c)` for every `c` of `state.countryOrder` (0 at `from` itself), with the
+ * pair keys and opening values precomputed per row (same values as per-pair `trustOf`).
+ */
+export function trustRow(state: GameState, from: CountryId, entries?: (TrustState | undefined)[]): number[] {
+  const order = state.countryOrder;
+  let km = trustRowKeys.get(order);
+  if (!km) {
+    km = new Map();
+    trustRowKeys.set(order, km);
+  }
+  let keys = km.get(from);
+  if (!keys) {
+    keys = order.map((c) => dirKey(from, c));
+    km.set(from, keys);
+  }
+  let im = initialRows.get(state);
+  if (!im) {
+    im = new Map();
+    initialRows.set(state, im);
+  }
+  let init = im.get(from);
+  if (!init) {
+    init = new Float64Array(order.length);
+    for (let i = 0; i < order.length; i++) init[i] = initialTrust(state, from, order[i]);
+    im.set(from, init);
+  }
+  const days = state.ids.trustDays ?? 0;
+  if (days && decayMemo.days !== days) {
+    decayMemo.days = days;
+    decayMemo.f = Math.pow(1 - TRUST.decayPerDay, days);
+  }
+  const out = new Array<number>(order.length);
+  for (let i = 0; i < order.length; i++) {
+    if (order[i] === from) {
+      out[i] = 0;
+      continue;
+    }
+    const t = state.trust[keys[i]];
+    if (entries) entries[i] = t;
+    out[i] = t ? t.value : days ? Math.round(init[i] * decayMemo.f * 100) / 100 : init[i];
+  }
+  return out;
 }
 export function trustOf(state: GameState, from: CountryId, to: CountryId): number {
   const t = state.trust[dirKey(from, to)];
@@ -110,7 +168,7 @@ export function declareWarInternal(state: GameState, by: CountryId, target: Coun
     kind: 'war_declared',
     category: 'diplomacy',
     public: { headline: `${by} declares war on ${target}`, countries: [by, target] },
-    private: { ...toAll([by], `You declared war on ${target}. Reason: ${reason}`), ...toAll([target], `${by} declared war on you.`) },
+    private: { ...toAll([by], `You declared war on ${target}. Reason: ${reason}`, { by, target }), ...toAll([target], `${by} declared war on you.`, { by, target }) },
     interrupt,
   });
 }
@@ -124,7 +182,7 @@ export function makePeace(state: GameState, a: CountryId, b: CountryId): void {
   r.version++;
   r.warDeclaredBy = null;
   invalidateDerived(state, 'command');
-  emit(state, { kind: 'peace', category: 'diplomacy', public: { headline: `${a} and ${b} conclude peace`, countries: [a, b] }, private: toAll([a, b], `Peace concluded between ${a} and ${b}.`) });
+  emit(state, { kind: 'peace', category: 'diplomacy', public: { headline: `${a} and ${b} conclude peace`, countries: [a, b] }, private: toAll([a, b], `Peace concluded between ${a} and ${b}.`, { a, b }) });
 }
 
 /** Unilateral downgrade of a grant (revoking passage/shared intel). */
@@ -134,7 +192,7 @@ export function revokeGrantInternal(state: GameState, from: CountryId, to: Count
   const young = state.clock.tick - cur.since < AGREEMENT_FULFILLED_AFTER_MIN;
   setGrant(state, from, to, toLevel);
   if (young) addTrust(state, to, from, TRUST.brokenAgreement, 'broken_agreement', `${from} revoked ${cur.level.replace('_', ' ')} shortly after granting it`);
-  emit(state, { kind: 'grant_revoked', category: 'diplomacy', private: { ...toAll([from], `You reduced ${to}'s status to ${toLevel.replace('_', ' ')}.`), ...toAll([to], `${from} reduced your status to ${toLevel.replace('_', ' ')}.`) } });
+  emit(state, { kind: 'grant_revoked', category: 'diplomacy', private: { ...toAll([from], `You reduced ${to}'s status to ${toLevel.replace('_', ' ')}.`, { from, to, level: toLevel }), ...toAll([to], `${from} reduced your status to ${toLevel.replace('_', ' ')}.`, { from, to, level: toLevel }) } });
 }
 
 // ───────────────────────────── offers ─────────────────────────────
@@ -292,6 +350,12 @@ export function postMessage(state: GameState, from: CountryId, thread: string, t
   (state.messages[thread] ??= []).push(msg);
   const l = state.messages[thread];
   if (l.length > 200) l.splice(0, l.length - 200);
+  // a request to act (coordinate / request_operation) wakes the AI recipient(s) at the next AI phase
+  if (intent && WAKING_INTENTS.has(intent)) {
+    const co = to === null && thread.startsWith('co:') ? state.coalitions[thread.slice(3)] : null;
+    const recipients = to !== null ? [to] : co ? co.members.map((m) => m.country).filter((c) => c !== from).sort() : [];
+    for (const c of recipients) wakeAi(state, c, `message:${msg.id}`);
+  }
   return msg;
 }
 

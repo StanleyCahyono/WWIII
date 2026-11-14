@@ -17,7 +17,7 @@ import {
   buildingLevelDef,
 } from '../systems/production';
 import { cancelResearchInternal, researchRefund, startResearchInternal, techStatus } from '../systems/research';
-import { cancelOrderInternal, escrowFor, placeOrderInternal, previewMatch, type FillPreview } from '../systems/market';
+import { cancelOrderInternal, escrowFor, openOrderCount, placeOrderInternal, previewMatch, type FillPreview } from '../systems/market';
 import {
   acceptability,
   declareWarInternal,
@@ -242,7 +242,7 @@ export const marketOrder: Handler<CommandOf<'marketOrder'>, { escrow: ResM; matc
     if (!RESOURCES.includes(cmd.resource) || cmd.resource === 'money') return fail('invalid_argument', 'Choose a tradeable resource (not money).');
     if (!Number.isInteger(cmd.qty) || cmd.qty < 1 || cmd.qty > 1_000_000) return fail('invalid_argument', 'Quantity must be a whole number between 1 and 1,000,000.');
     if (!Number.isInteger(cmd.price) || cmd.price < 1 || cmd.price > MARKET_MAX_PRICE) return fail('invalid_argument', `Price must be a whole number of milli-money between 1 and ${MARKET_MAX_PRICE}.`);
-    const open = Object.values(state.market.orders).filter((o) => o.country === cmd.country && o.status === 'open').length;
+    const open = openOrderCount(state, cmd.country);
     if (open >= MARKET_MAX_OPEN_PER_COUNTRY) return fail('busy', `You already have ${open} open orders (limit ${MARKET_MAX_OPEN_PER_COUNTRY}).`);
     const esc = escrowFor(cmd.side, cmd.resource, cmd.qty, cmd.price);
     const stock = state.countries[cmd.country].stock;

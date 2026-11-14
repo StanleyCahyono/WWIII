@@ -30,6 +30,8 @@ import type {
   ProvinceState,
   Stack,
   TerritoryStatus,
+  TrustEntry,
+  TrustState,
   OpeningPowerResult,
 } from '../state';
 import type { ResM } from '../fixed';
@@ -37,15 +39,15 @@ import { S } from '../scenario/registry';
 import { formatGameTime, dayOf } from '../time';
 import { resourceSummary, type ResourceSummary } from '../systems/economy';
 import { researchSlots } from '../systems/research';
-import { atWar, coalitionOf, grantLevel, statusFrom, visionSources, sameCoalition, stacksReadonly, territoryOf } from '../systems/world';
-import { trustOf } from '../systems/diplomacy';
-import { bookView, type BookLevel } from '../systems/market';
+import { coalitionOf, enemyMap, grantLevel, grantsFrom, visionSources, stacksOfOwner, territoryOf } from '../systems/world';
+import { trustRow } from '../systems/diplomacy';
+import { bookView, ordersOf, type BookLevel } from '../systems/market';
 import { countryScores, thresholdFor } from '../systems/score';
 import { routeEtaTick } from '../systems/movement';
 import { alliedContacts, observedNodes, stackSensorRadii } from '../systems/visibility';
 import { forceSummary, liftBreakdown, type ForceSummary, type LiftBreakdown } from '../systems/readiness';
 import { RULES } from '../rules';
-import { derived, invalidateDerived } from '../derived';
+import { derived, invalidateDerived, memoByVersion } from '../derived';
 
 export interface PublicCity {
   key: CityKey;
@@ -95,10 +97,22 @@ export interface DiplomacyRow {
   coalition: string | null;
   sameCoalition: boolean;
   pendingOffers: string[];
+  /**
+   * The viewer's OWN trust history toward this country (engine-recorded changes, oldest first);
+   * absent if untouched. The free-text reason is omitted: it can carry the other side's private
+   * wording (e.g. a declaration-of-war reason only the declarer was told).
+   */
+  trustHistory?: Pick<TrustEntry, 'at' | 'kind' | 'delta'>[];
 }
 
 export interface CountryView {
   viewer: CountryId;
+  /**
+   * Set on a planner ("lite") view: `self.force`, `self.lift`, `self.liftBreakdown`,
+   * `observedNodes`, stack `sightKm`/`radarKm` and `market.myFills` are NOT computed (zero/empty
+   * placeholders). Everything else is identical to the full view.
+   */
+  lite?: true;
   tick: number;
   day: number;
   time: string;
@@ -142,7 +156,14 @@ export interface CountryView {
   agents: Agent[];
   relations: DiplomacyRow[];
   offers: Offer[];
-  coalitions: (Pick<Coalition, 'id' | 'name' | 'description' | 'emblem' | 'leader' | 'createdAt' | 'dissolvedAt'> & { members: CountryId[]; departures: Coalition['departures']; applications?: Coalition['applications']; score: number })[];
+  coalitions: (Pick<Coalition, 'id' | 'name' | 'description' | 'emblem' | 'leader' | 'createdAt' | 'dissolvedAt'> & {
+    members: CountryId[];
+    /** Join tick of every current member (public: joins are announced). */
+    joinedAt: Record<CountryId, number>;
+    departures: Coalition['departures'];
+    applications?: Coalition['applications'];
+    score: number;
+  })[];
   myCoalition: string | null;
   messages: Record<string, Message[]>;
   market: { books: Record<string, { bids: BookLevel[]; asks: BookLevel[]; last: number | null }>; myOrders: MarketOrder[]; myFills: MarketFill[] };
@@ -154,12 +175,17 @@ export interface CountryView {
 }
 
 function publicSlice(state: GameState) {
-  const base = derived(state, '~public', () => computePublic(state));
-  const books = derived(state, 'books', () => {
-    const b: CountryView['market']['books'] = {};
-    for (const r of RESOURCES) if (r !== 'money') b[r] = bookView(state, r);
-    return b;
+  // public basemap slice: ownership/control changes bump `ownv` (transferNode); the only other
+  // public field that changes — territory status (annexation) — is re-checked on every hit
+  const base = memoByVersion(state, 'publicSlice', `${state.ids.ownv ?? 0}`, [state.provinces, state.cities], () => computePublic(state), (b) => {
+    for (const pc of b.cities) {
+      const p = state.provinces[pc.node] as ProvinceState;
+      if (pc.status !== (p.control === 'rebel' ? 'rebel' : p.status) || pc.owner !== p.owner) return false;
+    }
+    return true;
   });
+  const books: CountryView['market']['books'] = {};
+  for (const r of RESOURCES) if (r !== 'money') books[r] = bookView(state, r);
   const offers = derived(state, 'offerIndex', () => {
     const byCountry = new Map<CountryId, Offer[]>();
     for (const o of Object.values(state.offers)) {
@@ -183,7 +209,7 @@ function computePublic(state: GameState) {
       const p = state.provinces[ci.node] as ProvinceState;
       return Object.freeze({ key: k, name: ci.name, node: ci.node, owner: p.owner, homeland: p.homeland as CountryId, tier: ci.tier, capital: ci.capital, port: ci.port, status: p.control === 'rebel' ? 'rebel' : p.status }) as PublicCity;
     });
-  return { tick: state.clock.tick, owners: Object.freeze(owners) as (CountryId | null)[], rebel, cities: Object.freeze(cities) as PublicCity[], scores: countryScores(state) };
+  return { owners: Object.freeze(owners) as (CountryId | null)[], rebel: Object.freeze(rebel) as NodeId[], cities: Object.freeze(cities) as PublicCity[], scores: countryScores(state) };
 }
 
 /** Invalidate memoized derived data (public slices, rates, force summaries). */
@@ -207,34 +233,95 @@ export function projectContact(c: { id: string; level: ContactLevel; domain: str
   return v;
 }
 
+/**
+ * Per-recipient index of the (append-only, id-ascending) event log: events are added from a
+ * cursor, the front is trimmed lazily after pruning; rebuilt when the events array is replaced
+ * (load/clone). Used so a view reads its journal tail without scanning every recent event.
+ */
+interface JournalIndex {
+  events: GameEvent[];
+  lastId: number;
+  by: Map<CountryId, GameEvent[]>;
+}
+const journalIndexCache = new WeakMap<GameState, JournalIndex>();
+const evNum = (e: GameEvent) => Number(e.id.slice(1));
+function journalIndex(state: GameState): JournalIndex {
+  const evs = state.events;
+  let ix = journalIndexCache.get(state);
+  if (!ix || ix.events !== evs) {
+    ix = { events: evs, lastId: -1, by: new Map() };
+    journalIndexCache.set(state, ix);
+  }
+  const n = evs.length;
+  if (n && evNum(evs[n - 1]) > ix.lastId) {
+    let from = n;
+    while (from > 0 && evNum(evs[from - 1]) > ix.lastId) from--;
+    for (let i = from; i < n; i++) {
+      const e = evs[i];
+      for (const c in e.private) if (e.private[c]) (ix.by.get(c) ?? ix.by.set(c, []).get(c)!).push(e);
+    }
+    ix.lastId = evNum(evs[n - 1]);
+    // drop entries that left the log (pruned from the front)
+    const first = n ? evNum(evs[0]) : 0;
+    for (const l of ix.by.values()) if (l.length > 64 && evNum(l[0]) < first) {
+      let k = 0;
+      while (k < l.length && evNum(l[k]) < first) k++;
+      l.splice(0, k);
+    }
+  }
+  return ix;
+}
+
+/** Private journal of `c`: newest first, at most `limit` entries among the last `scan` events. */
 export function journalFor(state: GameState, c: CountryId, limit = 40, scan = 4000): CountryView['journal'] {
   const out: CountryView['journal'] = [];
-  for (let i = state.events.length - 1; i >= 0 && out.length < limit && state.events.length - i <= scan; i--) {
-    const e: GameEvent = state.events[i];
+  const evs = state.events;
+  if (!evs.length || limit <= 0 || scan <= 0) return out;
+  const list = journalIndex(state).by.get(c);
+  if (!list) return out;
+  const minId = evNum(evs[Math.max(0, evs.length - scan)]);
+  for (let i = list.length - 1; i >= 0 && out.length < limit; i--) {
+    const e = list[i];
+    if (evNum(e) < minId) break;
     const p = e.private[c];
-    if (!p) continue;
     out.push({ id: e.id, at: e.at, kind: e.kind, category: e.category, node: e.node, text: p.text, data: p.data, interrupt: e.interrupt.includes(c), routine: e.routine });
   }
   return out;
 }
 
-export function getCountryView(state: GameState, viewer: CountryId, opts: { journalLimit?: number; journalScan?: number } = {}): CountryView {
+export interface ViewOptions {
+  journalLimit?: number;
+  journalScan?: number;
+  /**
+   * Planner view: skip the fields no planner in src/ai reads (force summary, lift, observed
+   * nodes, stack sensor radii, own fills). Used by the AI scheduler for controllers that declare
+   * `liteView`; the UI keeps full views.
+   */
+  lite?: boolean;
+}
+
+const NO_RADII = { sightKm: 0, radarKm: 0 };
+const EMPTY_LIFT: LiftBreakdown = Object.freeze({ base: 0, buildings: 0, units: 0, total: 0 });
+const EMPTY_FORCE: ForceSummary = Object.freeze({ fielded: 0, ready: 0, committed: 0, inRefit: 0, units: 0, stacks: 0, maintenanceUsed: 0, maintenanceCapacity: 0, byDomain: Object.freeze({}) as ForceSummary['byDomain'] });
+
+export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOptions = {}): CountryView {
   const cs = state.countries[viewer];
   if (!cs) throw new Error(`Unknown country ${viewer}`);
+  const lite = opts.lite === true;
   const pub = publicSlice(state);
   const t = state.clock.tick;
   const stacks: StackView[] = [];
-  for (const s of stacksByOwner(state).get(viewer) ?? []) {
+  for (const s of stacksOfOwner(state, viewer)) {
     if (state.stacks[s.id] !== s) continue;
-    const radii = stackSensorRadii(state, s);
+    const radii = lite ? NO_RADII : stackSensorRadii(state, s);
     stacks.push({ ...cloneStack(s), eta: routeEtaTick(state, s), lonlat: lonlatOf(state, s), sightKm: radii.sightKm, radarKm: radii.radarKm });
   }
   stacks.sort((a, b) => (a.id < b.id ? -1 : 1));
   const cities: CityState[] = [];
   const provinces: ProvinceState[] = [];
   const mine = territoryOf(state, viewer);
-  for (const n of mine.nodes) provinces.push(JSON.parse(JSON.stringify(state.provinces[n])));
-  for (const k of mine.cities) cities.push(JSON.parse(JSON.stringify(state.cities[k])));
+  for (const n of mine.nodes) provinces.push(plainClone(state.provinces[n] as ProvinceState));
+  for (const k of mine.cities) cities.push(plainClone(state.cities[k]));
   const contacts: ContactView[] = [];
   const table = state.contacts[viewer] ?? {};
   const refreshed = state.clock.lastVisibility;
@@ -247,27 +334,13 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
   const reports: CountryView['reports'] = [];
   for (const r of Object.values(state.reports)) {
     if (r.country !== viewer && !srcs.has(r.country)) continue;
-    reports.push({ ...JSON.parse(JSON.stringify(r)), expired: t >= r.expiresAt, shared: r.country !== viewer });
+    reports.push({ ...plainClone(r), expired: t >= r.expiresAt, shared: r.country !== viewer });
   }
   reports.sort((a, b) => b.observedAt - a.observedAt || (a.id < b.id ? -1 : 1));
   const myOffers = pub.offers.get(viewer) ?? [];
-  const relations: DiplomacyRow[] = state.countryOrder
-    .filter((c) => c !== viewer)
-    .map((c) => ({
-      country: c,
-      name: state.countries[c].name,
-      controller: state.countries[c].controller,
-      alive: state.countries[c].alive,
-      myStatusToThem: statusFrom(state, viewer, c),
-      theirStatusToMe: statusFrom(state, c, viewer),
-      war: atWar(state, viewer, c),
-      trust: trustOf(state, viewer, c),
-      coalition: coalitionOf(state, c)?.id ?? null,
-      sameCoalition: c !== viewer && sameCoalition(state, viewer, c),
-      pendingOffers: myOffers.filter((o) => o.status === 'pending' && (o.from === c || o.to === c)).map((o) => o.id),
-    }));
-  const offers = myOffers.map((o) => JSON.parse(JSON.stringify(o)) as Offer);
   const myCo = coalitionOf(state, viewer);
+  const relations = relationRows(state, viewer, myOffers, myCo);
+  const offers = myOffers.map((o) => plainClone(o));
   const coalitions = Object.values(state.coalitions).map((co) => ({
     id: co.id,
     name: co.name,
@@ -277,6 +350,7 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
     createdAt: co.createdAt,
     dissolvedAt: co.dissolvedAt,
     members: co.members.map((m) => m.country),
+    joinedAt: Object.fromEntries(co.members.map((m) => [m.country, m.joinedAt])),
     departures: co.departures.map((d) => ({ ...d })),
     applications: co.leader === viewer ? co.applications.map((a) => ({ ...a })) : undefined,
     score: co.members.reduce((a, m) => a + (pub.scores[m.country] ?? 0), 0),
@@ -315,13 +389,13 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
       researchSlots: researchSlots(state, viewer),
       unitLevels: { ...cs.unitLevels },
       missiles: JSON.parse(JSON.stringify(cs.missiles)),
-      jobs: JSON.parse(JSON.stringify(cs.jobs)),
-      lift: liftBreakdown(state, viewer).total,
-      liftBreakdown: liftBreakdown(state, viewer),
+      jobs: plainClone(cs.jobs),
+      lift: lite ? 0 : liftBreakdown(state, viewer).total,
+      liftBreakdown: lite ? { ...EMPTY_LIFT } : liftBreakdown(state, viewer),
       maintenanceSlots: cs.maintenanceSlots,
       personality: { ...cs.personality },
       modifiers: { ...cs.modifiers },
-      force: forceSummary(state, viewer),
+      force: lite ? { ...EMPTY_FORCE, byDomain: {} } : forceSummary(state, viewer),
     },
     stacks,
     cities,
@@ -330,7 +404,7 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
     rebelNodes: pub.rebel,
     publicCities: pub.cities,
     contacts,
-    observedNodes: [...observedNodes(state, viewer)],
+    observedNodes: lite ? [] : [...observedNodes(state, viewer)],
     reports,
     agents: Object.values(state.agents).filter((a) => a.country === viewer).map((a) => ({ ...a })),
     relations,
@@ -340,38 +414,93 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
     messages,
     market: {
       books: pub.books,
-      myOrders: Object.values(state.market.orders).filter((o) => o.country === viewer).map((o) => ({ ...o })),
-      myFills: state.market.fills.filter((f) => f.buyer === viewer || f.seller === viewer).map((f) => ({ ...f })),
+      myOrders: ordersOf(state, viewer).map((o) => ({ ...o })),
+      myFills: lite ? [] : state.market.fills.filter((f) => f.buyer === viewer || f.seller === viewer).map((f) => ({ ...f })),
     },
     launches,
     scores: { denominator: state.score.denominator, byCountry: { ...pub.scores }, soloThreshold: thresholdFor(state.score.denominator, 1), coalitionThresholds: { 2: thresholdFor(state.score.denominator, 2), 3: thresholdFor(state.score.denominator, 3), 4: thresholdFor(state.score.denominator, 4), 5: thresholdFor(state.score.denominator, 5) }, lastSettledDay: state.score.lastSettledDay },
     journal: journalFor(state, viewer, opts.journalLimit ?? 40, opts.journalScan ?? 4000),
     openingPower: state.openingPower,
     rules: RULES,
+    ...(lite ? { lite: true as const } : {}),
   };
 }
 
-const byOwnerCache = new WeakMap<GameState, { list: readonly Stack[]; m: Map<CountryId, Stack[]> }>();
-function stacksByOwner(state: GameState): Map<CountryId, Stack[]> {
-  const list = stacksReadonly(state);
-  const c = byOwnerCache.get(state);
-  if (c && c.list === list) return c.m;
-  const m = new Map<CountryId, Stack[]>();
-  for (const s of list) (m.get(s.owner) ?? m.set(s.owner, []).get(s.owner)!).push(s);
-  byOwnerCache.set(state, { list, m });
-  return m;
+/**
+ * Diplomacy rows of `viewer` toward every other seat, from the shared version-keyed indexes
+ * (war sets by `relv`, grant maps by `grv`, coalition membership by `cov`); trust is read live.
+ */
+function relationRows(state: GameState, viewer: CountryId, myOffers: Offer[], myCo: Coalition | null): DiplomacyRow[] {
+  const enemies = enemyMap(state).get(viewer);
+  const mineOut = grantsFrom(state, viewer);
+  const pending = new Map<CountryId, string[]>();
+  for (const o of myOffers) {
+    if (o.status !== 'pending') continue;
+    const other = o.from === viewer ? o.to : o.from;
+    (pending.get(other) ?? pending.set(other, []).get(other)!).push(o.id);
+  }
+  const coMembers = myCo ? new Set(myCo.members.map((m) => m.country)) : null;
+  const entries: (TrustState | undefined)[] = [];
+  const trust = trustRow(state, viewer, entries);
+  const order = state.countryOrder;
+  const rows: DiplomacyRow[] = [];
+  for (let i = 0; i < order.length; i++) {
+    const c = order[i];
+    if (c === viewer) continue;
+    const other = state.countries[c];
+    const war = !!enemies && enemies.has(c);
+    rows.push({
+      country: c,
+      name: other.name,
+      controller: other.controller,
+      alive: other.alive,
+      myStatusToThem: war ? 'war' : mineOut?.get(c) ?? 'peace',
+      theirStatusToMe: war ? 'war' : grantLevel(state, c, viewer),
+      war,
+      trust: trust[i],
+      coalition: coalitionOf(state, c)?.id ?? null,
+      sameCoalition: !!coMembers && coMembers.has(c),
+      pendingOffers: pending.get(c) ?? [],
+      ...(entries[i] ? { trustHistory: entries[i]!.history.map((h) => ({ at: h.at, kind: h.kind, delta: h.delta })) } : {}),
+    });
+  }
+  return rows;
 }
-const threadCache = new WeakMap<GameState, { n: number; obj: object; m: Map<CountryId, string[]> }>();
+
+/** Deep copy of plain JSON data with JSON round-trip semantics (undefined members dropped). */
+function plainClone<T>(v: T): T {
+  if (v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) {
+    const out = new Array(v.length);
+    for (let i = 0; i < v.length; i++) {
+      const x = v[i];
+      out[i] = x === undefined ? null : plainClone(x);
+    }
+    return out as T;
+  }
+  const out: Record<string, unknown> = {};
+  for (const k in v as Record<string, unknown>) {
+    const x = (v as Record<string, unknown>)[k];
+    if (x !== undefined) out[k] = plainClone(x);
+  }
+  return out as T;
+}
+
+const threadCache = new WeakMap<GameState, { v: number; obj: object; m: Map<CountryId, string[]> }>();
+/**
+ * dm threads per participant. A thread is only ever created by `postMessage`, which also draws a
+ * message id, so the index is keyed by the message counter (+ the messages object identity).
+ */
 function threadIndex(state: GameState): Map<CountryId, string[]> {
-  const keys = Object.keys(state.messages);
+  const v = state.ids.message ?? 0;
   const c = threadCache.get(state);
-  if (c && c.n === keys.length && c.obj === state.messages) return c.m;
+  if (c && c.v === v && c.obj === state.messages) return c.m;
   const m = new Map<CountryId, string[]>();
-  for (const th of keys.sort()) {
+  for (const th of Object.keys(state.messages).sort()) {
     if (!th.startsWith('dm:')) continue;
     for (const p of th.slice(3).split('|')) (m.get(p) ?? m.set(p, []).get(p)!).push(th);
   }
-  threadCache.set(state, { n: keys.length, obj: state.messages, m });
+  threadCache.set(state, { v, obj: state.messages, m });
   return m;
 }
 /** Structural copy of a stack (cheaper than JSON round-trip; stacks are plain data). */
@@ -404,7 +533,7 @@ export { grantLevel };
  * slices (ownership, public cities, scores, books, offer index, stack/territory indexes, economy
  * rates) are computed once and reused; each result is identical to `getCountryView(state, id)`.
  */
-export function getCountryViews(state: GameState, ids: readonly CountryId[], opts: { journalLimit?: number; journalScan?: number } = {}): Map<CountryId, CountryView> {
+export function getCountryViews(state: GameState, ids: readonly CountryId[], opts: ViewOptions = {}): Map<CountryId, CountryView> {
   const out = new Map<CountryId, CountryView>();
   for (const id of ids) out.set(id, getCountryView(state, id, opts));
   return out;

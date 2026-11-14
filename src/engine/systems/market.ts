@@ -31,10 +31,98 @@ export interface FillPreview {
   gross: number;
 }
 
+// ───────────────────────── open-order index (non-serialized) ─────────────────────────
+//
+// Every path that mutates `state.market.orders` (placement, execution, cancellation, pruning)
+// lives in this module and reports the change (`noteOrder`), which updates a live index in place
+// (or just bumps the version when no index is live). The index is validated by that version, the
+// saved `seq` and the orders object identity, so a reloaded or cloned state (cold WeakMap) always
+// rebuilds from the records. Code that edits orders directly (tests, tools) must call `bumpMarket`.
+// List orders equal `Object.values(state.market.orders)` order (record insertion order).
+
+export interface BookLevel {
+  price: number;
+  qty: number;
+  orders: number;
+}
+export type BookView = { bids: BookLevel[]; asks: BookLevel[]; last: number | null };
+
+interface MarketIndex {
+  v: number;
+  seq: number;
+  orders: object;
+  /** Open orders in record (insertion) order. */
+  open: MarketOrder[];
+  /** All order records (open and recently closed) per country, record order. */
+  byCountry: Map<CountryId, MarketOrder[]>;
+  openCount: Map<CountryId, number>;
+  books: Map<Resource, BookView>;
+}
+const marketVersion = new WeakMap<GameState, number>();
+const marketIndexCache = new WeakMap<GameState, MarketIndex>();
+/** Announce an out-of-band mutation of market orders (drops the open-order index and cached books). */
+export function bumpMarket(state: GameState): void {
+  marketVersion.set(state, (marketVersion.get(state) ?? 0) + 1);
+}
+function removeFrom<T>(l: T[] | undefined, x: T): void {
+  if (!l) return;
+  const i = l.indexOf(x);
+  if (i >= 0) l.splice(i, 1);
+}
+/** Record a change of one order: 'add' (new record), 'update' (fill/cancel), 'delete' (pruned). */
+function noteOrder(state: GameState, o: MarketOrder, op: 'add' | 'update' | 'delete', wasOpen: boolean): void {
+  const v = marketVersion.get(state) ?? 0;
+  const c = marketIndexCache.get(state);
+  marketVersion.set(state, v + 1);
+  if (!c || c.v !== v || c.orders !== state.market.orders) return;
+  c.v = v + 1;
+  c.seq = state.market.seq;
+  c.books.clear();
+  const isOpen = op !== 'delete' && o.status === 'open';
+  if (op === 'add') (c.byCountry.get(o.country) ?? c.byCountry.set(o.country, []).get(o.country)!).push(o);
+  else if (op === 'delete') removeFrom(c.byCountry.get(o.country), o);
+  if (isOpen && (op === 'add' || !wasOpen)) {
+    c.open.push(o);
+    c.openCount.set(o.country, (c.openCount.get(o.country) ?? 0) + 1);
+  } else if (!isOpen && wasOpen && op !== 'add') {
+    removeFrom(c.open, o);
+    c.openCount.set(o.country, (c.openCount.get(o.country) ?? 1) - 1);
+  }
+}
+function marketIndex(state: GameState): MarketIndex {
+  const v = marketVersion.get(state) ?? 0;
+  const c = marketIndexCache.get(state);
+  if (c && c.v === v && c.seq === state.market.seq && c.orders === state.market.orders) return c;
+  const open: MarketOrder[] = [];
+  const byCountry = new Map<CountryId, MarketOrder[]>();
+  const openCount = new Map<CountryId, number>();
+  for (const o of Object.values(state.market.orders)) {
+    (byCountry.get(o.country) ?? byCountry.set(o.country, []).get(o.country)!).push(o);
+    if (o.status !== 'open') continue;
+    open.push(o);
+    openCount.set(o.country, (openCount.get(o.country) ?? 0) + 1);
+  }
+  const idx: MarketIndex = { v, seq: state.market.seq, orders: state.market.orders, open, byCountry, openCount, books: new Map() };
+  marketIndexCache.set(state, idx);
+  return idx;
+}
+/** Open orders of one country (count), via the index. */
+export function openOrderCount(state: GameState, country: CountryId): number {
+  return marketIndex(state).openCount.get(country) ?? 0;
+}
+/** Every order record of one country (open and not yet pruned), in record order. Do not mutate. */
+export function ordersOf(state: GameState, country: CountryId): readonly MarketOrder[] {
+  return marketIndex(state).byCountry.get(country) ?? [];
+}
+/** Open orders of one country, in record order. Do not mutate. */
+export function openOrdersOf(state: GameState, country: CountryId): MarketOrder[] {
+  return ordersOf(state, country).filter((o) => o.status === 'open');
+}
+
 function counterOrders(state: GameState, side: 'buy' | 'sell', resource: Resource, country: CountryId, price: number): MarketOrder[] {
   const opp = side === 'buy' ? 'sell' : 'buy';
-  return Object.values(state.market.orders)
-    .filter((o) => o.status === 'open' && o.resource === resource && o.side === opp && o.country !== country && (side === 'buy' ? o.price <= price : o.price >= price))
+  return marketIndex(state)
+    .open.filter((o) => o.status === 'open' && o.resource === resource && o.side === opp && o.country !== country && (side === 'buy' ? o.price <= price : o.price >= price))
     .sort((a, b) => (side === 'buy' ? a.price - b.price : b.price - a.price) || a.seq - b.seq);
 }
 
@@ -72,6 +160,7 @@ export function placeOrderInternal(state: GameState, country: CountryId, side: '
     closedAt: null,
   };
   state.market.orders[o.id] = o;
+  noteOrder(state, o, 'add', false);
   matchOrder(state, o);
   return o;
 }
@@ -118,6 +207,8 @@ function execute(state: GameState, buy: MarketOrder, sell: MarketOrder, qty: num
   state.market.fills.push(f);
   if (state.market.fills.length > 600) state.market.fills.splice(0, state.market.fills.length - 600);
   state.market.lastPrice[res] = price;
+  noteOrder(state, buy, 'update', true);
+  noteOrder(state, sell, 'update', true);
   emit(state, { kind: 'market_fill', category: 'economy', routine: true, private: { ...toAll([buy.country], `Bought ${qty} ${res} at ${(price / 1000).toFixed(3)} (order ${buy.id}).`, { order: buy.id, qty, price }), ...toAll([sell.country], `Sold ${qty} ${res} at ${(price / 1000).toFixed(3)} (order ${sell.id}).`, { order: sell.id, qty, price }) } });
   return f;
 }
@@ -144,33 +235,41 @@ export function cancelOrderInternal(state: GameState, id: string): { released: n
   o.cancelledQty = o.qty - o.filled;
   o.status = 'cancelled';
   o.closedAt = state.clock.tick;
+  noteOrder(state, o, 'update', true);
   return { released, qty: o.cancelledQty };
 }
 
-export interface BookLevel {
-  price: number;
-  qty: number;
-  orders: number;
-}
-export function bookView(state: GameState, resource: Resource): { bids: BookLevel[]; asks: BookLevel[]; last: number | null } {
+/**
+ * Aggregated book of one resource (price levels). Cached per market version and shared between
+ * callers: the result is frozen (read-only).
+ */
+export function bookView(state: GameState, resource: Resource): BookView {
+  const idx = marketIndex(state);
+  const hit = idx.books.get(resource);
+  if (hit) return hit;
   const agg = (side: 'buy' | 'sell') => {
     const m = new Map<number, BookLevel>();
-    for (const o of Object.values(state.market.orders)) {
-      if (o.status !== 'open' || o.resource !== resource || o.side !== side) continue;
+    for (const o of idx.open) {
+      if (o.resource !== resource || o.side !== side) continue;
       const l = m.get(o.price) ?? { price: o.price, qty: 0, orders: 0 };
       l.qty += o.qty - o.filled;
       l.orders++;
       m.set(o.price, l);
     }
-    return [...m.values()].sort((a, b) => (side === 'buy' ? b.price - a.price : a.price - b.price));
+    return Object.freeze([...m.values()].sort((a, b) => (side === 'buy' ? b.price - a.price : a.price - b.price)).map((l) => Object.freeze(l))) as BookLevel[];
   };
-  return { bids: agg('buy'), asks: agg('sell'), last: state.market.lastPrice[resource] ?? null };
+  const b: BookView = Object.freeze({ bids: agg('buy'), asks: agg('sell'), last: state.market.lastPrice[resource] ?? null });
+  idx.books.set(resource, b);
+  return b;
 }
 
 /** Remove closed orders older than `keepMin` minutes to bound save size. */
 export function pruneMarket(state: GameState, keepMin: number): void {
   for (const id of Object.keys(state.market.orders)) {
     const o = state.market.orders[id];
-    if (o.status !== 'open' && o.closedAt !== null && state.clock.tick - o.closedAt > keepMin) delete state.market.orders[id];
+    if (o.status !== 'open' && o.closedAt !== null && state.clock.tick - o.closedAt > keepMin) {
+      delete state.market.orders[id];
+      noteOrder(state, o, 'delete', false);
+    }
   }
 }

@@ -12,6 +12,7 @@ import type { Turn } from './turn';
 import type { Analysis } from './analysis';
 import { resValue } from './value';
 import { km } from './geo';
+import { ASSIST_WINDOW, homeExposed, joinVerdict, parseDefenceRequest, reachFor, trackHelp } from './alliance';
 
 const DAY = 1440;
 const PROPOSAL_COOLDOWN = 3 * DAY;
@@ -30,8 +31,18 @@ function termValue(t: Turn, a: Analysis, other: CountryId, term: OfferTerm, givi
   const border = a.neighbours.get(other) ?? 0;
   if (term.kind === 'resource') {
     const v = resValue(t.ix, { [term.resource]: term.amount } as Partial<Record<Resource, number>>, true);
-    const need = t.mem.plan.shortages.includes(term.resource) ? 1.5 : 1;
-    return { v: (giving ? -v : v * need), label: `${(term.amount / 1000).toFixed(0)} ${term.resource}` };
+    const short = t.mem.plan.shortages.includes(term.resource);
+    const label = `${(term.amount / 1000).toFixed(0)} ${term.resource}`;
+    if (giving) {
+      // sized to what we can actually spare: beyond our surplus it eats the reserve (refuse), from a
+      // genuine surplus it costs less than its reference value, a resource we lack costs more
+      const spare = surplusOf(t, term.resource);
+      if (term.amount > Math.max(spare, (t.res[term.resource]?.stock ?? 0) - t.reserve[term.resource] * 2)) return { v: -(v * 3 + 20), label: `${label} (beyond our reserve)` };
+      return { v: -v * (short ? 1.5 : term.amount <= spare * 0.5 ? 0.8 : 1), label };
+    }
+    // receiving: a shortage is worth more, a resource we already hold in large surplus less
+    const glut = !short && surplusOf(t, term.resource) > term.amount * 4;
+    return { v: v * (short ? 1.5 : glut ? 0.6 : 1), label };
   }
   if (term.kind === 'status') {
     const lvl = term.level === 'shared_intel' ? 1.5 : 1;
@@ -161,6 +172,8 @@ function operationRequests(t: Turn, a: Analysis): void {
       if (m.intent !== 'coordinate' && m.intent !== 'request_operation') continue;
       if (t.now - m.at > 2 * DAY) { t.mem.handledMessages.push(m.id); continue; }
       t.mem.handledMessages.push(m.id);
+      const isCoalitionThread0 = thread.startsWith('co:');
+      if (defenceRequest(t, a, m, isCoalitionThread0)) continue;
       const words = `${m.text} ${m.reason ?? ''}`.match(/\b[A-Z]{3}\b/g) ?? [];
       const target = words.find((w) => w !== m.from && w !== t.me && t.rel.has(w)) ?? null;
       const isCoalitionThread = thread.startsWith('co:');
@@ -194,6 +207,44 @@ function operationRequests(t: Turn, a: Analysis): void {
       t.add({ type: 'sendMessage', country: t.me, to: to as CountryId, intent: accept ? 'accept' : 'decline', reason }, 'reply', accept ? 'accept_operation' : 'decline_operation', reason);
     }
   }
+}
+
+/**
+ * A partner asks us to help defend one of its cities. Coalition partners (bot or human) get an
+ * honest assessment: own capital first, broken commitments remembered, reach through own /
+ * coalition / passage territory, spare formations, and whether help can still matter. An accepted
+ * request becomes an `assist` promise the operational layer honours for two days.
+ */
+function defenceRequest(t: Turn, a: Analysis, m: { id: string; from: CountryId; text: string; reason: string | null }, coalitionThread: boolean): boolean {
+  const req = parseDefenceRequest(t, m.from, `${m.reason ?? ''} ${m.text}`);
+  if (!req) return false;
+  const partner = !!t.rel.get(m.from)?.sameCoalition;
+  const home = homeExposed(a);
+  const griev = t.mem.grievance[m.from] ?? 0;
+  const pc = req.node !== null ? t.view.publicCities.find((c) => c.node === req.node) : undefined;
+  const where = pc?.name ?? (req.node !== null ? `node ${req.node}` : 'the named city');
+  let accept = false;
+  let reason: string;
+  let verdict: ReturnType<typeof joinVerdict> | undefined;
+  if (!partner) reason = `we have no mutual-defence commitment with ${m.from}`;
+  else if (req.node === null) reason = 'no city of yours we can reach was named';
+  else if (home.exposed) reason = `our capital ${t.view.cities.find((c) => c.key === home.key)?.name ?? home.key} is exposed (observed hostile strength ${home.threat!.toFixed(0)} vs ${home.present!.toFixed(0)} defending); our forces stay home`;
+  else if (griev >= 25) reason = `${m.from} did not honour earlier commitments (grievance ${griev.toFixed(0)})`;
+  else {
+    const { list, spare } = reachFor(t, a, req.node, t.view.stacks.filter((s) => s.moveClass === 'ground'));
+    if (!list.length) reason = `none of our spare formations can reach ${where}`;
+    else if (req.threat > spare * 3 + t.ix.avgGround * 4) reason = `the forces we could send (${spare.toFixed(0)}) cannot turn the battle at ${where} (hostile ${req.threat.toFixed(0)})`;
+    else if (!(verdict = joinVerdict(t, a, m.from, req.foe)).ok) reason = `we cannot join this fight: ${verdict.reason}`;
+    else {
+      accept = true;
+      reason = `we will help defend ${where}: ${list.length} spare formation(s), nearest ${list[0].hops} hop(s) away`;
+      t.mem.assist.push({ partner: m.from, node: req.node, foe: req.foe, threat: req.threat, until: t.now + ASSIST_WINDOW, msg: m.id });
+    }
+  }
+  const fromLeader = coalitionThread && t.view.coalitions.find((c) => c.id === t.view.myCoalition)?.leader === m.from;
+  t.note('reply', accept ? 'accept_defence' : 'decline_defence', `${m.from} → ${where}`, reason);
+  t.add({ type: 'sendMessage', country: t.me, to: (coalitionThread && fromLeader ? 'coalition' : m.from) as CountryId, intent: accept ? 'accept' : 'decline', reason }, 'reply', accept ? 'accept_defence' : 'decline_defence', reason);
+  return true;
 }
 
 function cooled(t: Turn, key: string): boolean {
@@ -231,6 +282,13 @@ function proposals(t: Turn, a: Analysis): void {
     if (propose(t, a, e, [{ kind: 'peace' }], [], 'peace', losing ? 'the war is costing us territory' : weaker ? `${e} is stronger (${(a.power(e) / a.myPower).toFixed(1)}×)` : 'the war has stalled')) made++;
   }
   if (made >= maxMade || t.full) return;
+  // a critical shortage (< 48 h of stock) puts a sized trade ahead of coalition/passage business
+  let traded = false;
+  if (mem.plan.shortages.some((r) => r !== 'money' && (t.res[r]?.hoursToDepletion ?? 1e9) < 48)) {
+    traded = true;
+    if (tradeProposal(t, a)) made++;
+    if (made >= maxMade || t.full) return;
+  }
 
   const coalitionId = v.myCoalition;
   // 2. coalition policy: small/threatened states seek a bloc; established peers found one
@@ -322,25 +380,106 @@ function proposals(t: Turn, a: Analysis): void {
   }
   if (made >= maxMade || t.full) return;
 
-  // 5. trade agreement: swap a surplus for a shortage with a trusted partner
-  const short = mem.plan.shortages.filter((x) => x !== 'money');
-  if (short.length && (a.small || p.trade > 0.5)) {
-    const need = short[0];
-    const surplus = (['supplies', 'components', 'fuel', 'manpower', 'electronics', 'rare'] as Resource[]).filter((x) => x !== need && !mem.plan.shortages.includes(x) && (t.res[x]?.stock ?? 0) > t.reserve[x] * 4 + 100_000).sort((x, y) => (t.res[y]?.stock ?? 0) * (t.ix.price[y] ?? 1) - (t.res[x]?.stock ?? 0) * (t.ix.price[x] ?? 1))[0];
-    const partner = v.relations.filter((r) => r.alive && !r.war && r.trust >= 0).sort((x, y) => y.trust - x.trust || (x.country < y.country ? -1 : 1))[0];
-    if (surplus && partner) {
-      const wantQty = 100_000;
-      const giveQty = Math.ceil(((wantQty / 1000) * (t.ix.price[need] ?? 1) * 1.1) / (t.ix.price[surplus] ?? 1)) * 1000;
-      if (giveQty <= (t.res[surplus]?.stock ?? 0) - t.reserve[surplus]) {
-        if (propose(t, a, partner.country, [{ kind: 'resource', resource: surplus, amount: giveQty }], [{ kind: 'resource', resource: need, amount: wantQty }], 'trade', `trade ${surplus} surplus for ${need} (shortage forecast)`)) made++;
-      }
+  // 5. trade agreement sized to the forecast deficit and our actual surplus
+  if (!traded && tradeProposal(t, a)) made++;
+}
+
+const TRADE_RESOURCES: Resource[] = ['supplies', 'components', 'fuel', 'manpower', 'electronics', 'rare', 'money'];
+const MIN_TRADE = 10_000; // 10 whole units: smaller gaps are left to the market
+/** Value premium we pay over the reference price of what we receive (makes a sized swap attractive). */
+const TRADE_PREMIUM = 1.25;
+const TRADE_COOLDOWN = 2 * DAY;
+
+/** Public market demand for a resource: best bid (else last trade) vs reference, 0.5 when the book is a glut. */
+export function demandOf(t: Turn, r: Resource): number {
+  if (r === 'money') return 1;
+  const b = t.view.market.books[r];
+  if (!b) return 1;
+  if (b.asks.length >= 4 && !b.bids.length) return 0.5;
+  const ref = (t.ix.price[r] ?? 1) * 1000;
+  const px = b.bids[0]?.price ?? b.last;
+  return px ? Math.max(0.5, Math.min(2, px / ref)) : 1;
+}
+
+/** Planning horizon (days) for trade sizing: the difficulty's forecast lookahead × 3 (3–9 days). */
+export function tradeHorizonDays(t: Turn): number {
+  return Math.max(3, Math.min(9, (t.diff.forecastHours / 24) * 3));
+}
+
+/** Forecast deficit (milli) of a resource over the horizon: daily burn plus refilling the upkeep reserve. */
+export function deficitOf(t: Turn, r: Resource): number {
+  const s = t.res[r];
+  if (!s) return 0;
+  const h = tradeHorizonDays(t);
+  let gap = Math.max(0, -s.netPerDay) * h + Math.max(0, t.reserve[r] - s.stock);
+  if (gap <= 0) gap = Math.max(0, s.consumptionPerDay * 2 - s.stock);
+  return Math.ceil(gap / 1000) * 1000;
+}
+
+/** Surplus (milli) we can give without endangering our own horizon: stock beyond reserve, burn and buffer. */
+export function surplusOf(t: Turn, r: Resource): number {
+  const s = t.res[r];
+  if (!s || t.mem.plan.shortages.includes(r)) return 0;
+  if (r === 'money' && s.netPerDay < 0) return 0;
+  const h = tradeHorizonDays(t);
+  const keep = Math.max(t.reserve[r] * 3, s.consumptionPerDay * h) + Math.max(0, -s.netPerDay) * h;
+  return Math.max(0, Math.floor((t.budget[r] - keep) / 1000) * 1000);
+}
+
+/**
+ * Terms of a trade for our most urgent shortage: receive what covers the forecast deficit, pay
+ * with up to two surpluses at market value (≤ reference) for reference value + 25 % of what we receive
+ * (surpluses the market bids for first); scaled down
+ * when our surplus cannot pay for the whole gap. Null when there is nothing worth a treaty.
+ */
+export function tradeTerms(t: Turn): { need: Resource; want: number; give: { resource: Resource; amount: number }[]; deficit: number } | null {
+  const short = t.mem.plan.shortages.filter((x) => x !== 'money').map((r) => ({ r, d: deficitOf(t, r) })).filter((x) => x.d >= MIN_TRADE);
+  if (!short.length) return null;
+  short.sort((x, y) => (t.res[x.r]?.hoursToDepletion ?? 1e9) - (t.res[y.r]?.hoursToDepletion ?? 1e9) || y.d * (t.ix.price[y.r] ?? 1) - x.d * (t.ix.price[x.r] ?? 1) || (x.r < y.r ? -1 : 1));
+  const { r: need, d: deficit } = short[0];
+  const pNeed = (t.ix.price[need] ?? 1) * TRADE_PREMIUM;
+  // pay first with the surpluses the market wants (public books: best bid / last vs reference price)
+  const sur = TRADE_RESOURCES.filter((x) => x !== need).map((x) => ({ x, q: surplusOf(t, x), p: t.ix.price[x] ?? 1, d: demandOf(t, x) })).filter((x) => x.q >= 1000).sort((u, w) => w.q * w.p * w.d - u.q * u.p * u.d || (u.x < w.x ? -1 : 1)).slice(0, 2);
+  if (!sur.length) return null;
+  // a resource the market does not want is worth less to the partner too: pay at market value (≤ reference)
+  const unit = (x: { p: number; d: number }) => x.p * Math.min(1, x.d);
+  const payable = Math.min((deficit / 1000) * pNeed, sur.reduce((s, x) => s + (x.q / 1000) * unit(x), 0));
+  const want = Math.floor(payable / pNeed) * 1000;
+  if (want < MIN_TRADE) return null;
+  let left = (want / 1000) * pNeed;
+  const give: { resource: Resource; amount: number }[] = [];
+  for (const x of sur) {
+    if (left <= 0) break;
+    const qty = Math.min(x.q, Math.ceil(left / unit(x)) * 1000);
+    if (qty < 1000) continue;
+    give.push({ resource: x.x, amount: qty });
+    left -= (qty / 1000) * unit(x);
+  }
+  if (left > 0.5) return null;
+  return { need, want, give, deficit };
+}
+
+function tradeProposal(t: Turn, a: Analysis): boolean {
+  if (!(a.small || t.personality.trade > 0.5 || t.mem.plan.shortages.some((r) => (t.res[r]?.hoursToDepletion ?? 1e9) < 48))) return false;
+  if ((t.mem.cooldown['trade'] ?? 0) > t.now) return false;
+  const terms = tradeTerms(t);
+  if (!terms) return false;
+  const partners = t.view.relations.filter((r) => r.alive && !r.war && r.trust >= 0 && (t.mem.grievance[r.country] ?? 0) < 20).sort((x, y) => Number(y.sameCoalition) - Number(x.sameCoalition) || y.trust - x.trust || (x.country < y.country ? -1 : 1)).slice(0, 3);
+  const gives = terms.give.map((g) => `${g.amount / 1000} ${g.resource}`).join(' + ');
+  const reason = `cover ${terms.need} deficit of ${terms.deficit / 1000} over ${tradeHorizonDays(t)} days: receive ${terms.want / 1000} for ${gives} from our surplus`;
+  for (const r of partners) {
+    if (propose(t, a, r.country, terms.give.map((g) => ({ kind: 'resource' as const, resource: g.resource, amount: g.amount })), [{ kind: 'resource', resource: terms.need, amount: terms.want }], 'trade', reason)) {
+      t.mem.cooldown['trade'] = t.now + TRADE_COOLDOWN;
+      return true;
     }
   }
+  return false;
 }
 
 export function diplomaticReplies(t: Turn, a: Analysis): void {
   respond(t, a);
   operationRequests(t, a);
+  trackHelp(t);
 }
 export function diplomaticReview(t: Turn, a: Analysis): void {
   proposals(t, a);

@@ -11,7 +11,7 @@ import { cancelJobInternal } from './production';
 import { canSee } from './visibility';
 import { emit, toAll } from './events';
 import { joinCoalitionInternal, removeMember } from './coalitions';
-import { cancelOrderInternal } from './market';
+import { cancelOrderInternal, openOrdersOf } from './market';
 import { coalitionOf, cmpId, utype , sortedStacks } from './world';
 
 export function destroyStack(state: GameState, s: Stack, by: CountryId | null): void {
@@ -72,7 +72,7 @@ export function checkEliminations(state: GameState): void {
     cs.alive = false;
     cs.eliminatedAt = state.clock.tick;
     for (const j of [...cs.jobs]) cancelJobInternal(state, c, j.id, 'country eliminated');
-    for (const o of Object.values(state.market.orders)) if (o.country === c && o.status === 'open') cancelOrderInternal(state, o.id);
+    for (const o of openOrdersOf(state, c)) cancelOrderInternal(state, o.id);
     cs.research = [];
     state.queue = state.queue.filter((e) => !(e.kind === 'research_done' && e.country === c));
     for (const s of Object.values(state.stacks)) if (s.owner === c) delete state.stacks[s.id];

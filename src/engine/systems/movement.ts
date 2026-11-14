@@ -372,8 +372,24 @@ export function revalidateRoute(state: GameState, s: Stack): void {
     const m = S(state).map;
     const where = m.data.nodes[seg.to].name;
     if (i === 0 && s.pos.kind === 'edge' && s.pos.to === seg.to) {
-      // turn back along the same edge to the last legal node
       const p = s.pos;
+      const back = evalEdge(state, ctx, p.edge, p.to, p.from);
+      if (!back.ok) {
+        // Both ends of the edge are now illegal (e.g. inside a former enemy after peace): turning
+        // back would only be revoked again next step. Settle once on the NEARER endpoint (ties:
+        // ahead) and finish that edge; the rule is idempotent (the chosen end stays the nearer one),
+        // so it is re-derived identically after a reload and never flip-flops.
+        const ahead = p.length - p.progress <= p.progress;
+        const settleAt = ahead ? p.to : p.from;
+        if (o.route.length === 1 && o.dest === settleAt && (ahead || o.route[0].to === p.from)) return;
+        if (!ahead) s.pos = { kind: 'edge', from: p.to, to: p.from, edge: p.edge, progress: Math.max(0, p.length - p.progress), length: p.length };
+        o.route = [ahead ? { ...seg } : { from: p.to, to: p.from, edge: p.edge, mode: s.mode }];
+        o.dest = settleAt;
+        o.waypoints = [];
+        stopWithEvent(state, s, `route into ${where} is no longer legal (${v.detail ?? v.reason}) and the way back is closed too; halting at ${m.data.nodes[settleAt].name}.`, 'route_revoked');
+        return;
+      }
+      // turn back along the same edge to the last legal node
       s.pos = { kind: 'edge', from: p.to, to: p.from, edge: p.edge, progress: Math.max(0, p.length - p.progress), length: p.length };
       o.route = [{ from: p.to, to: p.from, edge: p.edge, mode: s.mode }];
       o.dest = p.from;

@@ -113,6 +113,40 @@ export interface AiMemory {
   lastOperational?: number;
   /** End-of-call snapshot: no war, no rebel province, no unhandled request ⇒ operational-only calls are no-ops. */
   quietOk?: boolean;
+  /** Mutual defence: forces we sent to a coalition partner's threatened city (partner → last commitment). */
+  commitments: Record<CountryId, AllyCommitment>;
+  /** Assistance we promised in reply to a partner's request (honoured by the operational layer until `until`). */
+  assist: AssistPromise[];
+  /** Our own call for help while our capital is exposed: who promised, who actually arrived. */
+  help: HelpCall | null;
+}
+
+export interface AllyCommitment {
+  node: NodeId;
+  at: number;
+  until: number;
+  /** Ground power committed (estimate). */
+  power: number;
+  stacks: string[];
+}
+export interface AssistPromise {
+  partner: CountryId;
+  node: NodeId;
+  foe: CountryId | null;
+  /** Hostile strength stated by the partner (or a prior), used when our own sensors see less. */
+  threat: number;
+  until: number;
+  msg: string;
+}
+export interface HelpCall {
+  at: number;
+  node: NodeId;
+  foe: CountryId | null;
+  until: number;
+  /** Partners that replied "accept" to the request. */
+  accepted: CountryId[];
+  /** Partners whose ground forces were observed near the threatened city during the window. */
+  arrived: CountryId[];
 }
 
 export interface DecisionEntry {

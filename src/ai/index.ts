@@ -110,8 +110,10 @@ export function wantsCall(info: { reviews: readonly string[]; wake: readonly str
 }
 
 /** The utility planner. One stateless instance serves every country (state lives in ctx.memory). */
-export const UtilityController: CountryController & { wants: typeof wantsCall } = {
+export const UtilityController: CountryController & { wants: typeof wantsCall; liteView: true } = {
   wants: wantsCall,
+  // the planner never reads self.force / self.lift / observedNodes / sensor radii / myFills
+  liteView: true,
   decide(view: CountryView, ctx: PlannerContext): Command[] {
     const t0 = nowMs();
     try {
@@ -130,6 +132,8 @@ export default UtilityController;
 /** A controller pinned to a difficulty (planning effort only), regardless of the campaign setting. */
 export function controllerWithDifficulty(d: AiDifficulty): CountryController {
   return {
+    wants: wantsCall,
+    liteView: true,
     decide(view, ctx) {
       return UtilityController.decide(view, { ...ctx, difficulty: d });
     },

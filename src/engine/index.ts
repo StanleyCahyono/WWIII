@@ -14,7 +14,7 @@ export { advance, stepOnce, advanceToNextEvent, isReviewMode } from './sim';
 export { submitCommand, validateCommand, previewCommand, applyCommand, COMMAND_TYPES } from './commands/index';
 export type { Command, CommandResult, Validation, CommandType, CommandOf, AirBase } from './commands/types';
 
-export { getCountryView, getCountryViews, projectContact, type CountryView, type ContactView, type PublicCity, type StackView, type DiplomacyRow } from './view/country-view';
+export { getCountryView, getCountryViews, projectContact, type ViewOptions, type CountryView, type ContactView, type PublicCity, type StackView, type DiplomacyRow } from './view/country-view';
 export {
   ledgerModel,
   forecastModel,
@@ -34,7 +34,7 @@ export {
 export { serialize, deserialize, validateState, migrate, MIGRATIONS, stateHash, cloneState, markSaved, revisionConflict, SaveError, SAVE_FORMAT, addDrawing, renameDrawing, setDrawingHidden, deleteDrawing, setPref } from './save/index';
 export { computeOpeningPower, rawDimensions, OpeningPowerConfigError, REFERENCE_COUNTRY } from './power';
 
-export type { CountryController, PlannerContext, ControllerRegistry, SimHost } from './ai-host/types';
+export type { CountryController, PlannerContext, ControllerRegistry, SimHost, WantsInfo } from './ai-host/types';
 export { IdleController, BasicController } from './ai-host/controllers';
 export { setDefaultHost, getDefaultHost } from './ai-host/scheduler';
 
