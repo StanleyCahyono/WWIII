@@ -28,6 +28,17 @@ interface CityRow {
 interface BulkRow { target: string | number; name: string; ok: boolean; code?: string; reason?: string; level?: number; cost?: Record<string, number>; startTick?: number; durationMin?: number; queuePosition?: number; warning?: string }
 interface BulkPreview { rows: BulkRow[]; eligible: number; total: Record<string, number>; token: string }
 
+/** Ships, submarines and naval officers need a harbour; a non-coastal site never offers them. */
+export function isNavalUnit(id: string): boolean {
+  const d = unitById.get(id)?.domain;
+  return d === 'sea' || d === 'subsurface';
+}
+/** True when the city or province sits on the coast (naval units and coastal-only buildings are possible). */
+export function siteIsCoastal(target: string | number): boolean {
+  const node = typeof target === 'number' ? target : MAP.cityByKey.get(target)?.node;
+  return node !== undefined && !!NODES[node]?.coastal;
+}
+
 type SortKey = 'name' | 'status' | 'tier' | 'vp' | 'population' | 'morale' | 'netValue' | 'jobs';
 
 export function CitiesPanel({ arg }: { arg: { city?: string; tab?: string; node?: number } | null }) {
@@ -66,6 +77,8 @@ function CityList() {
     </th>
   );
   const allChecked = rows.length > 0 && rows.every((r) => checked.has(r.key));
+  // A nation without a single coastal city (landlocked) is never offered naval projects.
+  const anyCoastal = frame.view.cities.some((c) => !!NODES[c.node]?.coastal);
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   const doPreview = async () => {
     if (!project) return;
@@ -98,14 +111,14 @@ function CityList() {
         <select id="bulk-project" value={project} onChange={(e) => setProject(e.target.value)} data-testid="bulk-project">
           <option value="">Choose a project…</option>
           <optgroup label="Construct">
-            {CATALOG.buildings.filter((b) => b.scope === 'city').map((b) => (
+            {CATALOG.buildings.filter((b) => b.scope === 'city' && (anyCoastal || !b.coastalOnly)).map((b) => (
               <option key={b.id} value={`b:${b.id}`}>
                 {b.name}
               </option>
             ))}
           </optgroup>
           <optgroup label="Mobilize">
-            {CATALOG.units.map((u) => (
+            {CATALOG.units.filter((u) => anyCoastal || !isNavalUnit(u.id)).map((u) => (
               <option key={u.id} value={`u:${u.id}`}>
                 {u.name}
               </option>
@@ -481,7 +494,15 @@ function BuildCatalog({ target }: { target: string | number }) {
   const frame = useFrame()!;
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   if (!q.data) return <p className="muted">Loading…</p>;
+  const coastal = siteIsCoastal(target);
+  const shown = q.data.filter((o) => coastal || !buildingById.get(o.id)?.coastalOnly);
   return (
+    <>
+    {!coastal && (
+      <p className="muted" style={{ margin: 0, fontSize: 12.5 }} data-testid="no-naval-note">
+        {placeName(typeof target === 'number' ? target : MAP.cityByKey.get(target)?.node)} is not on the coast: coastal-only construction such as a naval base is not offered here.
+      </p>
+    )}
     <table className="data" data-testid="build-catalog">
       <thead>
         <tr>
@@ -493,7 +514,7 @@ function BuildCatalog({ target }: { target: string | number }) {
         </tr>
       </thead>
       <tbody>
-        {q.data.map((o) => (
+        {shown.map((o) => (
           <tr key={o.id}>
             <td>
               {o.name}
@@ -513,6 +534,7 @@ function BuildCatalog({ target }: { target: string | number }) {
         ))}
       </tbody>
     </table>
+    </>
   );
 }
 
@@ -522,9 +544,16 @@ function UnitCatalog({ cityKey }: { cityKey: string }) {
   const [showAll, setShowAll] = useState(false);
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   if (!q.data) return <p className="muted">Loading…</p>;
-  const list = showAll ? q.data : q.data.filter((o) => o.ok || !/research|unlock|blueprint/i.test(o.reason ?? ''));
+  const coastal = siteIsCoastal(cityKey);
+  const sited = coastal ? q.data : q.data.filter((o) => !isNavalUnit(o.id));
+  const list = showAll ? sited : sited.filter((o) => o.ok || !/research|unlock|blueprint/i.test(o.reason ?? ''));
   return (
     <div className="col">
+      {!coastal && (
+        <p className="muted" style={{ margin: 0, fontSize: 12.5 }} data-testid="no-naval-note">
+          {MAP.cityByKey.get(cityKey)?.name ?? 'This city'} is not on the coast: ships and submarines cannot be mobilized here.
+        </p>
+      )}
       <label className="row" style={{ gap: 6 }}>
         <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
         Show units still locked by research

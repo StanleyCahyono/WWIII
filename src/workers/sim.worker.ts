@@ -435,6 +435,12 @@ async function handle(req: Request): Promise<unknown> {
       pushFrame();
       return r;
     }
+    case 'debugMarketOrder': {
+      if (!debugEnabled || !state || !viewer) throw new Error('Debug operations are disabled.');
+      const r = A.debugMarketOrder(state, viewer, req.side, req.resource, req.qty, req.price);
+      pushFrame();
+      return r;
+    }
     case 'debugEnable':
       debugEnabled = true;
       return { ok: true };

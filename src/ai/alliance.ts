@@ -72,7 +72,8 @@ export function partnerSites(t: Turn, a: Analysis): AllySite[] {
         continue;
       }
       if (o === t.me) continue;
-      if (n !== node && km(g, n, node) > RADIUS_KM) continue;
+      // cheap latitude pre-filter (3° ≈ 333 km) before the great-circle distance
+      if (n !== node && (Math.abs(g.lat[n] - g.lat[node]) > 3 || km(g, n, node) > RADIUS_KM)) continue;
       const inside = v.owners[n] === partner;
       const hostile = o ? enemies.has(o) || !!namedFoes.get(partner)?.has(o) || inside : inside;
       if (!hostile) continue;

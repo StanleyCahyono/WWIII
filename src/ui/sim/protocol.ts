@@ -131,7 +131,9 @@ export type Request =
   | { op: 'debugEnable' }
   | { op: 'debugContact' }
   | { op: 'debugMissileSetup'; missile?: string }
-  | { op: 'debugEngage' };
+  | { op: 'debugEngage' }
+  /** Test-only: a computer country submits an ordinary validated market order (same command path as every bot). */
+  | { op: 'debugMarketOrder'; side: 'buy' | 'sell'; resource: string; qty: number; price: number };
 
 export type QueryName =
   | 'cityList'

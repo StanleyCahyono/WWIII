@@ -347,6 +347,20 @@ export function debugEngage(state: GameState, viewer: string) {
   return { stack: mine.id, foeOwner: foe.owner, node, name: sc.map.nodes[node].name };
 }
 
+/**
+ * Test-only: the richest live computer country (by the asset it must reserve) submits an ordinary
+ * market order through the shared validator — no state is written directly.
+ */
+export function debugMarketOrder(state: GameState, viewer: string, side: 'buy' | 'sell', resource: string, qty: number, price: number) {
+  const pay = side === 'buy' ? 'money' : resource;
+  const cands = Object.keys(state.countries)
+    .filter((c) => c !== viewer && state.countries[c].alive !== false)
+    .sort((a, b) => ((state.countries[b].stock as Record<string, number>)[pay] ?? 0) - ((state.countries[a].stock as Record<string, number>)[pay] ?? 0) || a.localeCompare(b));
+  const country = cands[0];
+  const r = E.submitCommand(state, { type: 'marketOrder', country, side, resource, qty, price } as Command);
+  return { country, ok: r.ok, reason: r.ok ? null : (r as { reason: string }).reason };
+}
+
 export function buildingName(id: string): string {
   return buildingById.get(id)?.name ?? id;
 }

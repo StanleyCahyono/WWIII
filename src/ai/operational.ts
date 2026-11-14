@@ -147,6 +147,7 @@ function air(t: Turn, a: Analysis): void {
   if (!planes.length) return;
   const threatened = a.cities.filter((c) => c.threat > 0).sort((x, y) => y.threat - x.threat);
   const front = Object.values(t.mem.tasks).filter((x) => x.kind === 'attack').map((x) => x.dest);
+  const rebasedTo = new Set<NodeId>();
   for (const s of planes.slice(0, 2)) {
     if (t.full) return;
     const base = 'node' in (s.air!.home) ? (s.air!.home as { node: NodeId }).node : null;
@@ -157,8 +158,12 @@ function air(t: Turn, a: Analysis): void {
     const r = t.add({ type: 'patrol', country: t.me, stack: s.id, center: focus }, 'operational', 'air_patrol', threatened.length ? `cover threatened city at node ${focus}` : `support attack at node ${focus}`);
     if (!r && base !== null && d > 300) {
       // out of range: rebase to the own city nearest the focus
-      const cand = v.cities.filter((c) => c.node !== base).sort((x, y) => km(g, x.node, focus) - km(g, y.node, focus) || (x.key < y.key ? -1 : 1))[0];
-      if (cand) t.add({ type: 'rebase', country: t.me, stack: s.id, base: { node: cand.node } }, 'operational', 'air_rebase', `rebase closer to the front (${Math.round(km(g, cand.node, focus))} km)`);
+      // one rebase per airfield per batch: previews run against the pre-batch slot usage
+      const cand = v.cities.filter((c) => c.node !== base && !rebasedTo.has(c.node)).sort((x, y) => km(g, x.node, focus) - km(g, y.node, focus) || (x.key < y.key ? -1 : 1))[0];
+      if (cand && t.add({ type: 'rebase', country: t.me, stack: s.id, base: { node: cand.node } }, 'operational', 'air_rebase', `rebase closer to the front (${Math.round(km(g, cand.node, focus))} km)`)) {
+        rebasedTo.add(cand.node);
+        t.movedStacks.add(s.id);
+      }
     }
     void ll;
   }
