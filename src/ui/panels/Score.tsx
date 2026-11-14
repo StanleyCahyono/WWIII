@@ -82,8 +82,12 @@ export function ScorePanel() {
           </tr>
         </thead>
         <tbody>
-          {b.standings.slice(0, 25).map((e, i) => (
-            <tr key={e.id} className={e.members.includes(frame.view.viewer) ? 'sel' : ''}>
+          {b.standings
+            .map((e, i) => ({ e, i }))
+            // the top 25, plus the player's own entry with its real rank when it ranks lower
+            .filter(({ e, i }) => i < 25 || e.members.includes(frame.view.viewer))
+            .map(({ e, i }) => (
+            <tr key={e.id} className={e.members.includes(frame.view.viewer) ? 'sel' : ''} aria-current={e.members.includes(frame.view.viewer) ? 'true' : undefined}>
               <td className="num">{i + 1}</td>
               <td>
                 {e.kind === 'coalition' ? '◆ ' : ''}

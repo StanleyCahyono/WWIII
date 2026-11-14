@@ -415,6 +415,7 @@ test.describe('management screens (desktop)', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await page.getByLabel('War declared on me').uncheck();
     await page.getByLabel('Monochrome unit symbols (frame shapes carry affiliation)').check();
+    await page.getByLabel('Sound cues (local, off by default)').check();
     await page.getByTestId('catchup-toggle').check();
     await page.getByLabel('Maximum').fill('2');
     await page.reload();
@@ -422,6 +423,7 @@ test.describe('management screens (desktop)', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(page.getByLabel('War declared on me')).not.toBeChecked();
     await expect(page.getByLabel('Monochrome unit symbols (frame shapes carry affiliation)')).toBeChecked();
+    await expect(page.getByLabel('Sound cues (local, off by default)')).toBeChecked();
     await expect(page.getByTestId('catchup-toggle')).toBeChecked();
     await expect(page.getByLabel('Maximum')).toHaveValue('2');
     await page.getByRole('button', { name: '← Back' }).click();
@@ -433,6 +435,7 @@ test.describe('management screens (desktop)', () => {
     await page.getByRole('button', { name: 'Diagnostics' }).click();
     await expect(page.getByTestId('app-version')).not.toBeEmpty();
     await expect(page.locator('main')).toContainText('Save format version');
+    await expect(page.locator('dt:has-text("Last successful save") + dd')).toHaveText('none this session');
     await expect(page.locator('main')).toContainText('Not applicable — fully local, no server');
     await expect(page.getByLabel('Error report (copy and keep with your exported save)')).toHaveValue(/World Command .*\nUser agent/);
     await page.getByRole('button', { name: '← Back' }).click();
@@ -448,6 +451,8 @@ test.describe('management screens (desktop)', () => {
     expect(tick).toBeGreaterThanOrEqual(3);
     expect(tick).toBeLessThanOrEqual(120);
     await expect(page.getByTestId('pause-toggle')).toHaveAttribute('aria-pressed', 'false');
+    // the summary names the simulated time and the cap (never "0 game hours")
+    await expect(page.getByTestId('toasts')).toContainText(`Catch-up: simulated ${tick} min of closed-app game time (maximum 2 h). Paused.`);
     // in-game settings dialog exposes the same preferences
     await page.getByTestId('game-menu').click();
     await page.getByRole('button', { name: 'Settings' }).click();

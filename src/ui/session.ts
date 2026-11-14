@@ -5,6 +5,7 @@ import { prefs, setPrefs } from './persist/prefs';
 import { getCampaign, newId, type CampaignMeta } from './persist/db';
 import { MAP, countryName } from './data/static';
 import { SPEED_BASE } from './sim/protocol';
+import { duration } from './format';
 
 export function centerOnCapital(country: string | null | undefined, zoom = 18) {
   if (!country) return;
@@ -53,7 +54,7 @@ export async function openCampaign(id: string, opts: { readOnly?: boolean; takeO
     await host.setClock({ paused: true, speed: p.speed, interrupts: p.interrupts });
     centerOnCapital(meta?.nation ?? host.store.get().frame?.meta.humanCountry, 18);
     ui.patch({ screen: 'game', briefingOpen: false });
-    if (r.caughtUp > 0) toast({ text: `Catch-up: simulated ${Math.round(r.caughtUp / 60)} game hours of closed-app time (maximum ${p.catchUp.maxHours} h). Paused.`, node: null, kind: 'catchup', level: 'info' });
+    if (r.caughtUp > 0) toast({ text: `Catch-up: simulated ${duration(r.caughtUp)} of closed-app game time (maximum ${p.catchUp.maxHours} h). Paused.`, node: null, kind: 'catchup', level: 'info' });
     if (r.reviewMode) ui.patch({ panel: 'end' });
     if (opts.readOnly) toast({ text: 'Opened read-only: another tab is writing this campaign. Nothing you do here will be saved.', node: null, kind: 'readonly', level: 'warn' });
     return { ok: true };

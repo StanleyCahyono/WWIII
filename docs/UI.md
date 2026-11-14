@@ -132,10 +132,14 @@ main thread (React 18)                         Web Worker (src/workers/sim.worke
 | `e2e/mobile-keyboard.spec.ts` | A12 on iPhone 13 viewport, keyboard only: title → campaign → city → mobilize → Esc restores focus → Forces list → move preview/confirm → Stop → advance hour |
 | `e2e/military.spec.ts` | Missiles research (test hook) → production job → ready → launch dialog (4 outcomes, headline) → in flight with origin → report in viewer terms; contact-sheet launch shortcut (disabled with a reason without inventory, then opens the validated dialog with the contact's sector preselected; cancel commits nothing); aircraft patrol preview → on station → landed → rebase → new home; retreat with forecast HP cost (test hook engages a foreign stack); intelligence agent mission + purchased report |
 | `e2e/perf.spec.ts` | Map input response / pan fps probe with 2,000 synthetic render-only stacks |
+| `e2e/walkthroughs.spec.ts` | W08 walkthroughs (desktop). **U.S.**: force screen separates fielded/ready/committed; day-1 research tree shows Sealift I time-locked "Available from day 4"; Norfolk construction, Washington MBT mobilization, right-of-way request to Canada, homeland move, carrier air wing rebased onto its carrier then patrols from it; outcomes verified (arrival, +1 MBT, building level, bot answer); day 4 Sealift I researched → lift +4; save/reload identical. **Bolivia (5 days)**: no naval project/unit/building/embark anywhere; mobilize, move, economic report + 24 h forecast checked against the real outcome; market buy crossing a computer ask; accept an incoming bot offer (no second accept); apply to a computer coalition; score panel; save/reload identical. **Indonesia (3 days)**: research, Surabaya naval base, fleet to a sea zone, 24 h forecast, four newspaper editions, save/reload |
+| `e2e/screens.spec.ts` | Annex A walkthrough 5 (market sell order → partial computer fill via `debugMarketOrder` → abort the rest → stock/escrow/cash/history reconcile before and after reload); coalition create/details/thread/leave with 24 h notice; journal (day groups, five filters, event detail, notification history + Go) and toasts (jump-to, dismiss, clock unaffected); newspaper (no future edition, previous/next, nation index, anonymous plain-text statement); unit dossier; split/merge conservation and fire control; tutorial skip/reopen/auto-complete/persisted; archive/restore/delete; settings persistence, credits, diagnostics, closed-app catch-up |
+| `e2e/mobile-touch.spec.ts` | iPhone 13, taps only: mobile worked interaction (as E-worked); W10 touch pass in monochrome (locate a ship formation by symbol meaning "friendly surface" + SIDC check, planned vs present via APP-6 status digit and "Planned" label, dated radar contact without hidden type); narrow-width dossier selectors |
+| `e2e/visual.spec.ts` | `toHaveScreenshot` of the map canvas: crowded Europe (2,000 deterministic synthetic stacks, four affiliations) at regional and local zoom, Surabaya at regional and local zoom (baselines in `e2e/visual.spec.ts-snapshots/`, maxDiffPixelRatio 1 %); symbol-gallery manifest regenerated in memory (`e2e/gallery-manifest.mts`) must equal `docs/gallery/manifest.json` |
 
 `?e2e=1` enables test-only worker ops (`debugContact` for A04, `debugMissileSetup` = grant the
 missile blueprint + a launch complex in the capital, `debugEngage` = put a foreign stack on one of
-yours at war, for the retreat test); they are unreachable without the URL flag. `window.__wc` exposes read-only accessors (camera, frame, projection) for tests.
+yours at war, for the retreat test, `debugMarketOrder` = the richest computer country submits an ordinary market order through `submitCommand`, for the partial-fill test); they are unreachable without the URL flag. `window.__wc` exposes read-only accessors (camera, frame, projection) for tests.
 
 ## Performance (measured 2026-11-14)
 
@@ -188,6 +192,18 @@ Remaining gaps (worked around; nice to have in the engine):
   `economy.sumEffect`) and, for `?e2e=1` hooks only, `grantTech`/`declareWarInternal`.
 * The map toolbar has a Fullscreen toggle (browser Fullscreen API; hidden if unsupported).
 * Sound is a stored preference only (no audio assets).
+* Verification pass (2026-11-14) UI fixes: a non-coastal city/province no longer offers ships,
+  submarines, naval officers or coastal-only buildings (catalog rows hidden with a note
+  `no-naval-note`; a nation with no coastal city gets no naval bulk projects) — before, La Paz
+  offered a Corvette "needs Naval Base level 1" that could never be built; queued mobilizations show
+  an APP-6 **planned** symbol (dashed frame, status digit 1) labelled "Planned" in the city queue and
+  inspector queue (`PlannedUnitSym`); map search ranks the player's own places first among equal
+  matches (a Bolivian "La Paz" no longer resolves to Mexico's); the journal never shows the previous
+  filter's rows while a new filter loads; on phones the destination bar stays visible under the
+  inspector sheet (opening another screen keeps the selection) and toasts stack below the sheet with
+  tap-through text, so a toast can no longer block the sheet's Close button.
+* The U.S. has no research available on day 1 (tier-1 package complete; next program Sealift I opens
+  on day 4) — catalog/profile data, recorded by the U.S. walkthrough.
 * The End screen derives losses/captures from journal event kinds; a dedicated engine summary would
   be more precise.
 * Perf numbers come from headless software rendering; re-measure on a reference laptop with GPU.

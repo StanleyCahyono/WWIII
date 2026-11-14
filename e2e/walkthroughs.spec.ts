@@ -305,7 +305,11 @@ test.describe('W08 walkthroughs (desktop)', () => {
     if (day < 5) await advance(page, (5 - day) * 1440);
     await expect(page.getByTestId('game-clock')).toContainText('D5');
     await page.getByTestId('score-button').click();
-    await expect(page.getByTestId('standings')).toContainText('Bolivia');
+    // a small nation outside the top 25 still sees its own row with its real rank
+    const mine = page.getByTestId('standings').locator('tr[aria-current="true"]');
+    await expect(mine).toContainText('Bolivia');
+    const rank = Number(await mine.locator('td').first().innerText());
+    expect(rank).toBeGreaterThan(0);
     await page.getByTestId('panel-close').click();
     expect(await frame<number>(page, 'f => f.view.stacks.filter(s => s.moveClass === "naval").length')).toBe(0);
     const snap = 'f => JSON.stringify({ tick: f.view.tick, stock: f.view.self.stock, stacks: f.view.stacks.map(s => s.id), offers: f.view.offers.map(o => [o.id, o.status]), co: f.view.myCoalition })';

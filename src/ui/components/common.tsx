@@ -3,7 +3,8 @@ import { getHost } from '../sim/host';
 import { useStore } from '../state/store';
 import type { Frame, QueryName } from '../sim/protocol';
 import { symbolSvg } from '../map/symbols';
-import { countryName } from '../data/static';
+import { countryName, unitById } from '../data/static';
+import { buildSidc } from '../../data/catalog/sidc';
 import { userMovedFocus } from '../state/ui';
 
 export function useFrame(): Frame | null {
@@ -59,6 +60,16 @@ export function useQuery<T>(name: QueryName | null, args: unknown[] = [], opts: 
 
 export function Sym({ sidc, size = 22, label, mono }: { sidc: string; size?: number; label?: string; mono?: boolean }) {
   return <span className="sym" role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true} dangerouslySetInnerHTML={{ __html: symbolSvg(sidc, size, mono ? '#d8dde3' : false) }} />;
+}
+
+/**
+ * A unit that is ordered but not yet fielded (queued or in production), drawn with the APP-6
+ * "planned" status (dashed frame) and named as planned — distinguishable without colour.
+ */
+export function PlannedUnitSym({ unit, size = 18 }: { unit: string; size?: number }) {
+  const ut = unitById.get(unit);
+  if (!ut?.symbol) return null;
+  return <Sym sidc={buildSidc(ut.symbol, { affiliation: 'friend', status: 'planned' })} size={size} label={`Planned unit (not yet fielded): ${ut.name}`} />;
 }
 
 function flagColor(id: string): string {

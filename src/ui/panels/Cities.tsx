@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useFrame, useQuery, ActionButton, Modal, newNonce } from '../components/common';
+import { useFrame, useQuery, ActionButton, Modal, newNonce, PlannedUnitSym } from '../components/common';
 import { getHost } from '../sim/host';
 import { ui, select, centerOn, openPanel, toast } from '../state/ui';
 import { NODES, CATALOG, buildingById, unitById, RESOURCE_LABEL, placeName, TERRAIN_LABEL, MAP } from '../data/static';
@@ -613,7 +613,7 @@ export function Queue({ jobs }: { jobs: { id: string; kind: string; building?: s
           {jobs.map((j) => (
             <tr key={j.id}>
               <td>
-                {cap(j.kind)}: {j.unit ? unitById.get(j.unit)?.name : j.building ? `${buildingById.get(j.building)?.name} L${j.level ?? ''}` : ''}
+                {j.unit && <PlannedUnitSym unit={j.unit} />} {cap(j.kind)}: {j.unit ? `${unitById.get(j.unit)?.name} (planned)` : j.building ? `${buildingById.get(j.building)?.name} L${j.level ?? ''}` : ''}
               </td>
               <td>{j.startedAt !== null ? <span className="tag ok">working</span> : j.reason ? <span className="tag bad">blocked: {j.reason}</span> : <span className="tag">queued</span>}</td>
               <td>{j.endsAt ? `${gameTime(j.endsAt)} (${duration(j.endsAt - frame.view.tick)})` : '—'}</td>

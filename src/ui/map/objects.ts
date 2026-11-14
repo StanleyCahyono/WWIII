@@ -251,6 +251,12 @@ export function searchPlaces(q: string, frame: Frame | null, limit = 12): PlaceR
     if (n.name.toLowerCase().includes(s)) out.push({ id: `prov:${n.id}`, kind: 'province', label: n.name, sub: `Province · ${countryName(owners ? owners[n.id] : n.country)}`, node: n.id, lonlat: n.center });
     if (out.length > limit * 3) break;
   }
-  out.sort((a, b) => Number(!a.label.toLowerCase().startsWith(s)) - Number(!b.label.toLowerCase().startsWith(s)) || (a.kind === 'city' ? -1 : 1) - (b.kind === 'city' ? -1 : 1));
+  // Prefix matches first, cities before provinces, then the player's own places (two "La Paz":
+  // a Bolivian player gets Bolivia's capital on Enter), then exact names, then capitals.
+  const me = frame?.view.viewer;
+  const mine = (r: PlaceResult) => Number(!(me && owners && owners[r.node] === me));
+  const exact = (r: PlaceResult) => Number(r.label.toLowerCase() !== s);
+  const capital = (r: PlaceResult) => Number(!r.sub.includes('capital'));
+  out.sort((a, b) => Number(!a.label.toLowerCase().startsWith(s)) - Number(!b.label.toLowerCase().startsWith(s)) || (a.kind === 'city' ? -1 : 1) - (b.kind === 'city' ? -1 : 1) || mine(a) - mine(b) || exact(a) - exact(b) || capital(a) - capital(b));
   return out.slice(0, limit);
 }

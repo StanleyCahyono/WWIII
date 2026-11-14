@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../state/store';
 import { ui, select, openPanel, centerOn, type Selection } from '../state/ui';
-import { useFrame, useQuery, Sym, ActionButton, Modal, FlagChip, useIsMobile } from './common';
+import { useFrame, useQuery, Sym, ActionButton, Modal, FlagChip, useIsMobile, PlannedUnitSym } from './common';
 import { useObjects, objectToSelection } from '../map/MapView';
 import { NODES, unitById, buildingById, countryName, placeName, TERRAIN_LABEL, RESOURCE_LABEL, cityByNode, techById } from '../data/static';
 import { gameTime, duration, ageLabel, milli, num, signed, cap, dayOf, hourLabel } from '../format';
@@ -709,7 +709,8 @@ export function PlaceSheet({ node, frame }: { node: number; frame: Frame }) {
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5 }} data-testid="place-queue">
                 {p.private.jobs.map((j) => (
                   <li key={j.id}>
-                    {j.unit ? unitById.get(j.unit)?.name : j.building ? buildingById.get(j.building)?.name : cap(j.kind)} — {j.startedAt !== null ? `working, done ${j.endsAt ? gameTime(j.endsAt) : '—'}` : j.reason ? `blocked: ${j.reason}` : 'queued'}
+                    {j.unit && <PlannedUnitSym unit={j.unit} size={16} />}
+                    {j.unit ? `Planned: ${unitById.get(j.unit)?.name}` : j.building ? buildingById.get(j.building)?.name : cap(j.kind)} — {j.startedAt !== null ? `working, done ${j.endsAt ? gameTime(j.endsAt) : '—'}` : j.reason ? `blocked: ${j.reason}` : 'queued'}
                   </li>
                 ))}
               </ul>

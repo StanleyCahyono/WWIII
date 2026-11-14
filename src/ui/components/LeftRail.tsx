@@ -77,8 +77,10 @@ export function MobileNav() {
     { id: 'score', label: 'Score' },
     { id: 'planning', label: 'Planning' },
   ];
-  const sel = useStore(ui, (s) => s.selection);
-  if (sel) return null; // the bottom sheet takes this space
+  const mode = useStore(ui, (s) => s.mode);
+  // Stays visible under the inspector sheet (selection survives opening another screen); hidden
+  // only while a targeting/drawing mode owns the bottom of the screen.
+  if (mode.kind !== 'idle') return null;
   return (
     <nav className="mobile-nav" aria-label="Destinations">
       {all.slice(0, more ? all.length : 4).map((d) => (

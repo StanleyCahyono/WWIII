@@ -1,6 +1,6 @@
 # Coverage matrix — World Command: World 120
 
-_Release audit (SPEC §6.6). Last audited 2026-11-14 by the release-audit agent. Verified by reading
+_Release audit (SPEC §6.6). Last audited 2026-11-14 by the release-audit agent; statuses updated the same day by the verification agent (new e2e specs: walkthroughs, screens, mobile-touch, visual). Verified by reading
 the implementation and the tests, not by trusting other docs. Re-run the commands in
 [HANDOFF.md](HANDOFF.md) before changing a status._
 
@@ -37,6 +37,22 @@ Test IDs: `V:` = Vitest (`npm test`), written `file › test name` (prefix of th
 | E-ret | `e2e/military.spec.ts` › retreat: destination and forecast HP cost, then the order is recorded |
 | E-intel | `e2e/military.spec.ts` › intelligence: assign an agent mission and buy a dated report |
 | E-perf | `e2e/perf.spec.ts` › map input response and pan fps with ~2000 stacks |
+| E-W08-USA | `e2e/walkthroughs.spec.ts` › W08 U.S.: mobilize, build, offer, move, carrier patrol, verify outcomes; research opens on day 4 and Sealift I adds lift; save/reload |
+| E-W08-BOL | `e2e/walkthroughs.spec.ts` › W08 landlocked Bolivia over five days: economy, market, diplomacy both ways, coalition application, no naval options anywhere |
+| E-W08-IDN | `e2e/walkthroughs.spec.ts` › W08 Indonesia over three days: archipelago build-up, fleet to sea, 24/72 h forecasts, newspaper editions, save/reload |
+| E-market | `e2e/screens.spec.ts` › Annex A walkthrough 5 — market: inspect upkeep, post a sell order, partial AI fill, cancel the rest, reconcile before and after reload |
+| E-coal | `e2e/screens.spec.ts` › coalitions: create with name/description/emblem, details, coalition-only thread, leave with timed notice |
+| E-journal | `e2e/screens.spec.ts` › journal, toasts and newspaper: grouped by day, filters, event detail…, jump-to, editions without future days, anonymous statement |
+| E-dossier | `e2e/screens.spec.ts` › unit dossier: class, level, HP, upkeep, feature names, combat table by target class, terrain table, unavailable cells, back to the previous screen |
+| E-split | `e2e/screens.spec.ts` › split, merge and fire control on a friendly formation: before/after roster, conservation, inspector shows the behaviour |
+| E-tut | `e2e/screens.spec.ts` › tutorial: start from the briefing, skip a step, reopen it, auto-complete from real actions, progress saved in the campaign |
+| E-archive | `e2e/screens.spec.ts` › home and archives: archive hides from the active list, restore brings it back unchanged, delete asks first |
+| E-settings | `e2e/screens.spec.ts` › settings, credits and diagnostics: theme and interruptions persist per device; catch-up is named, capped and summarised |
+| E-m-worked | `e2e/mobile-touch.spec.ts` › mobile worked interaction: Indonesia → Surabaya → maritime formation → private route idea survives Economy → +1 h, no orders → dated report stays put (iPhone 13, taps only) |
+| E-W10-touch | `e2e/mobile-touch.spec.ts` › W10 touch-only, monochrome: locate a unit by symbol meaning, tell planned from present, inspect a dated contact |
+| E-m-dossier | `e2e/mobile-touch.spec.ts` › unit dossier at narrow width: target/terrain selectors with vertically labelled values |
+| E-shots | `e2e/visual.spec.ts` › map screenshots: crowded Europe and the port of Surabaya at regional and local zoom (`toHaveScreenshot`, baselines in `e2e/visual.spec.ts-snapshots/`) |
+| E-gallery | `e2e/visual.spec.ts` › symbol gallery: the regenerated manifest equals the reviewed docs/gallery/manifest.json |
 
 Reference URLs for Annex rows are the wiki links given in the SPEC section named in the "Spec" column
 (e.g. Annex A·H → <https://wiki.conflictnations.com/User_Interface#H_-_Market>).
@@ -70,11 +86,11 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | --- | --- | --- | --- | --- |
 | Title: Continue (nation, day, difficulty, score, last save), New, Load, Settings | §1 | `src/ui/screens/Title.tsx` | E-core (Continue card shows Indonesia + Day 1 · 07:00) | implemented and tested |
 | Separate save slots, playing one leaves the other intact | A01 | `src/ui/persist/db.ts`, `src/ui/screens/LoadCampaign.tsx` | E-A01 | implemented and tested |
-| Active / archived / recovery lists; resume, archive, restore, delete | Annex A "Home and archives" | `src/ui/screens/LoadCampaign.tsx`, `src/ui/persist/db.ts` | E-A01 (resume only) | implemented awaiting verification |
+| Active / archived / recovery lists; resume, archive, restore, delete | Annex A "Home and archives" | `src/ui/screens/LoadCampaign.tsx`, `src/ui/persist/db.ts` | E-archive (resume, archive → hidden from Active and listed under Archived, restore → resumes with identical tick/seed/stock/formations, delete with a cancellable confirmation); E-A01 (resume). The Recovery-copies list is not exercised by a test | implemented awaiting verification |
 | Export / import JSON, validated, imported as a new campaign | §5, A13 | `src/ui/screens/LoadCampaign.tsx`, `src/workers/sim.worker.ts`, `src/engine/save/**` | E-A13; V: `tests/engine/save.test.ts › A13-style: export/import keeps seed, clock, roster, economy, pending jobs` | implemented and tested |
-| Settings: theme, interruption preferences, catch-up (named, max shown), sound | §2, §3, Readability | `src/ui/screens/Menus.tsx`, `src/ui/persist/prefs.ts`, `src/workers/sim.worker.ts` | none | implemented awaiting verification |
+| Settings: theme, interruption preferences, catch-up (named, max shown), sound | §2, §3, Readability | `src/ui/screens/Menus.tsx`, `src/ui/persist/prefs.ts`, `src/workers/sim.worker.ts` | E-settings (defaults, theme → `data-theme`, interruption, monochrome, sound and catch-up choices persist across reload; in-game Settings dialog shows the same preferences) | implemented and tested |
 | Sound effects | Annex A·C | stored preference only (no audio assets); `docs/UI.md` | — | deferred by stated product choice |
-| Credits (milsymbol MIT, Natural Earth PD) and diagnostics (versions, last save, copyable error report) | Annex A·C | `src/ui/screens/Menus.tsx`, `public/licenses/` | none | implemented awaiting verification |
+| Credits (milsymbol MIT, Natural Earth PD) and diagnostics (versions, last save, copyable error report) | Annex A·C | `src/ui/screens/Menus.tsx`, `public/licenses/` | E-settings (credits: milsymbol MIT text, Natural Earth; diagnostics: application version, save format version, last successful save, "no server", error report text) | implemented and tested |
 | Explain when browser storage cannot persist | §5 | `src/ui/screens/Title.tsx`, `src/ui/persist/db.ts` | none | implemented awaiting verification |
 
 ## 3. Operations map
@@ -98,8 +114,8 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Planning layer: draw/rename/hide/delete, no sim change; "Issue order" opens validated preview | Operations map, W06 | `src/ui/components/Planning.tsx`, `src/engine/save/` (UI section) | E-W06, E-worked; V: `tests/engine/save.test.ts › W06: planning drawings live in the UI section…` | implemented and tested |
 | Drawings have author, creation time, optional expiry | Operations map | `src/engine/save/` drawing helpers, `Planning.tsx` | V: `tests/engine/save.test.ts › W06…` (fields not all asserted) | implemented awaiting verification |
 | Abstract missile origin→sector line without steering | Missiles | `src/ui/map/renderer.ts`, `engine-adapter.ts` (`view` adds `from`) | E-msl (launch has origin while in flight) | implemented and tested |
-| Screenshot test: crowded European region + Philippine/Indonesian port at two zoom levels | Symbol gallery paragraph | — (`e2e/helpers.ts shot()` only saves optional screenshots; no assertion/diff) | — | missing |
-| Desktop **and mobile** recordings of the worked interaction | Worked interaction | desktop flow automated (E-worked); no mobile variant, no recording | E-worked (desktop) | missing |
+| Screenshot test: crowded European region + Philippine/Indonesian port at two zoom levels | Symbol gallery paragraph | `e2e/visual.spec.ts` + committed baselines `e2e/visual.spec.ts-snapshots/*.png` (Chromium/Linux, 1440×900) | E-shots (map canvas `toHaveScreenshot`, maxDiffPixelRatio 1 %: Europe with 2,000 deterministic synthetic stacks of all four affiliations at regional z14 and local z40; Surabaya port at regional z16 and local z60) | implemented and tested |
+| Desktop **and mobile** recordings of the worked interaction | Worked interaction | `e2e/workflows.spec.ts`, `e2e/mobile-touch.spec.ts` | E-worked (desktop) and E-m-worked (iPhone 13, taps only, same assertions; selection survives opening Planning/Economy on the phone). Automated replays rather than video files (`WC_SHOTS` saves step screenshots) | implemented and tested |
 
 ## 4. Top bar, resource strip, time strip, notifications
 
@@ -109,7 +125,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Pause / speed / +1 h / jump to next event; real-time estimate only when running | Annex A·B, §2 Advisor/time | `TopBar.tsx`, `src/workers/sim.worker.ts` | E-core, E-A12 (+1 h by keyboard); next-event not e2e | implemented and tested |
 | Resource strip: stock, gross, consumption, committed, net, insufficient vs negative; shortage row with time to depletion; opens market | §2 Resource strip, Annex A·G | `src/ui/components/ResourceStrip.tsx` | V: `tests/engine/economy.test.ts › unpaid upkeep is recorded as a shortage…forecast & breakdown exposed`; UI not e2e | implemented awaiting verification |
 | Bottom time strip: arrivals, refits, research deadlines, dated reports; preview without advancing | Bottom time strip | `src/ui/components/TimeStrip.tsx` | none | implemented awaiting verification |
-| Toasts identify event + place, jump to object, dismiss without stopping, findable in history | Annex A·D | `src/ui/components/Toasts.tsx`, `src/ui/panels/Journal.tsx` | none | implemented awaiting verification |
+| Toasts identify event + place, jump to object, dismiss without stopping, findable in history | Annex A·D | `src/ui/components/Toasts.tsx`, `src/ui/panels/Journal.tsx` | E-journal (a purchased report raises a placed toast; Go selects the place; the clock state is unchanged; dismiss removes it; the toast and a routine completion are both in Notification history, whose Go selects the recorded node) | implemented and tested |
 | Interrupt-and-pause defaults (war on me, capital change, game end); configurable | Readability | engine `GameEvent.interrupt`; `src/workers/sim.worker.ts`; Settings | V: `tests/engine/government.test.ts › human eliminated…` (interrupt flag present); worker pause not tested | implemented awaiting verification |
 | Daily digest of routine completions | Readability | `src/engine/sim.ts` (day change digest) | none found | implemented awaiting verification |
 
@@ -140,8 +156,8 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Stop | §3 Orders | `Inspector.tsx` (`action-stop`) | E-A12 | implemented and tested |
 | Attack (visible targets), delay, embark/disembark | §3 Orders, Annex A·E | `src/ui/components/Orders.tsx` | V: `tests/engine/commands.test.ts › intel agents, articles, deployables and explicit embark/disembark…`; UI not e2e | implemented awaiting verification |
 | Retreat with destination and forecast HP cost | Annex A·E, Annex B Engagements | `Orders.tsx` (`RetreatDialog`), engine `combat.ts` | E-ret; V: `tests/engine/combat.test.ts › retreat goes to a real adjacent destination and costs 10 % HP` | implemented and tested |
-| Split / merge with before/after roster, conservation | Annex A·E, A07 | `Inspector.tsx` (`SplitDialog`, merge) | V: `tests/engine/combat.test.ts › A07: split/merge conserve unit count and HP…`; UI not e2e | implemented awaiting verification |
-| Fire control (hold / return fire / engage) | Annex A·E, Annex B Membership | `Inspector.tsx` (fire policy select), engine | none found for `setFirePolicy` | implemented awaiting verification |
+| Split / merge with before/after roster, conservation | Annex A·E, A07 | `Inspector.tsx` (`SplitDialog`, merge) | V: `tests/engine/combat.test.ts › A07: split/merge conserve…`; E-split (dialog before/after counts, disabled reasons for 0 and all units, split adds a formation in the Forces list at the same node with unit count and HP conserved, Merge here restores the totals) | implemented and tested |
+| Fire control (hold / return fire / engage) | Annex A·E, Annex B Membership | `Inspector.tsx` (fire policy select), engine | E-split (Fire control select → `setFirePolicy` → inspector shows "Engage eligible contacts", then "Hold unless ordered") | implemented and tested |
 | Combat: hourly rounds, defender table, entrenchment, overstack, echelon allocation, readiness, battle reports | §3 Orders and combat, Annex B Engagements | engine `systems/combat.ts` | V: `tests/engine/combat.test.ts` (echelon, overstack, timed engagement two speeds, no double round, ranged, readiness) | implemented and tested |
 | Capture only by eligible occupying unit | §3 Forces, cross-check 4 | engine `government.ts` | V: `tests/engine/combat.test.ts › cross-check 4…` | implemented and tested |
 | Offshore bombardment changes city condition | §3 Forces | engine `combat.ts` (ranged vs city) | no dedicated test found | implemented awaiting verification |
@@ -181,7 +197,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Feature | Spec | Implementation | Tests | Status |
 | --- | --- | --- | --- | --- |
 | Forces screen: fielded / ready / committed strength, maintenance | Depth·Readiness | `src/ui/panels/Forces.tsx`, engine `readiness.ts`, `forceModel` | V: `tests/engine/commands.test.ts › UI model helpers…force summary`; `tests/engine/combat.test.ts › readiness lowers strength…`; E-air/E-ret select from Forces list | implemented and tested |
-| Unit dossier: class, level, HP, upkeep, feature names, combat table by target class, terrain table, units, unavailable cells; narrow-width selector | Annex A Unit dossier | `Forces.tsx` (`UnitDossier`) | none | implemented awaiting verification |
+| Unit dossier: class, level, HP, upkeep, feature names, combat table by target class, terrain table, units, unavailable cells; narrow-width selector | Annex A Unit dossier | `Forces.tsx` (`UnitDossier`) | E-dossier (name, family, Hit points, Upkeep, Kills, Sight, Signature, named features, target-class columns, terrain rows, explicit "n/a" cells, level select, ← Previous screen); E-m-dossier (narrow width: target-class and terrain selectors) | implemented and tested |
 | Distinct playable classes (infantry … submarines), original names | §3 Forces | `src/data/catalog/units.ts` | V: `tests/catalog/integrity.test.ts › covers every family…`, `› names are original…` | implemented and tested |
 
 ## 10. Missiles and hypersonic programs
@@ -206,7 +222,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | 24 h / 72 h forecast; stock vs spendable vs reserved vs net | Depth·Economy | `Economy.tsx`, engine `forecastModel` | V: `tests/engine/economy.test.ts › unpaid upkeep…forecast & breakdown exposed`; UI not e2e | implemented and tested |
 | First economic report explains a nation-specific choice | Depth·Economy | `Economy.tsx` (`economic-report`), profiles | V: `tests/profiles/opening-power.test.ts › shows one identifiable U.S. import pressure…`; UI not e2e | implemented awaiting verification |
 | Market: best/all/my trades, price-time priority, partial fills, escrow, cancel remainder once, no self-trade, explained errors | Annex A·H, A06 | engine `systems/market.ts`; `Economy.tsx` (`MarketPanel`) | V: `tests/engine/market.test.ts` (all four); UI not e2e | implemented and tested |
-| Market UI flow (post sell, partial AI fill, cancel rest, reconcile after reload) | Annex A walkthrough 5 | `Economy.tsx` | none | implemented awaiting verification |
+| Market UI flow (post sell, partial AI fill, cancel rest, reconcile after reload) | Annex A walkthrough 5 | `Economy.tsx` | E-market (empty book and invalid amount explained in place; sell 100 rests and reserves exactly 100; a computer bid fills 40 → Filled 40 / Remaining 60, cash +40×price, execution "sold to …"; Abort releases 60; order history keeps the cancelled residual; stock/escrow/orders/fills identical after reload; ledger reconciles); E-W08-BOL (buy crossing a computer ask fills immediately) | implemented and tested |
 | Occupation upkeep visible | §3 Conquest | engine | V: `tests/engine/economy.test.ts › occupation upkeep is visible…` | implemented and tested |
 | Industrial disruption flows through city and ledger | Depth·Economy | engine (sabotage/condition) | V: `tests/engine/commands.test.ts › intel agents…` (sabotage path); ledger flow not asserted | implemented awaiting verification |
 
@@ -244,8 +260,8 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Feature | Spec | Implementation | Tests | Status |
 | --- | --- | --- | --- | --- |
 | One typed event projected into private journal / public newspaper / inbox | Annex B Three distinct records | engine `events.ts`, `view/queries.ts` | V: `tests/engine/commands.test.ts › public newspaper never exposes private orders or composition; journal and inbox are private` | implemented and tested |
-| Journal UI: by day, filters (economy, research, diplomacy, combat, intelligence), opening a past event after the unit is gone | Annex A Private event history | `src/ui/panels/Journal.tsx` | none | implemented awaiting verification |
-| Newspaper UI: editions with day selector (no future editions), ranked index, article composer with anonymous option | Annex A Global newspaper | `Journal.tsx` (`NewsPanel`), engine `newspaper` | V: `tests/engine/commands.test.ts › intel agents, articles…` (articles); UI not e2e | implemented awaiting verification |
+| Journal UI: by day, filters (economy, research, diplomacy, combat, intelligence), opening a past event after the unit is gone | Annex A Private event history | `src/ui/panels/Journal.tsx` | E-journal (day sections, the five category filters show only their category, All restores the count, an event opens with recorded time/place/kind and the "keeps its place…" note); the specific case of opening an event after its unit is destroyed is not exercised | implemented awaiting verification |
+| Newspaper UI: editions with day selector (no future editions), ranked index, article composer with anonymous option | Annex A Global newspaper | `Journal.tsx` (`NewsPanel`), engine `newspaper` | E-journal (today's edition, Next disabled = no future edition, Previous/Next, ranked nation index, anonymous plain-text statement shows "Anonymous statement" and markup as text); E-W08-IDN (four editions, Previous disabled on day 1) | implemented and tested |
 | Article image attachment | Annex B Three records ("local attachment") | — (text only) | — | missing |
 
 ## 15. Score, victory, end and career
@@ -265,7 +281,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Feature | Spec | Implementation | Tests | Status |
 | --- | --- | --- | --- | --- |
 | New-game briefing with three nation-specific decisions linked to screens | Readability | `src/ui/components/Briefing.tsx`, profile `openingDecisions` | V: `tests/profiles/profiles.test.ts › has two or three distinctive opening decisions linked to screens…`; E-core/E-A12 close it | implemented and tested |
-| Tutorial lessons (select city, read resource, unlock + mobilize, move, check arrival); skip / reopen; saved in the campaign | Annex A·A | `Briefing.tsx` (tutorial), `state.ui` | none | implemented awaiting verification |
+| Tutorial lessons (select city, read resource, unlock + mobilize, move, check arrival); skip / reopen; saved in the campaign | Annex A·A | `Briefing.tsx` (tutorial), `state.ui` | E-tut (start from the briefing, Show me focuses the control, Skip step, reopen, select-city and read-resources complete from real actions, close + Reopen tutorial from the game menu, progress in `uiPrefs` survives save/reload) | implemented and tested |
 | Advisor/help panel with keyboard chart and current-save examples | Annex A·A, input chart | `src/ui/panels/Help.tsx` | none | implemented awaiting verification |
 
 ## 17. Keyboard, touch and accessibility
@@ -276,8 +292,8 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | WASD/arrows not stolen while typing | Input chart | `common.tsx` (`isTypingTarget`) | E-A12 types into search (indirect) | implemented awaiting verification |
 | Previous/next army and city (arrows + buttons) | Input chart | `src/ui/actions.ts` (`cycle`) | none | implemented awaiting verification |
 | Disabled actions show a reason | §2 | `common.tsx` (`ActionButton`) | E-A12 ("No active order to stop."), E-clnch ("No ready missiles") | implemented and tested |
-| Monochrome / colour-independent encodings (patterns, frames, age badge) | §2, W05, W10 | `palette.ts`, `renderer.ts`, symbol overlays | gallery (`npm run gallery`) monochrome samples — visual review, no automated check | implemented awaiting verification |
-| Touch: tap-select, pinch, two-step picker, d-pad | Mobile, W10 | `MapView.tsx` | E-A12 uses keyboard on the mobile profile; no tap/pinch test | implemented awaiting verification |
+| Monochrome / colour-independent encodings (patterns, frames, age badge) | §2, W05, W10 | `palette.ts`, `renderer.ts`, symbol overlays | E-W10-touch (monochrome setting on: renderer `mono`, affiliation/dimension read from SIDC frame digits, planned vs present via APP-6 status digit + "Planned" text, contact age in words); E-gallery (monochrome and planned/damaged/stale gallery variants hash-checked against the reviewed manifest); E-shots | implemented and tested |
+| Touch: tap-select, pinch, two-step picker, d-pad | Mobile, W10 | `MapView.tsx` | E-m-worked, E-W10-touch (tap search results, Forces list, roster contacts, bottom sheet More/Less/Close, two map taps to draw); pinch zoom, the two-step cluster picker and the d-pad are not exercised | implemented awaiting verification |
 
 ## 18. Persistence and multi-tab
 
@@ -291,7 +307,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Recovery checkpoint on failed write | §5 | `db.ts`, worker | none | implemented awaiting verification |
 | Restore midway through refuelling, treaty offer, partial order, day rollover | §5, cross-check 9 | engine | V: `tests/engine/save.test.ts › cross-check 9…`; `tests/engine/determinism.test.ts › save/reload mid-run…`; `tests/engine/diplomacy.test.ts › A09: pending offer survives save/load…` | implemented and tested |
 | Preferences stored separately (localStorage) | §5 | `src/ui/persist/prefs.ts` | E-A15 (layer restored after reload) | implemented and tested |
-| Optional catch-up while closed (named, max, summary) | §3 | worker + Settings | none | implemented awaiting verification |
+| Optional catch-up while closed (named, max, summary) | §3 | worker + Settings | E-settings (enabled with a 2 h maximum; resuming after ~4 s simulates that many minutes, pauses, and the toast names the simulated time and the maximum) | implemented and tested |
 
 ## 19. Engine core
 
@@ -329,9 +345,9 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Opening power index (5 dimensions, weights, normalization, nearest rival), persisted, dossier breakdown | Asymmetric countries, W03 | `src/engine/power.ts`; `scripts/opening-power-report.ts` → `docs/reports/opening-power.md`; ChooseCountry/Score dossier | V: `tests/engine/power.test.ts` (all); `tests/profiles/opening-power.test.ts › W03 opening power` (all) | implemented and tested |
 | U.S. = 118 (115–121), lead 15–21 %, no hidden multiplier, $1 basket change isolation | W03 | profiles + power | V: `tests/profiles/opening-power.test.ts › ranks all 120 seats…118…`, `› the U.S. leads the nearest rival by 15–21 %`, `› a $1 change in the reference basket…`; `tests/profiles/profiles.test.ts › profiles carry only contract fields and no per-country multiplier…` | implemented and tested |
 | U.S. technology package (lift, refuelling, carrier aviation, recon, research lead, sustainment, import pressure, hypersonic prerequisite only) | U.S. technology family table, W04 | `src/data/profiles/**` | V: `tests/profiles/profiles.test.ts › U.S. technology package (data)` (5); `tests/profiles/opening-power.test.ts › W04 technology package…` (3) | implemented and tested |
-| Carrier aviation / lift advantages operate in ordinary play with real-data U.S. | W04 | engine `air.ts` | V: `tests/engine/air.test.ts › carriers are mobile bases…` (fixture, not real U.S. data) | implemented awaiting verification |
+| Carrier aviation / lift advantages operate in ordinary play with real-data U.S. | W04 | engine `air.ts` | E-W08-USA (real-data U.S.: Carrier Air Wing 1 rebases onto its carrier through the normal dialog, then patrols from it; Sealift I researched on day 4 raises `self.lift` by exactly 4); V: `tests/engine/air.test.ts › carriers are mobile bases…` | implemented and tested |
 | 120 seeded observer campaigns with per-country metrics and flags | Balance evidence, W08 | `scripts/observer-suite.ts` → `docs/reports/observer-summary.md` | report run: 120 × **5-day** horizon + 4 × 180-day (not 120 full campaigns) | implemented awaiting verification |
-| Three human walkthroughs: U.S., Indonesia, landlocked | Balance evidence, W08 | — | E-core / E-worked (Indonesia), E-A01 (Bolivia, 1 h only); **no U.S. walkthrough** | missing |
+| Three human walkthroughs: U.S., Indonesia, landlocked | Balance evidence, W08 | `e2e/walkthroughs.spec.ts` | E-W08-USA (2 + 4 days: build, mobilize, offer, move, carrier aviation, day-4 research, outcomes, save/reload), E-W08-BOL (5 days: no naval options, economy/forecast, market, both directions of diplomacy, coalition application, score, save/reload), E-W08-IDN (3 days) plus E-core/E-worked | implemented and tested |
 | Playtest high/medium/small vs U.S. bot | Asymmetric countries | — | not recorded | missing |
 
 ## 22. Symbology and gallery
@@ -341,7 +357,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Stable entity key + versioned SIDC crosswalk; 20-digit strings; validation; fail-safe generic contact (never infantry) | Symbol contract | `src/data/catalog/symbols.ts`, `public/licenses/milsymbol-LICENSE.txt` | V: `tests/catalog/symbols.test.ts` (all 9) | implemented and tested |
 | Bundled pinned milsymbol + licence; offline rendering | Symbol contract, Non-negotiable 2 | `package.json` (milsymbol 3.0.5), `src/ui/map/symbols.ts` | E-A13 (no non-loopback requests) | implemented and tested |
 | Same symbol/designation/knowledge cut-off in map, roster, inspector | W05 | `src/ui/map/objects.ts` (one dataset) | E-A04 (roster aria, inspector SIDC entity 000000, map hit label) | implemented and tested |
-| Offline gallery: every family × 4 affiliations, planned/selected/damaged/stale/greyscale, meaning text, reviewed manifest | Symbol gallery | `scripts/symbol-gallery.ts` → `docs/gallery/` | generated artifact (`npm run gallery`); no diff test | implemented awaiting verification |
+| Offline gallery: every family × 4 affiliations, planned/selected/damaged/stale/greyscale, meaning text, reviewed manifest | Symbol gallery | `scripts/symbol-gallery.ts` → `docs/gallery/` | `npm run gallery`; E-gallery (regenerates the manifest in memory and requires it to equal the committed `docs/gallery/manifest.json`: renderer, sample count, every SIDC, caption and SVG hash, in order). Note: sample ids are not unique (`#mono-unknown` appears in two sections) | implemented and tested |
 | Echelon only when verified; HQ only for known HQ; stack count ≠ echelon | Symbol table | `symbols.ts`, renderer | V: `tests/catalog/symbols.test.ts › applies verified echelon and HQ to land units only…` | implemented and tested |
 | Verification against APP-6 E reference plates | Symbol contract | `docs/CATALOG.md` (milsymbol validity only) | plate-by-plate visual comparison not recorded | implemented awaiting verification |
 
@@ -395,19 +411,19 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | W01 Roster | V: `tests/engine/world120.test.ts › W01 roster…`; `tests/profiles/opening-power.test.ts › every seat can issue a legal opening recruit order`; map capital tests | implemented and tested |
 | W02 One campaign | V: `tests/engine/world120.test.ts › exposes exactly one campaign mode (W02)`, `› W02: save/reload/replay…`; rebel flag test (government) | implemented and tested |
 | W03 Opening power | V: `tests/profiles/opening-power.test.ts › W03 opening power` (8 tests); `tests/engine/power.test.ts`; `docs/reports/opening-power.md` (USA 117.98, lead 17.98 %) | implemented and tested |
-| W04 Technology | Data and opening checks tested (`profiles`/`opening-power` W04 blocks; blueprints never inventory). Not demonstrated: U.S. carrier/lift advantages in an ordinary real-data playthrough, and two peers completing a hypersonic branch in a legal playthrough (only static reachability). | implemented awaiting verification |
-| W05 Symbols | V: `tests/catalog/symbols.test.ts`; E-A04 (map/roster/inspector agree; unknown contact SIDC entity 000000). Gallery covers affiliations/domains but is not snapshot-diffed; monochrome legibility is a manual review. | implemented awaiting verification |
+| W04 Technology | Data and opening checks tested (`profiles`/`opening-power` W04 blocks; blueprints never inventory); E-W08-USA demonstrates carrier aviation and lift in ordinary real-data play. Not demonstrated: two peers completing a hypersonic branch in a legal playthrough (only static reachability) | implemented awaiting verification |
+| W05 Symbols | V: `tests/catalog/symbols.test.ts`; E-A04 (map/roster/inspector agree; unknown contact SIDC entity 000000); E-gallery (all affiliations × families and state variants diffed against the reviewed manifest); E-shots (map snapshots); E-W10-touch (monochrome map, symbol meaning by touch) | implemented and tested |
 | W06 Planning | E-W06, E-worked; V: `tests/engine/save.test.ts › W06…` | implemented and tested |
 | W07 Missile outcomes | V: `tests/engine/missiles.test.ts` (all families, all terminal outcomes, insufficient stock, double submit, missing observation, save in flight, accelerated clock); E-msl | implemented and tested |
-| W08 Country viability | Observer suite ran 120 × 5 days + 4 × 180 days (0 invalid commands, no stalling nations); Indonesia and Bolivia walkthroughs are partial; no U.S. walkthrough. | implemented awaiting verification |
+| W08 Country viability | Walkthroughs complete: E-W08-USA, E-W08-BOL, E-W08-IDN (+ E-core, E-worked). Still open: the observer suite has only run 120 × 5 days + 4 × 180 days (0 invalid commands, no stalling nations); a 30-day × 120 run is pending | implemented awaiting verification |
 | W09 Geography | V: `tests/map/map.test.ts` (outside territories, disputes, dateline, canals, island links); E-A15 (island hit target); movement routing tests. Foreign boundary labels not asserted. | implemented and tested |
-| W10 Accessibility and offline | E-A13 (offline loopback build), E-A12 (keyboard). Touch-only path (tap, locate by symbol meaning, planned vs present without colour) not automated. | implemented awaiting verification |
+| W10 Accessibility and offline | E-A13 (offline loopback build), E-A12 (keyboard), E-W10-touch (touch only, monochrome: locate by symbol meaning, planned vs present, dated contact), E-m-worked | implemented and tested |
 
 ## Annex B cross-system checks 1–10
 
 | # | Evidence | Status |
 | --- | --- | --- |
-| 1 One human through save/reload/elimination/victory | V: `tests/engine/government.test.ts › human eliminated…still one human`; `tests/engine/world120.test.ts › W01…`; archive/restore path not tested | implemented awaiting verification |
+| 1 One human through save/reload/elimination/victory | V: `tests/engine/government.test.ts › human eliminated…still one human`; `tests/engine/world120.test.ts › W01…`; E-archive (archive → restore → resume unchanged); E-W08-* (save/reload) | implemented and tested |
 | 2 Concurrent orders vs funds | V: `tests/engine/economy.test.ts › cross-check 2…` | implemented and tested |
 | 3 Research completion upgrades existing + in-production units once | V: `tests/engine/research.test.ts › A08 / cross-check 3…` | implemented and tested |
 | 4 Non-capturing unit vs infantry capture | V: `tests/engine/combat.test.ts › cross-check 4…` | implemented and tested |
@@ -426,18 +442,17 @@ Counted from the last cell of every data row in sections 1–24 and the A/W/cros
 
 | Status | Rows |
 | --- | ---: |
-| implemented and tested | 153 |
-| implemented awaiting verification | 68 |
+| implemented and tested | 172 |
+| implemented awaiting verification | 52 |
 | deferred by stated product choice | 9 |
-| missing | 8 |
+| missing | 5 |
 
 ## Top missing items (priority order)
 
-1. **U.S. human walkthrough** and a full landlocked walkthrough (W08; §21 rows). Indonesia is covered by E-core/E-worked; Bolivia only for one hour.
-2. **Full-length observer evidence**: 120 campaigns were run to a 5-day horizon only (4 × 180 days); run `npm run report:observer -- --runs 120 --days 30 --long 4 --long-days 180` (≈ 3.5 h) or longer (W08).
-3. **Screenshot regression test** of a crowded European region and an Indonesian/Philippine port at two zoom levels, plus a gallery manifest diff check (Symbol gallery paragraph, W05).
-4. **Mobile recording of the worked interaction** and a touch-only W10 pass (tap select, locate by symbol meaning, planned vs present without colour).
-5. **AI depth**: peace terms with territory/resources and multi-round haggling (mutual defence, naval escort/blockade and carrier embark landed during this audit; the engine has no blockade effect yet).
-6. **Heavy-war simulation day** still 530–640 ms with ~650 movers (target 400 ms; engine agent working on it).
-7. Helicopter air-mobile embark rules; newspaper article image attachment.
-8. UI rows marked "awaiting verification" that most need an e2e test next: market UI flow (Annex A walkthrough 5), coalition create/apply/leave UI, journal/newspaper panels, unit dossier, split/merge dialog, fire control, tutorial skip/reopen, archive/restore.
+1. **Full-length observer evidence**: 120 campaigns were run to a 5-day horizon only (4 × 180 days); run `npm run report:observer -- --runs 120 --days 30 --long 4 --long-days 180` (≈ 3.5 h) or longer (W08 — the three human walkthroughs are now automated: E-W08-USA, E-W08-BOL, E-W08-IDN).
+2. **Playtest record** of a high/medium/small start against the U.S. bot (§21).
+3. **AI depth**: peace terms with territory/resources and multi-round haggling.
+4. **Heavy-war simulation day** still 530–640 ms with ~650 movers (target 400 ms; engine agent working on it).
+5. Helicopter air-mobile embark rules; newspaper article image attachment.
+6. W04: two peers completing a hypersonic branch in a legal real-data playthrough.
+7. UI rows still "awaiting verification" that most need an e2e test next: resource strip / time strip, interrupt-and-pause in the worker, attack/delay/embark dialogs, multi-selection, context menu / lasso, pinch + cluster picker + d-pad on touch, journal event after its unit is destroyed, recovery-copies list, score/end panels.

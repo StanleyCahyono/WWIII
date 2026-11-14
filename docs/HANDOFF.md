@@ -29,6 +29,31 @@ Perf probe (E-perf, 1440×900, 2,000 synthetic stacks, software rendering): Euro
 28.5 ms, pan 57.7 fps; SE Asia p95 19.3 ms; local Java p95 19.3 ms; world p95 17.5 ms; click→painted
 frame p95 33.5 ms. Targets (p95 < 100 ms, ≥ 45 fps) met on this machine.
 
+## Verification pass (2026-11-14, verification agent) — latest results
+
+| Command | Result |
+| --- | --- |
+| `npm run build` | **pass** |
+| `npx playwright test --trace off` (full suite, 2 workers) | **33 passed, 0 failed, 33 skipped** (66 scheduled; skips are the by-design per-project skips). New specs re-run alone: 16 passed, 16 skipped |
+| `npm test` (Vitest) | **280 passed** (32 files) |
+| `npx tsc --noEmit` | **pass** |
+
+New Playwright specs: `e2e/walkthroughs.spec.ts` (W08 U.S. / Bolivia 5 days / Indonesia 3 days),
+`e2e/screens.spec.ts` (market walkthrough 5 with a partial computer fill, coalitions, journal +
+toasts + newspaper, dossier, split/merge + fire control, tutorial, archive/restore/delete, settings +
+credits + diagnostics + catch-up), `e2e/mobile-touch.spec.ts` (mobile worked interaction, W10 touch
+pass in monochrome, narrow dossier), `e2e/visual.spec.ts` (map `toHaveScreenshot` baselines in
+`e2e/visual.spec.ts-snapshots/`, gallery manifest diff via `e2e/gallery-manifest.mts`). New `?e2e=1`
+worker op `debugMarketOrder` (a computer country submits an ordinary validated order).
+
+UI bugs fixed (see `docs/UI.md` › Known gaps): landlocked/non-coastal sites offered naval units and
+naval bases; search "La Paz" for Bolivia selected Mexico's La Paz; standings hid a player ranked
+below 25; journal briefly showed the previous filter's rows; on phones toasts blocked the inspector
+sheet's Close button and opening another screen required dropping the selection; catch-up toast said
+"0 game hours"; queued units now carry an APP-6 planned symbol. Findings for other owners: the U.S.
+has no research available until day 4 (catalog/profile data); `scripts/symbol-gallery.ts` emits
+duplicate sample ids (`…#mono-unknown` in two sections).
+
 ## What the release audit changed
 
 * **Bug fix (UI, flaky e2e):** closing a panel or modal restored focus with `setTimeout(0)`; Chrome can
@@ -50,14 +75,13 @@ frame p95 33.5 ms. Targets (p95 < 100 ms, ≥ 45 fps) met on this machine.
 
 ## Outstanding work (see the linked COVERAGE sections)
 
-Status totals in COVERAGE: 153 implemented and tested · 68 implemented awaiting verification ·
-9 deferred by stated product choice · 8 missing.
+Status totals in COVERAGE (after the verification pass): 172 implemented and tested · 52 implemented awaiting verification ·
+9 deferred by stated product choice · 5 missing.
 
 **Missing** (COVERAGE rows marked `missing`):
-1. U.S. human walkthrough and a full landlocked walkthrough; playtest record of a high/medium/small start
-   vs a U.S. bot — COVERAGE §21 "Three human walkthroughs", "Playtest…".
-2. Screenshot regression test (crowded Europe + Indonesian/Philippine port, two zoom levels) — §3.
-3. Mobile recording of the worked interaction — §3 (desktop flow is automated as E-worked).
+1. Playtest record of a high/medium/small start vs a U.S. bot — COVERAGE §21 "Playtest…" (the three
+   human walkthroughs are now automated: E-W08-USA / -BOL / -IDN).
+2. ~~Screenshot regression~~ and ~~mobile worked interaction~~ — done (E-shots, E-m-worked).
 4. Heavy-war simulation day ≤ 400 ms (now 530–640 ms with ~650 movers) — §23; engine agent's area.
 5. AI peace terms with territory/resources, multi-round haggling — §20.
 6. Helicopter air-mobile embark rules — §6. Newspaper article image attachment — §14.
@@ -66,10 +90,12 @@ Status totals in COVERAGE: 153 implemented and tested · 68 implemented awaiting
 * W08: run the observer suite at a longer horizon — `npm run report:observer -- --runs 120 --days 30 --long 4 --long-days 180` (≈ 3.5 h on 4 vCPU) — §21.
 * W04: a real-data test that two peers can finish a hypersonic branch, and that U.S. carrier/lift
   advantages work in an ordinary real-data playthrough — §10, §21.
-* W10: touch-only Playwright pass (tap select, locate by symbol meaning, planned vs present without colour) — §17.
-* e2e for: market post/partial fill/cancel/reload (Annex A walkthrough 5), coalition create/apply/leave,
-  journal + newspaper panels, unit dossier, split/merge dialog, fire control, tutorial skip/reopen,
-  archive/restore, settings (interruptions, catch-up), toasts "jump to" — §§2, 4, 6, 9, 11, 12, 14, 16.
+* W04: two peers completing a hypersonic branch in a legal real-data playthrough (carrier/lift now covered by E-W08-USA).
+* e2e still missing for: resource strip / time strip, worker interrupt-and-pause, attack/delay/embark
+  dialogs, multi-selection, context menu / lasso, pinch + cluster picker + d-pad, journal event after
+  its unit is destroyed, recovery-copies list, score/end panels (W10 touch pass, market, coalitions,
+  journal/newspaper, dossier, split/merge, fire control, tutorial, archive/restore, settings and toasts
+  are now covered — see COVERAGE short IDs E-market … E-gallery).
 * `tests/ai/world120.test.ts` invalid-command failure (USA `rebase` × 4) — §20; AI owner.
 
 ## File ownership (parallel work — do not edit another owner's files without coordinating)

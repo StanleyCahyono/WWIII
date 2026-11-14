@@ -292,12 +292,17 @@ table.data th button.sort { background: none; border: 0; padding: 0; cursor: poi
   .map-search { width: calc(100% - 64px); }
   .legend { display: none; }
   .legend.open { display: block; left: 8px; right: 8px; width: auto; bottom: 90px; }
-  .toasts { left: 8px; right: 8px; width: auto; top: 96px; }
-  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 12; background: var(--panel); border-top: 1px solid var(--line-2); border-radius: 12px 12px 0 0; box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: 38%; }
-  .sheet.expanded { max-height: 88%; }
+  /* phones: toasts never cover the inspector sheet's controls (the sheet stacks above them, and
+     taps on toast text fall through); Go / dismiss stay tappable; history keeps every toast */
+  .toasts { left: 8px; right: 8px; width: auto; top: 96px; z-index: 11; pointer-events: none; }
+  .toast { pointer-events: none; }
+  .toast button { pointer-events: auto; }
+  /* the bottom sheet sits above the destination bar so another screen can be opened without losing the selection */
+  .sheet { position: absolute; left: 0; right: 0; bottom: 53px; z-index: 12; background: var(--panel); border-top: 1px solid var(--line-2); border-radius: 12px 12px 0 0; box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: 38%; }
+  .sheet.expanded { max-height: calc(88% - 53px); }
   .sheet .sheet-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
   .sheet .sheet-body { overflow-y: auto; padding: 8px 10px 12px; display: flex; flex-direction: column; gap: 10px; }
-  .mobile-nav { position: absolute; left: 0; right: 0; bottom: 0; z-index: 11; display: flex; gap: 2px; padding: 4px; background: var(--panel); border-top: 1px solid var(--line); overflow-x: auto; }
+  .mobile-nav { position: absolute; left: 0; right: 0; bottom: 0; z-index: 11; height: 53px; box-sizing: border-box; display: flex; gap: 2px; padding: 4px; background: var(--panel); border-top: 1px solid var(--line); overflow-x: auto; }
   .mobile-nav button { flex: 1 0 auto; min-height: 44px; font-size: 12px; }
   .drawer, .drawer.wide { width: 100%; z-index: 40; }
   .modal { width: 100%; }

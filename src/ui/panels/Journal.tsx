@@ -25,7 +25,9 @@ export function JournalPanel() {
   const q = useQuery<J[]>('journal', [500, cat]);
   const history = useStore(ui, (s) => s.toastHistory);
   const groups = new Map<number, J[]>();
-  for (const e of [...(q.data ?? [])].sort((a, b) => b.at - a.at)) {
+  // never show rows of the previous filter while the new query is in flight
+  const rows = (q.data ?? []).filter((e) => !cat || e.category === cat);
+  for (const e of [...rows].sort((a, b) => b.at - a.at)) {
     const d = dayOf(e.at);
     (groups.get(d) ?? groups.set(d, []).get(d)!).push(e);
   }
@@ -50,7 +52,7 @@ export function JournalPanel() {
             ))}
           </div>
           {!q.data && <p className="muted">Loading…</p>}
-          {q.data && q.data.length === 0 && <div className="empty">No events{cat ? ` in ${cat}` : ''} yet.</div>}
+          {q.data && rows.length === 0 && <div className="empty">No events{cat ? ` in ${cat}` : ''} yet.</div>}
           {[...groups.entries()].map(([d, list]) => (
             <section key={d} aria-label={`Day ${d}`}>
               <h4>Day {d}</h4>
