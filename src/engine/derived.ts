@@ -30,7 +30,7 @@ export function peekDerived<T>(state: GameState, key: string): T | undefined {
  *  - `~…` step-scoped: only the simulation step can change their inputs (economy rates, public
  *    ownership slice, territory index); never cleared by commands.
  *  - `@…` forces-scoped: depend on stacks (set, rosters, positions, orders, air state) — force
- *    summaries, lift, observed nodes, stacks-by-owner. Cleared by commands that may touch forces.
+ *    summaries, lift, observed nodes. Cleared by commands that may touch forces.
  *  - anything else: cleared after every successful command.
  *
  * Scopes: 'all' (step boundaries, structural edits) clears everything; 'command' keeps `~` keys;

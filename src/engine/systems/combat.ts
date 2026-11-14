@@ -303,9 +303,13 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     if (s.aboard) continue;
     const isAir = s.moveClass === 'air';
     if (isAir && (!s.air || s.air.state === 'landed' || s.air.state === 'refueling')) continue;
-    const p = stackLL(state, s);
     const bins = isAir ? abins : gbins;
-    const k = fineBin(p[0], p[1]);
+    let k: number;
+    if (s.pos.kind === 'node') k = fineBin(m.lon[s.pos.node], m.lat[s.pos.node]); // = stackLL of a stack not aboard
+    else {
+      const p = stackLL(state, s);
+      k = fineBin(p[0], p[1]);
+    }
     const l = bins.get(k);
     if (l) l.push(i);
     else bins.set(k, [i]);
@@ -422,8 +426,11 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
   for (const A of all) {
     if (!enemies.has(A.owner)) continue;
     if (A.moveClass === 'air' || A.aboard || A.firePolicy !== 'engage') continue;
+    // (no allocation for the common stack without a living air-defence member)
+    let hasAd = false;
+    for (const u of A.units) if (u.hp > 0 && utype(state, u.type).family === 'air_defense') { hasAd = true; break; }
+    if (!hasAd) continue;
     const ad = combatUnits(A).filter((u) => utype(state, u.type).family === 'air_defense');
-    if (!ad.length) continue;
     const maxR = Math.max(...ad.map((u) => ustats(state, u).rangeKm));
     if (maxR <= 0) continue;
     const ll = stackLL(state, A);

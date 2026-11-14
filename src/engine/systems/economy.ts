@@ -430,8 +430,7 @@ export function economyHour(state: GameState): void {
   // city shortage flags (essential inputs) feed morale at day change
   let essShort: Set<CountryId> | null = null;
   for (const c of state.countryOrder) if (state.countries[c].shortages.some((x) => ESSENTIAL.includes(x))) (essShort ??= new Set()).add(c);
-  if (essShort) for (const k in state.cities) {
-    const city = state.cities[k];
+  if (essShort) for (const city of cityList(state)) {
     const o = state.provinces[city.node]?.owner;
     if (!o) { city.shortage = false; continue; }
     if (essShort.has(o)) city.shortage = true;

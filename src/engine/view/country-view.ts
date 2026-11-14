@@ -46,7 +46,7 @@ import { trustRow } from '../systems/diplomacy';
 import { bookView, ordersOf, type BookLevel } from '../systems/market';
 import { countryScores, thresholdFor } from '../systems/score';
 import { routeEtaTick } from '../systems/movement';
-import { forEachAlliedStack, observedNodes, stackSensorRadii } from '../systems/visibility';
+import { forEachAlliedStack, observedNodes, sortedContactIds, stackSensorRadii } from '../systems/visibility';
 import { forceSummary, liftBreakdown, type ForceSummary, type LiftBreakdown } from '../systems/readiness';
 import { RULES } from '../rules';
 import { derived, invalidateDerived, memoByVersion } from '../derived';
@@ -191,9 +191,10 @@ function publicSlice(state: GameState) {
   }));
   const books: CountryView['market']['books'] = {};
   for (const r of RESOURCES) if (r !== 'money') books[r] = bookView(state, r);
-  // offers are created only with a new id (counter) and deleted only by the day-change prune
-  // (a step boundary); status changes are in place, so the index of references stays valid
-  const offers = derived(state, `~offerIndex:${state.ids.offer ?? 0}`, () => {
+  // offers are created only with a new id (counter) and deleted only by the day-change prune;
+  // status changes are in place, so the index of references stays valid across steps and commands
+  // (readers drop pruned entries: `liveOffers`)
+  const offers = memoByVersion(state, 'offerIndex', `${state.ids.offer ?? 0}`, [state.offers], () => {
     const byCountry = new Map<CountryId, Offer[]>();
     for (const o of Object.values(state.offers)) {
       (byCountry.get(o.from) ?? byCountry.set(o.from, []).get(o.from)!).push(o);
@@ -304,6 +305,13 @@ export interface ViewOptions {
   lite?: boolean;
 }
 
+const NO_OFFERS: Offer[] = [];
+/** The index list without offers pruned since it was built (same order as a fresh index). */
+function liveOffers(state: GameState, l: Offer[] | undefined): Offer[] {
+  if (!l) return NO_OFFERS;
+  for (const o of l) if (state.offers[o.id] !== o) return l.filter((x) => state.offers[x.id] === x);
+  return l;
+}
 const NO_RADII = { sightKm: 0, radarKm: 0 };
 const EMPTY_LIFT: LiftBreakdown = Object.freeze({ base: 0, buildings: 0, units: 0, total: 0 });
 const EMPTY_FORCE: ForceSummary = Object.freeze({ fielded: 0, ready: 0, committed: 0, inRefit: 0, units: 0, stacks: 0, maintenanceUsed: 0, maintenanceCapacity: 0, byDomain: Object.freeze({}) as ForceSummary['byDomain'] });
@@ -329,14 +337,14 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
   const contacts: ContactView[] = [];
   const table = state.contacts[viewer] ?? {};
   const refreshed = state.clock.lastVisibility;
-  for (const k of Object.keys(table).sort()) {
+  for (const k of sortedContactIds(table)) {
     const c = table[k];
     contacts.push(projectContact(c, t, refreshed, c.level === 'identified' ? state.stacks[c.stack] ?? null : null));
   }
   // allied (vision-source) stacks: identified and live; projected directly (same fields as projectContact)
   forEachAlliedStack(state, viewer, (s, cid, lonlat, domain) => {
     if (table[cid]) return;
-    contacts.push({ id: cid, level: 'identified', domain, lonlat, node: s.pos.kind === 'node' ? s.pos.node : null, observedAt: t, ageMin: 0, owner: s.owner, count: s.units.length, units: s.units.map((u) => ({ type: u.type, hpPct: Math.round((u.hp / u.maxHp) * 100) })) });
+    contacts.push({ id: cid, level: 'identified', domain, lonlat, node: s.pos.kind === 'node' ? s.pos.node : null, observedAt: t, ageMin: 0, owner: s.owner, count: s.units.length, units: alliedUnits(s) });
   });
   const srcs = new Set(visionSources(state, viewer));
   const reports: CountryView['reports'] = [];
@@ -345,7 +353,7 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
     reports.push({ ...plainClone(r), expired: t >= r.expiresAt, shared: r.country !== viewer });
   }
   reports.sort((a, b) => b.observedAt - a.observedAt || (a.id < b.id ? -1 : 1));
-  const myOffers = pub.offers.get(viewer) ?? [];
+  const myOffers = liveOffers(state, pub.offers.get(viewer));
   const myCo = coalitionOf(state, viewer);
   const relations = relationRows(state, viewer, myOffers, myCo);
   const offers = myOffers.map((o) => plainClone(o));
@@ -505,6 +513,32 @@ function jsonVal(v: unknown): unknown {
     if (x !== undefined) out[k] = x;
   }
   return out;
+}
+
+const alliedUnitsMemo = new WeakMap<Stack, { arr: Stack['units']; v: { type: string; hpPct: number }[] }>();
+/**
+ * Live member list of an allied stack as projected into views (type + rounded HP). Frozen and
+ * shared by every view while the roster array and each member's type and rounded HP are unchanged
+ * (re-checked on every call, so in-place HP changes are seen).
+ */
+function alliedUnits(s: Stack): { type: string; hpPct: number }[] {
+  const us = s.units;
+  const e = alliedUnitsMemo.get(s);
+  if (e && e.arr === us && e.v.length === us.length) {
+    let ok = true;
+    for (let i = 0; i < us.length; i++) {
+      const u = us[i];
+      const x = e.v[i];
+      if (x.type !== u.type || x.hpPct !== Math.round((u.hp / u.maxHp) * 100)) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return e.v;
+  }
+  const v = Object.freeze(us.map((u) => Object.freeze({ type: u.type, hpPct: Math.round((u.hp / u.maxHp) * 100) }))) as { type: string; hpPct: number }[];
+  alliedUnitsMemo.set(s, { arr: us, v });
+  return v;
 }
 
 const messageCopies = new WeakMap<Message, Message>();
@@ -667,6 +701,7 @@ function relationRows(state: GameState, viewer: CountryId, myOffers: Offer[], my
     if (!rows) rows = [];
     rows[k++] = Object.freeze(row);
   }
+  if (!rows) rows = []; // (a world with no other seat)
   if (changed) {
     Object.freeze(rows);
     memos.set(viewer, { em, gl: gtv.lineage, gt: gtv.touch, ci: coIdx, co: myCo, order, rows: rows!, entries, hlen, hlast });

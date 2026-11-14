@@ -96,7 +96,17 @@ export function readinessDay(state: GameState): void {
   const friendlyNodes = (c: CountryId) => {
     let d = near.get(c);
     if (!d) {
-      const src = state.provinces.filter((p) => p && isFriendlyTerritory(state, c, p.owner)).map((p) => p!.node);
+      // isFriendlyTerritory depends only on (c, owner): evaluate it once per owner
+      const fr = new Map<CountryId | null, boolean>();
+      const friendly = (o: CountryId | null) => {
+        let v = fr.get(o);
+        if (v === undefined) {
+          v = isFriendlyTerritory(state, c, o);
+          fr.set(o, v);
+        }
+        return v;
+      };
+      const src = state.provinces.filter((p) => p && friendly(p.owner)).map((p) => p!.node);
       d = hopDistances(m, src, 2, () => true);
       near.set(c, d);
     }

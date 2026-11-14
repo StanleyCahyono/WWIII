@@ -333,9 +333,9 @@ export function revalidateRoute(state: GameState, s: Stack): void {
   if (!o || o.kind !== 'move' || !o.route.length) return;
   // legality only changes with rights, ownership, facilities or the roster: skip when none changed
   const ownv = state.ids.ownv ?? 0;
-  const key: RevalKey = { relv: state.ids.relv ?? 0, grv: state.ids.grv ?? 0, cov: state.ids.cov ?? 0, econ: s.moveClass === 'naval' ? state.ids.econv ?? 0 : 0, rl: o.route.length, ul: s.units.length, pk: s.pos.kind, ownv };
+  const relv = state.ids.relv ?? 0, grv = state.ids.grv ?? 0, cov = state.ids.cov ?? 0, econ = s.moveClass === 'naval' ? state.ids.econv ?? 0 : 0;
   const prev = revalidated.get(o);
-  if (prev && prev.relv === key.relv && prev.grv === key.grv && prev.cov === key.cov && prev.econ === key.econ && prev.rl === key.rl && prev.ul === key.ul && prev.pk === key.pk) {
+  if (prev && prev.relv === relv && prev.grv === grv && prev.cov === cov && prev.econ === econ && prev.rl === o.route.length && prev.ul === s.units.length && prev.pk === s.pos.kind) {
     if (prev.ownv === ownv) return;
     // ownership changed somewhere: only re-check if a changed node lies on the remaining route
     const changed = ownerChangesSince(state, prev.ownv);
@@ -362,7 +362,7 @@ export function revalidateRoute(state: GameState, s: Stack): void {
       }
     }
   }
-  revalidated.set(o, key);
+  revalidated.set(o, { relv, grv, cov, econ, rl: o.route.length, ul: s.units.length, pk: s.pos.kind, ownv });
   const ctx = ctxFor(state, s, { allowActOfWar: o.warConfirmed });
   for (let i = 0; i < o.route.length; i++) {
     const seg = o.route[i];
@@ -409,14 +409,17 @@ export function revalidateRoute(state: GameState, s: Stack): void {
 /** Advance all moving ground/naval stacks by one step. */
 export function moveStep(state: GameState, stacks: readonly Stack[], hooks: MoveHooks): void {
   const m = S(state).map;
-  // node → stacks standing there (same membership rule as world.stacksAt), kept current as stacks move
-  let atNode: Map<NodeId, Set<Stack>> | null = null;
+  // node → stacks standing there (same membership rule as world.stacksAt), kept current as stacks
+  // move; only ever tested for the presence of a hostile stack, so list order is irrelevant
+  let atNode: Map<NodeId, Stack[]> | null = null;
   const index = () => {
     if (atNode) return atNode;
     atNode = new Map();
     for (const x of stacks) {
       if (x.pos.kind !== 'node' || x.aboard || (x.air && x.air.state !== 'landed' && x.air.state !== 'refueling')) continue;
-      (atNode.get(x.pos.node) ?? atNode.set(x.pos.node, new Set()).get(x.pos.node)!).add(x);
+      const l = atNode.get(x.pos.node);
+      if (l) l.push(x);
+      else atNode.set(x.pos.node, [x]);
     }
     return atNode;
   };
@@ -446,7 +449,12 @@ export function moveStep(state: GameState, stacks: readonly Stack[], hooks: Move
           if (!atWar(state, s.owner, v.actOfWar)) hooks.declareWar(state, s.owner, v.actOfWar, `Border crossing into ${m.data.nodes[seg.to].name} by ${s.name}`);
         }
         s.mode = v.mode as MoveMode;
-        if (atNode) atNode.get(seg.from)?.delete(s);
+        const am = atNode as Map<NodeId, Stack[]> | null; // (assigned inside `index`)
+        if (am) {
+          const l = am.get(seg.from);
+          const i = l ? l.indexOf(s) : -1;
+          if (i >= 0) l!.splice(i, 1);
+        }
         s.pos = { kind: 'edge', from: seg.from, to: seg.to, edge: seg.edge, progress: 0, length: (v.km as number) + (v.extraKm ?? 0) };
         s.stationarySince = state.clock.tick;
         if (s.engagement) s.engagement = null;
@@ -465,7 +473,9 @@ export function moveStep(state: GameState, stacks: readonly Stack[], hooks: Move
         // halt on contact with hostile forces
         const enemies = enemyMap(state).get(s.owner);
         const idx = index();
-        (idx.get(p.to) ?? idx.set(p.to, new Set()).get(p.to)!).add(s);
+        const here = idx.get(p.to);
+        if (!here) idx.set(p.to, [s]);
+        else if (!here.includes(s)) here.push(s);
         let hostile = false;
         if (enemies && o.route.length) for (const x of idx.get(p.to)!) if (x !== s && enemies.has(x.owner)) { hostile = true; break; }
         if (hostile && o.route.length) {

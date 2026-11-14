@@ -77,7 +77,8 @@ function noteOrder(state: GameState, o: MarketOrder, op: 'add' | 'update' | 'del
   if (!c || c.v !== v || c.orders !== state.market.orders) return;
   c.v = v + 1;
   c.seq = state.market.seq;
-  c.books.clear();
+  // a book aggregates the open orders of one resource only
+  c.books.delete(o.resource);
   const isOpen = op !== 'delete' && o.status === 'open';
   if (op === 'add') (c.byCountry.get(o.country) ?? c.byCountry.set(o.country, []).get(o.country)!).push(o);
   else if (op === 'delete') removeFrom(c.byCountry.get(o.country), o);
@@ -246,7 +247,8 @@ export function cancelOrderInternal(state: GameState, id: string): { released: n
 export function bookView(state: GameState, resource: Resource): BookView {
   const idx = marketIndex(state);
   const hit = idx.books.get(resource);
-  if (hit) return hit;
+  // (the last trade price is re-checked: it is read live)
+  if (hit && hit.last === (state.market.lastPrice[resource] ?? null)) return hit;
   const agg = (side: 'buy' | 'sell') => {
     const m = new Map<number, BookLevel>();
     for (const o of idx.open) {

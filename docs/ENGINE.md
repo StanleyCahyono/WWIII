@@ -336,17 +336,23 @@ Per-location announcements (non-serialized, consumed by caches; a gap forces a f
 * Unit levels: `techv`. Profiles/speed caches compare roster content (type, level, alive), so a new
   roster array with the same members keeps the cache.
 * Other per-state memos: sorted stack list (new stacks are appended — ids grow with the counter —
-  with a full sort as fallback; `stacksReadonly` returns it without copying), owner set for
+  with a full sort as fallback; `stacksReadonly` returns it without copying; the array is never
+  mutated in place — an addition or removal replaces it — so hot loops that may delete stacks
+  (air, movement, combat, destroyStack) iterate it as a snapshot instead of copying), owner set for
   eliminations (keyed by `ownv`), cached city list, `S(state)` one-entry memo (reset by
   `registerScenario`). Hot fixed-point vector primitives (`addInto`, `add`, `mul`, …) are written
   per resource (same results, monomorphic).
+* Stacks per owner (`stacksOfOwner`): keyed by the stack-id counter + stacks object (every stack is
+  created with a counter id and a stack's owner never changes), so it survives steps and commands;
+  an owner whose list is unchanged keeps the same array (identity-keyed memos downstream). Removed
+  stacks may linger until the next creation: callers skip `state.stacks[s.id] !== s`.
 
 **`derived()` key classes and command scopes** (`derived.ts`). The per-state memo is cleared at
 every step boundary. After a successful command `submitCommand` clears by class:
 * `~…` step-scoped (economy rates `~rates`/`~rate:<c>`/`~staticRates`, research slots/speed,
-  maintenance, `~publicSlice`, `~offerIndex:<ids.offer>`): never cleared by commands (`demolish`
-  clears everything).
-* `@…` forces-scoped (`@force:<c>`, `@liftAll`, `@obsNodes:<c>`, `@stacksByOwner`): cleared by
+  maintenance, `~publicSlice`): never cleared by commands (`demolish` clears everything). Direct
+  mid-step edits by tests/tools must call `invalidateViewCache(state)`.
+* `@…` forces-scoped (`@force:<c>`, `@liftAll`, `@obsNodes:<c>`): cleared by
   every command except the **FORCE_NEUTRAL** set in `commands/index.ts` (build, cancelJob, annex,
   mobilize, setRally, start/cancelResearch, produceMissile, market orders, offers, agents, intel
   reports, articles, messages) — their `apply` never touches stacks, territory, relations or
@@ -358,7 +364,8 @@ stillValid?)`, survive steps and commands): territory per owner and the public b
 (owners, rebel nodes, public cities, scores — frozen, shared by all views) are keyed by `ownv` (every
 owner/control change goes through `transferNode`); the only other public field that changes
 (annexation status) is re-checked once per step. **Code that changes ownership directly must bump
-`ownv`** (or go through `transferNode`).
+`ownv`** (or go through `transferNode`). The coalition membership index (`coalitionIndex`) is keyed
+by `cov` + the coalitions object (membership, leader and dissolution change only with a `cov` bump).
 
 **Other version-keyed indexes** (non-serialized WeakMaps; a reloaded/cloned state rebuilds):
 * Market (`systems/market.ts`): open-order index (open list, orders per country, open counts) and
@@ -367,17 +374,39 @@ owner/control change goes through `transferNode`); the only other public field t
   orders object. Lists keep `Object.values(state.market.orders)` order, so results equal a full
   scan in warm and reloaded runs (tested). **Code that edits orders directly must call
   `bumpMarket(state)`.** `counterOrders` (matching, previews), the open-order limit and elimination
-  cancels use the index.
-* Offers per country: `~offerIndex:<ids.offer>` (offers are only created with a new id, deleted only
-  by the day-change prune; status changes are in place).
+  cancels use the index. An order change drops only its own resource's book; a cached book is also
+  re-checked against the live last price.
+* Offers per country: `memoByVersion('offerIndex', ids.offer, [state.offers])` — offers are only
+  created with a new id and deleted only by the day-change prune (status changes are in place); the
+  view drops pruned entries on read (`liveOffers`), so the list equals a fresh index.
 * dm threads per participant: keyed by the message counter `ids.message`.
 * Journal (`journalFor`): per-recipient lists of event references appended from a cursor (event
   ids ascend), trimmed lazily after the log is pruned; rebuilt when `state.events` is replaced.
-* Diplomacy rows: war sets (`enemyMap`, `relv`), grant maps (`grantMap`, `grv`), coalition
-  membership (`coalitionIndex`, `cov`), public war list (`relv`), trust rows (`trustRow`: pair keys
-  and opening values precomputed per viewer row; explicit `state.trust` entries are read live, so
-  direct test edits are seen).
+* Diplomacy rows: war sets (`enemyMap`, `relv`), grant maps (`grantMap`, `grv`; the rebuild diffs
+  the previous map and records a per-country touch version — `grantTouch(state, c)` — for both sides
+  of every grant that appeared, changed or vanished), coalition membership (`coalitionIndex`, `cov`),
+  public war list (`relv`), trust rows (`trustRow`: pair keys and opening values precomputed per
+  viewer row; explicit `state.trust` entries are read live, so direct test edits are seen).
+* Per-viewer relation rows (`relationRows`): reused between views (frozen rows, frozen array) while
+  the war map, coalition index, the viewer's coalition, the seat order and the viewer's grant touch
+  are unchanged; every row is still re-checked against the live trust value, trust entry identity,
+  history length and newest history item, pending offers and name/controller/alive, and rebuilt
+  alone when one differs.
+* Coalition entries in views: one frozen public entry per coalition, rebuilt when members /
+  departures (array identity + length — they are only appended or replaced), leader, dissolution,
+  texts or the frozen score table change; only the leader gets a copy with its applications.
+* Allied (vision-source) contacts: the merged per-viewer stack list is memoized per `srcs` array
+  while every source's `stacksOfOwner` list is the same array; each allied stack's projected member
+  list (type + rounded HP) is frozen and shared, re-checked member by member on every use.
+* Contact tables: `sortedContactIds(table)` memo per table object and key-set version (the version
+  is bumped by every insert/delete in visibility.ts, the only writer).
 * Sorted techs per country (techs are only added; keyed by the record and its key count).
+* Visibility internals: fine cells are a dense array (`cellIx`: `lonIndex·181 + latIndex`) holding
+  the records and per-owner counts of a cell; sensors are interned to integer slots (`slotFor`, per
+  cache, never released) so the current snapshot, evaluated hits and cell → sensor sets are arrays /
+  integer sets; the invalid-sensor list is deduplicated with a per-run stamp and keeps first-marking
+  order (exactly the iteration order of the former key set). `detectFrom` evaluates `distKm` inline
+  with both latitude cosines cached (the same operations in the same order: bit-identical).
 
 ## Save format
 
@@ -486,6 +515,61 @@ than the earlier 647-mover save; load ≈ 5.6): day 1 process-cold 1,513 ms (old
 save 1,591 ms), **JIT-warm 473–610 ms**, days 2–3 JIT-warm 249–330 ms. The AI-phase work did not
 target this path; visibility is still the largest part of it (see the known gaps).
 
+### Engine pass 2 (2026-11-14 evening): views, visibility, movement/combat allocation
+
+Same saves and esbuild bundles as above, Node 22, 4 vCPU. **Other agents' Playwright/Vitest runs
+loaded the machine throughout (load average 1.2–8)**, so every row interleaves the frozen baseline
+bundle ("before" = engine at the start of this pass) with the final tree under the same
+conditions; each cell is min / median over the runs listed. JIT-warm = 3 warm-up runs of the same
+save in the process first, `global.gc()` before each measured run. The planner (src/ai) is
+unchanged. **Every run below ends in the same `stateHash` before and after** (war69 3 days
+`ecec5d3a…`, 40-war 3 days `3366d19a…`, AI 3 days `5e2bb4a5…`, engine-only `f1941693…`); the AI
+run also reproduces `5e2bb4a5…` with odd time chunks and a save/reload every third chunk.
+
+| Metric (ms; min / median) | load | Before | After |
+| --- | --- | ---: | ---: |
+| 69 wars, day 1 (831 movers at load), 3 × 6 runs per side | 1.6–3.3 | 460–489 / 492–528 | **393–408 / 468–523** |
+| 69 wars, day 1, single run per process with GC accounting | ≈ 1.3 | 412–593 (med ≈ 470; GC 64–94) | **387–527 (med ≈ 410; GC 49–87)** |
+| 69 wars, day 2 / day 3 (3 × 4 runs) | 2.5–5 | 264–296 / 288–307; 231–252 / 260–295 | **220–242 / 241–294; 187–206 / 212–225** |
+| 40 wars, day 1 / days 2–3 (2 × 4 runs) | 3–5 | 302–379 / 409–442; 156–181 / 176–212 | 267–360 / 308–416; 138–183 / 140–263 |
+| AI phase (UtilityController, snap6 days 7–9), per day (3 × 3 runs) | 5–8 | 1,109–1,220 / 1,214–1,287 | **950–1,082 / 969–1,244** |
+| Engine only (IdleController, snap6), per day (2 × 4 runs) | 6–8 | 126–177 / 150–215 | 118–142 / 129–177 |
+| A02 smoke (`tests/ai/world120.test.ts`, 20 days, 120 seats) | ≈ 3 | ≈ 1,400 ms/day (planner ≈ 450) | **1,104 ms/day (planner 414)** |
+
+Per-view cost (lite, after each 15-min step) measured 0.18–0.26 → 0.19 ms median at load 6–7
+(too noisy to resolve); the CPU profile of two JIT-warm AI days is the steadier signal:
+`getCountryView` ≈ 423 → ≈ 320 ms/day (relation rows, allied contacts, coalitions, stack lists,
+public slice), runStep excluding the AI ≈ 320 → ≈ 260 ms/day. Heavy-war profile after the pass
+(per JIT-warm day 1): visibility ≈ 190 ms (detection bookkeeping ≈ 50, sensor re-evaluation ≈ 30,
+contact writes ≈ 25), combat ≈ 65, movement ≈ 60, hourly economy ≈ 35, air ≈ 19, capture ≈ 18,
+GC ≈ 12 %. A warm war day measured hour by hour: first hour (cold caches after load) 44–80 ms,
+day-change hour 33–48 ms, other hours 10–25 ms.
+
+What changed (all behaviour-neutral; caches are non-serialized and rebuild on load):
+* Views (`view/country-view.ts`): relation rows reused per viewer (grant touch versions from
+  `grantTouch`; every row re-checked against live trust/offers/seat data; no conditional object
+  spread); one frozen entry per coalition (applications only for the leader); allied stacks' member
+  lists shared frozen and re-checked; sorted contact ids per table version; offer index across
+  steps (`liveOffers`); `jsonCopy` (exact JSON round-trip semantics) instead of
+  `JSON.parse(JSON.stringify)` for air state, missiles and the result; time text memo.
+* World/diplomacy indexes (`systems/world.ts`): stacks per owner keyed by the stack counter (no
+  per-command rebuild, unchanged owner arrays kept); coalition index and vision sources keyed by
+  counters without per-call allocation; the stack-list append no longer counts every key.
+* Visibility (`systems/visibility.ts`): dense cell arrays; integer sensor slots with a stamped
+  invalid list (same order as before); inline haversine with cached cosines in `detectFrom`; lazy
+  hit / visible-unit arrays; tuple-free territory lookup; a merge of one source returns its Det;
+  allocation-free node positions in `writeContact`; the allied merge memoized per `srcs` array.
+* Combat (`systems/combat.ts`): open engagements indexed once per round; `closeEngagements` visits
+  only open ones and prunes only above 200 closed; no per-stack allocation for the air-defence
+  check or the target bins. Movement: array node index, no re-validation key allocation per mover.
+  Air/movement/combat/destroyStack iterate the read-only sorted list instead of copying it.
+  Economy: hourly shortage flags over the cached city list; market books invalidated per resource.
+  Readiness: friendliness evaluated once per owner. Eliminations: recovery check via
+  `stacksOfOwner`.
+* Tests: `tests/engine/perf-caches.test.ts` › "views from a warm state … equal views of a cold
+  reload" (coalition applications/joins/departures, offers, grants, engine and direct trust edits,
+  war, new/removed stacks, in-place HP edits, bot days, offer pruning; lite and full views).
+
 Profiling recipe: bundle a script that loads the scenario with `buildWorld120Scenario` (or a JSON
 snapshot of map/catalog/profiles) and a war save, `npx esbuild <script> --bundle --platform=node`,
 run with `node --cpu-prof` (or the inspector `Profiler` for a time window) and aggregate self /
@@ -493,22 +577,28 @@ inclusive samples per function and per line (`positionTicks`).
 
 ## Known gaps / resume notes
 
-* AI-phase cost (≈ 1.3–1.5 s/day JIT-warm under load, target ≈ 1 s): next engine levers are
-  (1) per-viewer diplomacy rows reused across calls (needs a trust version counter — today trust
-  entries are read live because tests edit `state.trust` directly), (2) allied contacts shared per
-  coalition per step (only the contact id is viewer-specific), (3) a stack-roster version so
-  `~rates`/`@stacksByOwner` survive steps, (4) a deletion counter for stacks so `stacksReadonly`
-  need not re-check every record. Planner-side (src/ai): ≈ 35–40 % of the day; `tests/ai/helpers.ts`
-  `recording()` does not forward `wants`/`liteView`, so the 20-day smoke test still measures the
-  full-view, no-pre-check path (≈ 4.4 s/day at load 7).
-
-* Heavy-war performance with ~650 simultaneous movers (first war day: 530–640 ms JIT-warm, target
-  400): next levers are (1) integer-indexed visibility structures (typed arrays for records, cells
-  and contributions instead of string-keyed Maps/Sets — the remaining cost is per-mover
-  bookkeeping, ~5 µs per moved target per refresh), (2) a persistent node→stacks index maintained by
-  movement/combat/capture (each currently builds its own per step/hour), (3) allocation-free
-  `stackLL`/contact refresh, (4) caching per-stack combat range / air-defence member lists. A rule
-  change (hourly visibility) was measured at only ~30 % of visibility cost and was not adopted.
+* AI-phase cost (second engine pass, see "Engine pass 2" above: ≈ 0.95–1.2 s/day JIT-warm on the
+  shared container, A02 smoke 1.10 s/day): requests (1) per-viewer diplomacy rows and (2) shared
+  allied contacts landed in a form that keeps live trust reads (rows are reused but every row is
+  re-checked; allied member lists are shared and re-checked), and the stacks-per-owner index now
+  survives steps/commands. Remaining levers: (a) the trust re-check still reads 119 `state.trust`
+  entries per view — a saved trust version counter would let a row set be reused without it, but
+  tests edit `state.trust` directly, so that needs a contract change; (b) `stacksReadonly` still
+  re-checks every record for removals (≈ 25 µs per call; a deletion counter needs every direct test
+  deletion to announce itself); (c) `~staticRates` recomputes the structural fingerprint once per
+  step that has views (≈ 0.2 ms); (d) planner (src/ai) ≈ 35–40 % of the day, memory `jsonClone`
+  ≈ 25 ms/day.
+* Heavy-war day (69 wars, 831 movers at load): first day ≈ 390–470 ms JIT-warm (median ≈ 410 at
+  load ≈ 1.3; ≈ 470–500 at load 3–5), days 2–3 ≈ 200–270 ms. **≤ 400 ms is met by the fastest
+  runs and by every steady day, not reliably by the first-day median on this shared machine.** That
+  day includes a one-off cold-cache first hour (≈ 45–80 ms: full visibility build, every mover's
+  route re-validated) and the day-change hour (≈ 35–45 ms); GC is ≈ 12 % of it. Remaining levers:
+  (1) visibility bookkeeping for moving sensors (≈ 470 re-evaluated per 30-min refresh; most find
+  nothing — cover arrays, sensor snapshots and hit diffs are still allocated per refresh), (2) a
+  persistent node→stacks index shared by movement/combat/capture/closeEngagements (each still
+  builds its own per step/hour), (3) allocation in combat (`combatUnits` filters, `nearby` sorts)
+  and `evalEdge` verdict objects. A rule change (hourly visibility) was measured at only ~30 % of
+  visibility cost and was not adopted.
 * Route planning first tries the rights-independent optimal path (memoized per state, keyed by
   class/owner/roster/versions) and falls back to constrained A* only if that path is now illegal.
   `MapIndex.staticCache` keeps its field but the memo is per state (a shared memo could leak between

@@ -10,7 +10,7 @@ import type { CountryController, PlannerContext, WantsInfo } from '../../src/eng
 import type { GameState, MarketOrder } from '../../src/engine/state';
 import { RESOURCES } from '../../src/engine/data-types';
 import { bookView, ordersOf, openOrderCount } from '../../src/engine/systems/market';
-import { journalFor } from '../../src/engine/view/country-view';
+import { invalidateViewCache, journalFor } from '../../src/engine/view/country-view';
 import { makePeace, trustOf, trustRow, addTrust } from '../../src/engine/systems/diplomacy';
 import { streamRng } from '../../src/engine/rng';
 import { newMiniGame } from '../fixtures/mini-world';
@@ -200,6 +200,75 @@ describe('engine caches for the AI phase', () => {
     advance(t, 1440);
     advance(u, 1440);
     expect(stateHash(u)).toBe(stateHash(t));
+  });
+
+  it('views from a warm state (every cross-call memo alive) equal views of a cold reload, across commands, coalition changes and direct edits', () => {
+    const s = newMiniGame({ human: null, seed: 11 });
+    for (const c of s.countryOrder) setStock(s, c, { money: 2_000_000, fuel: 5_000, supplies: 5_000 });
+    const viewAll = (x: GameState, lite: boolean) => x.countryOrder.map((c) => JSON.stringify(getCountryView(x, c, { journalLimit: 15, journalScan: 400, lite })));
+    /** first differing path of two JSON values (for a readable failure) */
+    const firstDiff = (a: unknown, b: unknown, path = ''): string | null => {
+      if (JSON.stringify(a) === JSON.stringify(b)) return null;
+      if (a && b && typeof a === 'object' && typeof b === 'object') {
+        for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+          const d = firstDiff((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k], `${path}.${k}`);
+          if (d) return d;
+        }
+      }
+      return `${path}: ${JSON.stringify(a)?.slice(0, 300)} != ${JSON.stringify(b)?.slice(0, 300)}`;
+    };
+    const check = (label: string) => {
+      // direct test edits must announce themselves to the per-step memo (derived); every
+      // cross-call memo under test (relation rows, coalition entries, allied units, offer index,
+      // sorted contact ids, stacks per owner, market books) stays warm
+      invalidateViewCache(s);
+      const cold = deserialize(serialize(s));
+      for (const lite of [true, false]) {
+        const warm = viewAll(s, lite);
+        const fresh = viewAll(cold, lite);
+        warm.forEach((v, i) => {
+          if (v !== fresh[i]) expect.fail(`${label} ${s.countryOrder[i]} lite=${lite}: ${firstDiff(JSON.parse(v), JSON.parse(fresh[i]))}`);
+        });
+      }
+    };
+    check('start');
+    // coalition: founder, applications (only the leader sees them), joins, departure notice
+    must(s, { type: 'createCoalition', country: 'ARD', name: 'West bloc', description: 'test' });
+    const co = Object.values(s.coalitions)[0];
+    must(s, { type: 'applyCoalition', country: 'DUN', coalition: co.id });
+    check('application');
+    must(s, { type: 'respondApplication', country: 'ARD', coalition: co.id, applicant: 'DUN', accept: true });
+    must(s, { type: 'applyCoalition', country: 'CEL', coalition: co.id });
+    check('joined');
+    must(s, { type: 'leaveCoalition', country: 'DUN' });
+    check('departure announced');
+    // offers (pending, answered), grants, trust (engine and direct edits), a war
+    must(s, { type: 'proposeOffer', country: 'BOR', to: 'ESK', give: [], receive: [{ kind: 'status', level: 'right_of_way' }] });
+    must(s, { type: 'proposeOffer', country: 'FAL', to: 'ESK', give: [], receive: [{ kind: 'status', level: 'right_of_way' }] });
+    check('offers pending');
+    const o = Object.values(s.offers).find((x) => x.from === 'BOR')!;
+    must(s, { type: 'respondOffer', country: 'ESK', offer: o.id, accept: true });
+    grant(s, 'FAL', 'BOR', 'shared_intel');
+    addTrust(s, 'BOR', 'ESK', -7, 'test', 'test');
+    check('offer answered');
+    s.trust['ESK>FAL'] = { value: -33, history: [] }; // direct edit: seen live
+    s.trust['BOR>ESK'].value = 12; // in-place edit of an existing entry
+    check('trust edited');
+    war(s, 'BOR', 'ESK');
+    const bor = place(s, 'BOR', 3, ['inf', 'inf']);
+    place(s, 'ARD', 12, ['inf', 'scout']);
+    check('war + new stacks');
+    // allied HP change in place (allied stacks are projected live), then removals
+    const ardStack = Object.values(s.stacks).find((x) => x.owner === 'ARD')!;
+    ardStack.units[0].hp = Math.max(1, Math.floor(ardStack.units[0].hp / 3));
+    check('allied hp');
+    delete s.stacks[bor.id];
+    clearStacks(s, 'CEL');
+    check('stacks removed');
+    advance(s, 3 * 1440, { fallback: BasicController });
+    check('after three bot days');
+    advance(s, 8 * 1440, { fallback: BasicController }); // day-change prunes answered offers
+    check('after pruning');
   });
 
   it('war events carry structured actors; the view lists coalition join ticks and public wars', () => {

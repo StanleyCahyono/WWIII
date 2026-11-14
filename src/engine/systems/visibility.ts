@@ -186,6 +186,7 @@ function profileOf(state: GameState, s: Stack): StackProfile {
 
 const CITY_RADAR_DOMAINS: Domain[] = ['air', 'sea', 'land'];
 const NO_UNITS: number[] = [];
+const NO_HITS: Hit[] = [];
 const NO_DOMAINS: Domain[] = [];
 const DOMAIN_PRI: Record<string, number> = { air: 4, sea: 3, subsurface: 2, land: 1, strategic: 0 };
 function detRank(level: ContactLevel, domain: string): number {
@@ -439,7 +440,8 @@ const EARTH_KM = 6371;
 function detectFrom(state: GameState, c: CountryId, sen: Sensor, vc: VisCache, keys: number[]): Hit[] {
   const r = Math.max(sen.sight, sen.radar);
   const m = S(state).map;
-  const hits: Hit[] = [];
+  // allocated on the first hit (most re-evaluations find nothing); never mutated once returned
+  let hits: Hit[] = NO_HITS;
   const slon = sen.ll[0], slat = sen.ll[1];
   const scl = Math.cos(slat * TO_RAD);
   for (const k of keys) {
@@ -461,12 +463,15 @@ function detectFrom(state: GameState, c: CountryId, sen: Sensor, vc: VisCache, k
       const a = Math.sin(dLat / 2) ** 2 + scl * tg.cl * Math.sin(dLon / 2) ** 2;
       const d = 2 * EARTH_KM * Math.asin(Math.min(1, Math.sqrt(a)));
       if (d > r) continue;
-      const vis: number[] = [];
+      let vis: number[] = NO_UNITS;
       let radHit = false;
       let radDomain: Domain | 'land' = 'land';
       const dom = tg.pr.dom, sig = tg.pr.sig;
       for (let i = 0; i < dom.length; i++) {
-        if (d <= sen.sight && (dom[i] !== 'subsurface' || sen.asw) && (sig[i] < 3 || d <= sen.sight * STEALTH_VISUAL_FRACTION)) vis.push(i);
+        if (d <= sen.sight && (dom[i] !== 'subsurface' || sen.asw) && (sig[i] < 3 || d <= sen.sight * STEALTH_VISUAL_FRACTION)) {
+          if (vis === NO_UNITS) vis = [];
+          vis.push(i);
+        }
         if (d <= sen.radar && sig[i] <= sen.sens && sen.detects.includes(dom[i])) {
           if (!radHit || (DOMAIN_PRI[dom[i]] ?? 0) > (DOMAIN_PRI[radDomain] ?? 0)) radDomain = dom[i];
           radHit = true;
@@ -475,8 +480,12 @@ function detectFrom(state: GameState, c: CountryId, sen: Sensor, vc: VisCache, k
       if (vis.length) {
         const inCity = s.pos.kind === 'node' && state.provinces[s.pos.node]?.owner === c && m.cityByNode.has(s.pos.node);
         const ident = sen.recon || d <= sen.sight * IDENTIFY_FRACTION || inCity;
+        if (hits === NO_HITS) hits = [];
         hits.push({ sid: s.id, level: ident ? 'identified' : 'unidentified', units: vis, domain: dom[vis[0]], src: sen.id });
-      } else if (radHit) hits.push({ sid: s.id, level: 'contact', units: NO_UNITS, domain: radDomain, src: sen.id });
+      } else if (radHit) {
+        if (hits === NO_HITS) hits = [];
+        hits.push({ sid: s.id, level: 'contact', units: NO_UNITS, domain: radDomain, src: sen.id });
+      }
     }
   }
   return hits;
@@ -627,13 +636,19 @@ function runDetections(state: GameState, full: boolean): VisCache {
     }
     dirtyGroups.add(g);
   };
-  const terrOf = (r: TRec): [CountryId | null, NodeId | null] => {
+  // territorial observer of a record → (tOwner, tNode) (two out-values: no tuple per call)
+  let tOwner = null as CountryId | null;
+  let tNode = null as NodeId | null;
+  const terrOf = (r: TRec): void => {
     const s = r.s;
     const node: NodeId | null = s.pos.kind === 'node' ? s.pos.node : s.pos.kind === 'edge' ? s.pos.to : null;
-    if (node === null) return [null, null];
+    tOwner = null;
+    tNode = null;
+    if (node === null) return;
     const o = state.provinces[node]?.owner ?? null;
-    if (!o || o === s.owner) return [null, null];
-    return [o, node];
+    if (!o || o === s.owner) return;
+    tOwner = o;
+    tNode = node;
   };
   const removeRec = (r: TRec) => {
     binRemove(V, r);
@@ -648,7 +663,9 @@ function runDetections(state: GameState, full: boolean): VisCache {
     const bin = s.pos.kind === 'node' ? (pr.bin ??= vbin(ll[0], ll[1])) : vbin(ll[0], ll[1]);
     const r: TRec = { s, n: idn(s.id), pr, ll, cl: Math.cos(ll[1] * TO_RAD), bin, moving: s.pos.kind !== 'node', group: null, g: null, terr: null, terrNode: null };
     r.group = groupKey(r);
-    [r.terr, r.terrNode] = terrOf(r);
+    terrOf(r);
+    r.terr = tOwner;
+    r.terrNode = tNode;
     V.recs.set(s.id, r);
     binInsert(V, r);
     changedBins.add(bin);
@@ -677,8 +694,8 @@ function runDetections(state: GameState, full: boolean): VisCache {
       // in transit: refresh the position in place when the cell and territorial observer are unchanged
       const ll = stackLL(state, s);
       const bin = vbin(ll[0], ll[1]);
-      const [t, n] = terrOf(r);
-      if (t === r.terr && n === r.terrNode) {
+      terrOf(r);
+      if (tOwner === r.terr && tNode === r.terrNode) {
         if (bin !== r.bin) {
           // crossed into another cell: move the record between cells (group and territory unchanged)
           binRemove(V, r);
@@ -699,7 +716,8 @@ function runDetections(state: GameState, full: boolean): VisCache {
       removeRec(r);
       addRec(s, pr);
     } else if (ownNodes) {
-      const [t, n] = terrOf(r);
+      terrOf(r);
+      const t = tOwner, n = tNode;
       if (t !== r.terr || n !== r.terrNode) {
         if (r.terr) setContrib(r.terr, s.id, 'T', null);
         r.terr = t;
@@ -953,8 +971,10 @@ export function updateVisibility(state: GameState): void {
       if (seen.has(cid)) continue;
       const c = table[cid];
       if (c.level !== 'stale') freeze(state, c, prevRefresh);
-      if (t - c.observedAt > STALE_KEEP_MIN) delete table[cid];
-      else nextExpire = Math.min(nextExpire, c.observedAt + STALE_KEEP_MIN);
+      if (t - c.observedAt > STALE_KEEP_MIN) {
+        delete table[cid];
+        tableChanged(table);
+      } else nextExpire = Math.min(nextExpire, c.observedAt + STALE_KEEP_MIN);
     }
     memos.set(viewer, { srcs, gen: vc.gen, nextExpire });
   }
@@ -965,6 +985,18 @@ export function updateVisibility(state: GameState): void {
 function mergedFor(state: GameState, viewer: CountryId, srcs: CountryId[], dets: Map<CountryId, Map<string, Det>>, sid: string): Det | null {
   const st = state.stacks[sid];
   if (!st || st.owner === viewer) return null;
+  // a target detected by exactly one source: its Det as is (a merge of one is a copy of it; Det
+  // objects are never mutated once published)
+  let only: Det | null = null;
+  let n = 0;
+  for (const c of srcs) {
+    const det = dets.get(c)?.get(sid);
+    if (det) {
+      only = det;
+      if (++n > 1) break;
+    }
+  }
+  if (n <= 1) return only;
   let x: Det | null = null;
   for (const c of srcs) {
     const det = dets.get(c)?.get(sid);
@@ -997,10 +1029,19 @@ function writeContact(state: GameState, table: Record<string, Contact>, ids: Map
     cid = contactId(state, viewer, sid);
     ids.set(sid, cid);
   }
-  const ll = stackLL(state, s);
+  let lon: number, lat: number;
+  if (!s.aboard && s.pos.kind === 'node') {
+    // = stackLL for a stack standing on a node (no array allocation)
+    const mm = S(state).map;
+    lon = round4(mm.lon[s.pos.node]);
+    lat = round4(mm.lat[s.pos.node]);
+  } else {
+    const ll = stackLL(state, s);
+    lon = round4(ll[0]);
+    lat = round4(ll[1]);
+  }
   const prev = table[cid];
   const idx = det.level === 'contact' ? NO_UNITS : (det.sorted ??= [...det.units].sort((a, b) => a - b));
-  const lon = round4(ll[0]), lat = round4(ll[1]);
   const node = s.pos.kind === 'node' ? s.pos.node : null;
   const owner = det.level === 'contact' ? null : s.owner;
   const count = det.level === 'contact' ? null : idx.length;
@@ -1018,7 +1059,7 @@ function writeContact(state: GameState, table: Record<string, Contact>, ids: Map
     }
     let sameSrc = det.src.size === prev.sources.length;
     if (sameSrc) for (const x of prev.sources) if (!det.src.has(x)) { sameSrc = false; break; }
-    if (!sameSrc) { prev.sources = [...det.src].sort(); changed = true; }
+    if (!sameSrc) { prev.sources = sortedSources(det); changed = true; }
     if (changed) prev.observedAt = t;
     return cid;
   }
@@ -1032,9 +1073,10 @@ function writeContact(state: GameState, table: Record<string, Contact>, ids: Map
     prev.owner = owner;
     prev.count = count;
     prev.units = det.level === 'identified' ? idx.map((i) => ({ type: s.units[i].type, hpPct: hpPct(s, i), i })) : null;
-    prev.sources = [...det.src].sort();
+    prev.sources = sortedSources(det);
     return cid;
   }
+  if (!prev) tableChanged(table);
   table[cid] = {
     id: cid,
     stack: sid,
@@ -1047,19 +1089,44 @@ function writeContact(state: GameState, table: Record<string, Contact>, ids: Map
     owner,
     count,
     units: det.level === 'identified' ? idx.map((i) => ({ type: s.units[i].type, hpPct: hpPct(s, i), i })) : null,
-    sources: [...det.src].sort(),
+    sources: sortedSources(det),
   };
   return cid;
+}
+/** Sorted source ids of a detection (a fresh array per contact). */
+function sortedSources(det: Det): string[] {
+  if (det.src.size === 1) for (const x of det.src) return [x];
+  return [...det.src].sort();
 }
 function expireStale(table: Record<string, Contact>, t: number): number {
   let next = Infinity;
   for (const cid of Object.keys(table)) {
     const c = table[cid];
     if (c.level !== 'stale') continue;
-    if (t - c.observedAt > STALE_KEEP_MIN) delete table[cid];
-    else next = Math.min(next, c.observedAt + STALE_KEEP_MIN);
+    if (t - c.observedAt > STALE_KEEP_MIN) {
+      delete table[cid];
+      tableChanged(table);
+    } else next = Math.min(next, c.observedAt + STALE_KEEP_MIN);
   }
   return next;
+}
+/** Key-set version of each contact table (bumped by every insert/delete in this module). */
+const tableVersions = new WeakMap<object, number>();
+function tableChanged(table: object): void {
+  tableVersions.set(table, (tableVersions.get(table) ?? 0) + 1);
+}
+const sortedKeyMemo = new WeakMap<object, { v: number; keys: string[] }>();
+/**
+ * Sorted contact ids of a contact table (shared, read-only). Memoized per table object and key-set
+ * version: contact tables are only written by updateVisibility (this module).
+ */
+export function sortedContactIds(table: Record<string, Contact>): readonly string[] {
+  const v = tableVersions.get(table) ?? 0;
+  const e = sortedKeyMemo.get(table);
+  if (e && e.v === v) return e.keys;
+  const keys = Object.keys(table).sort();
+  sortedKeyMemo.set(table, { v, keys });
+  return keys;
 }
 function hpPct(s: Stack, i: number): number {
   const u = s.units[i];
