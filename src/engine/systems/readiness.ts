@@ -28,6 +28,7 @@ import { cmpId, isFriendlyTerritory, utype } from './world';
 import { sumEffect } from './economy';
 import { unitCost } from './production';
 import { valueAt } from '../fixed';
+import { derived } from '../derived';
 
 export function maintenanceCapacity(state: GameState, c: CountryId): number {
   let s = state.countries[c].maintenanceSlots + BASE_MAINTENANCE_SLOTS;
@@ -117,15 +118,33 @@ export interface ForceSummary {
 
 /** Fielded vs ready vs committed strength (replacement value × HP fraction). */
 export function forceSummary(state: GameState, c: CountryId): ForceSummary {
+  const all = derived(state, 'forceAll', () => {
+    const m = new Map<CountryId, Stack[]>();
+    for (const s of Object.values(state.stacks)) {
+      const l = m.get(s.owner) ?? [];
+      l.push(s);
+      m.set(s.owner, l);
+    }
+    return m;
+  });
+  return derived(state, `force:${c}`, () => computeForce(state, c, all.get(c) ?? []));
+}
+
+function computeForce(state: GameState, c: CountryId, stacks: Stack[]): ForceSummary {
   const prices = S(state).cat.prices;
   const out: ForceSummary = { fielded: 0, ready: 0, committed: 0, inRefit: 0, units: 0, stacks: 0, maintenanceUsed: 0, maintenanceCapacity: maintenanceCapacity(state, c), byDomain: {} };
-  for (const s of Object.values(state.stacks)) {
-    if (s.owner !== c) continue;
+  const valCache = new Map<string, number>();
+  for (const s of stacks) {
     out.stacks++;
     const committed = !!s.order || !!s.engagement || (s.air !== null && s.air.state !== 'landed' && s.air.state !== 'refueling');
     for (const u of s.units) {
       const t = utype(state, u.type);
-      const v = valueAt(unitCost(state, c, t), prices) * (u.hp / u.maxHp);
+      let base = valCache.get(u.type);
+      if (base === undefined) {
+        base = valueAt(unitCost(state, c, t), prices);
+        valCache.set(u.type, base);
+      }
+      const v = base * (u.hp / u.maxHp);
       out.units++;
       out.fielded += v;
       const isReady = u.readiness >= READY_THRESHOLD && !s.refit && u.hp / u.maxHp >= 0.5;

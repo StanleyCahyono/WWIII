@@ -4,6 +4,7 @@ import type { Coalition, DiploLevel, DiploStatus, GameState, Stack, Unit } from 
 import { dirKey, pairKey } from '../ids';
 import { S, unitStats } from '../scenario/registry';
 import { lerpLonLat, nodeLL } from './mapindex';
+import { derived } from '../derived';
 
 export function ownerOf(state: GameState, node: NodeId): CountryId | null {
   const p = state.provinces[node];
@@ -38,7 +39,9 @@ export function levelAtLeast(l: DiploLevel, min: DiploLevel): boolean {
   return LEVEL_RANK[l] >= LEVEL_RANK[min];
 }
 export function coalitionOf(state: GameState, c: CountryId): Coalition | null {
-  for (const id of Object.keys(state.coalitions).sort()) {
+  const ids = Object.keys(state.coalitions);
+  if (!ids.length) return null;
+  for (const id of ids.sort()) {
     const co = state.coalitions[id];
     if (!co.dissolvedAt && co.members.some((m) => m.country === c)) return co;
   }
@@ -66,12 +69,25 @@ export function isFriendlyTerritory(state: GameState, c: CountryId, owner: Count
 }
 /** Countries whose sensors `viewer` sees through (self, coalition, shared_intel grantors). Sorted. */
 export function visionSources(state: GameState, viewer: CountryId): CountryId[] {
+  return derived(state, `vision:${viewer}`, () => computeVisionSources(state, viewer));
+}
+function computeVisionSources(state: GameState, viewer: CountryId): CountryId[] {
   const out = new Set<CountryId>([viewer]);
   const co = coalitionOf(state, viewer);
   if (co) for (const m of co.members) out.add(m.country);
-  for (const c of state.countryOrder) {
-    if (c !== viewer && !atWar(state, c, viewer) && grantLevel(state, c, viewer) === 'shared_intel') out.add(c);
-  }
+  const shared = derived(state, 'sharedIntel', () => {
+    const m = new Map<CountryId, CountryId[]>();
+    for (const k of Object.keys(state.grants)) {
+      if (state.grants[k].level !== 'shared_intel') continue;
+      const [from, to] = k.split('>');
+      if (atWar(state, from, to)) continue;
+      const l = m.get(to) ?? [];
+      l.push(from);
+      m.set(to, l);
+    }
+    return m;
+  });
+  for (const c of shared.get(viewer) ?? []) out.add(c);
   return [...out].sort();
 }
 export function hostileStacks(state: GameState, a: Stack, b: Stack): boolean {

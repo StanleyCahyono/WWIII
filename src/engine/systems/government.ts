@@ -10,6 +10,7 @@
  * remaining fraction × ACTIVE_JOB_REFUND_FACTOR). Rally points are cleared.
  * LOOT: the capturer receives 2 % × tier of the former owner's spendable money (ledger 'loot').
  */
+import { invalidateDerived } from '../derived';
 import type { CountryId, NodeId } from '../data-types';
 import type { CityState, GameState, MoraleFactor, ProvinceState, Stack } from '../state';
 import {
@@ -78,6 +79,7 @@ export function transferNode(state: GameState, node: NodeId, to: CountryId | nul
   p.control = to ? 'country' : 'rebel';
   p.status = to && p.homeland === to ? 'homeland' : 'occupied';
   p.changedAt = state.clock.tick;
+  invalidateDerived(state);
   for (const b of p.buildings) b.condition = Math.max(0, b.condition - CAPTURE_CONDITION_LOSS);
   const ck = m.cityByNode.get(node);
   const city = ck ? state.cities[ck] : undefined;

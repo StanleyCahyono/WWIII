@@ -44,8 +44,18 @@ export function binKey(lon: number, lat: number): string {
   while (l >= 180) l -= 360;
   return `${Math.floor(l / SPATIAL_BIN_DEG)},${Math.floor(lat / SPATIAL_BIN_DEG)}`;
 }
-/** All bin keys whose cells may contain points within `km` of (lon,lat). */
+const aroundCache = new Map<string, string[]>();
+/** All bin keys whose cells may contain points within `km` of (lon,lat). Memoized (pure). */
 export function binsAround(lon: number, lat: number, km: number): string[] {
+  const ck = `${lon},${lat},${km}`;
+  const hit = aroundCache.get(ck);
+  if (hit) return hit;
+  const res = binsAroundRaw(lon, lat, km);
+  if (aroundCache.size > 200000) aroundCache.clear();
+  aroundCache.set(ck, res);
+  return res;
+}
+function binsAroundRaw(lon: number, lat: number, km: number): string[] {
   const dLat = km / 111 + SPATIAL_BIN_DEG;
   const cos = Math.max(0.05, Math.cos((Math.min(89, Math.abs(lat)) * Math.PI) / 180));
   const dLon = Math.min(180, km / (111 * cos) + SPATIAL_BIN_DEG);

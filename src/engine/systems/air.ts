@@ -13,7 +13,7 @@
  * are lost with it.
  */
 import type { CountryId, NodeId } from '../data-types';
-import type { GameState, Stack } from '../state';
+import type { AirState, GameState, Stack } from '../state';
 import {
   BASE_DISABLED_CONDITION,
   CITY_AIR_SLOTS_BY_TIER,
@@ -126,7 +126,7 @@ export function nearestBase(state: GameState, c: CountryId, ll: [number, number]
   return best;
 }
 
-function fly(state: GameState, s: Stack, to: [number, number], st: Stack['air'] extends infer A ? (A extends { state: infer X } ? X : never) : never): void {
+function fly(state: GameState, s: Stack, to: [number, number], st: AirState): void {
   const from = stackLL(state, s);
   const d = distKm(from[0], from[1], to[0], to[1]);
   const mins = Math.max(1, Math.ceil((d / Math.max(1, airSpeed(state, s))) * 60));
@@ -262,7 +262,7 @@ export function airStep(state: GameState, onLost: (st: GameState, s: Stack) => v
         continue;
       }
       land(state, s, dest, air.state === 'rebasing');
-      if (air.state === 'refueling' && air.home && 'node' in dest) {
+      if ('node' in dest) {
         emit(state, { kind: 'aircraft_landed', category: 'combat', routine: true, node: dest.node, private: toAll([s.owner], `${s.name} landed at ${S(state).map.data.nodes[dest.node].name}.`) });
       }
     }

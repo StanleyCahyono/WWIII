@@ -24,7 +24,7 @@ import { streamRng } from '../rng';
 import { nextId } from '../ids';
 import { schedule } from './queue';
 import { distKm } from './mapindex';
-import { atWar, cmpId, sameCoalition, stackLL, ustats, utype } from './world';
+import { atWar, cmpId, sameCoalition, stackLL, utype } from './world';
 import { emit, toAll } from './events';
 import { sumEffect } from './economy';
 import { allocateDamage } from './combat';
@@ -205,6 +205,3 @@ export function resolveLaunch(state: GameState, id: string): void {
   emit(state, { kind: 'missile_resolved', category: 'combat', node: l.target, private: priv, public: outcome !== 'failed' && l.targetOwner ? { headline: outcome === 'intercepted' ? `Missile intercepted over ${where}` : `Missile strike reported at ${where}`, countries: [l.targetOwner] } : null });
 }
 
-export function ustatsUnused() {
-  return ustats;
-}

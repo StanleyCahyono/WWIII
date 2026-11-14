@@ -9,6 +9,7 @@
  * effective time (acceptedAt + effectiveDelayMin) via a scheduled `offer_effect`.
  * Trust: private per ordered pair, with history entries and daily decay toward 0.
  */
+import { invalidateDerived } from '../derived';
 import type { CountryId } from '../data-types';
 import type { DiploLevel, GameState, Message, Offer, OfferTerm } from '../state';
 import { MAX_PENDING_OFFERS_PER_PAIR, OFFER_DEFAULT_EXPIRY_MIN, OFFER_EFFECT_DELAY_MIN, TRUST, AGREEMENT_FULFILLED_AFTER_MIN } from '../rules';
@@ -50,6 +51,7 @@ export function setGrant(state: GameState, from: CountryId, to: CountryId, level
   if (level === 'peace') delete state.grants[k];
   else state.grants[k] = { level, since: state.clock.tick };
   rel(state, from, to).version++;
+  invalidateDerived(state);
 }
 
 export function declareWarInternal(state: GameState, by: CountryId, target: CountryId, reason: string): void {
@@ -59,6 +61,7 @@ export function declareWarInternal(state: GameState, by: CountryId, target: Coun
   r.since = state.clock.tick;
   r.version++;
   r.warDeclaredBy = by;
+  invalidateDerived(state);
   delete state.grants[dirKey(by, target)];
   delete state.grants[dirKey(target, by)];
   // pending offers between them become void
@@ -87,6 +90,7 @@ export function makePeace(state: GameState, a: CountryId, b: CountryId): void {
   r.since = state.clock.tick;
   r.version++;
   r.warDeclaredBy = null;
+  invalidateDerived(state);
   emit(state, { kind: 'peace', category: 'diplomacy', public: { headline: `${a} and ${b} conclude peace`, countries: [a, b] }, private: toAll([a, b], `Peace concluded between ${a} and ${b}.`) });
 }
 

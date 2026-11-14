@@ -4,6 +4,7 @@
  * historical membership. Members share transit and vision; they cannot be at war with each other.
  * A bot remains an independent controller inside the human's coalition.
  */
+import { invalidateDerived } from '../derived';
 import type { CountryId } from '../data-types';
 import type { Coalition, GameState } from '../state';
 import { COALITION_DEPARTURE_NOTICE_MIN, COALITION_MAX_MEMBERS } from '../rules';
@@ -30,6 +31,7 @@ export function createCoalitionInternal(state: GameState, leader: CountryId, nam
     dissolvedAt: null,
   };
   state.coalitions[id] = co;
+  invalidateDerived(state);
   emit(state, { kind: 'coalition_created', category: 'diplomacy', public: { headline: `${leader} founds the coalition "${co.name}"`, countries: [leader] }, private: toAll([leader], `Coalition "${co.name}" created.`, { coalition: id }) });
   return co;
 }
@@ -46,6 +48,7 @@ export function joinCoalitionInternal(state: GameState, coalitionId: string, c: 
   const co = state.coalitions[coalitionId];
   if (!co || canJoin(state, co, c)) return false;
   co.members.push({ country: c, joinedAt: state.clock.tick });
+  invalidateDerived(state);
   co.history.push({ country: c, joinedAt: state.clock.tick, leftAt: null, reason });
   co.applications = co.applications.filter((a) => a.country !== c);
   postMessage(state, c, `co:${co.id}`, null, `${c} joined the coalition.`, 'join', reason);
@@ -76,6 +79,7 @@ export function removeMember(state: GameState, co: Coalition, c: CountryId, reas
   if (!co.members.some((m) => m.country === c)) return;
   const before = co.members.map((m) => m.country);
   co.members = co.members.filter((m) => m.country !== c);
+  invalidateDerived(state);
   const h = [...co.history].reverse().find((x) => x.country === c && x.leftAt === null);
   if (h) h.leftAt = state.clock.tick;
   if (co.leader === c && co.members.length) co.leader = [...co.members].sort((a, b) => a.joinedAt - b.joinedAt || (a.country < b.country ? -1 : 1))[0].country;

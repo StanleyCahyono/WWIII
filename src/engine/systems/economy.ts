@@ -18,6 +18,7 @@ import { chargePartial, credit } from './ledger';
 import { hourOfDay } from '../time';
 import { utype } from './world';
 import type { BuildingLevel } from '../data-types';
+import { derived } from '../derived';
 
 export function buildingLevelDef(state: GameState, b: BuildingInstance): BuildingLevel | null {
   const t = S(state).cat.buildings.get(b.type);
@@ -110,8 +111,13 @@ export interface CountryRates {
   net: ResM;
 }
 
-/** Per-day rates for all countries in one pass. */
+/** Per-day rates for all countries (memoized until the next step/command). */
 export function allRates(state: GameState): Record<CountryId, CountryRates> {
+  return derived(state, '~rates', () => computeRates(state));
+}
+
+/** Per-day rates for all countries in one pass (uncached). */
+export function computeRates(state: GameState): Record<CountryId, CountryRates> {
   const out: Record<CountryId, CountryRates> = {};
   for (const c of state.countryOrder) out[c] = { production: zero(), upkeepUnits: zero(), upkeepBuildings: zero(), occupation: zero(), consumption: zero(), net: zero() };
   const occ = vecFromWhole(OCCUPATION_UPKEEP_PER_TIER);
@@ -174,7 +180,7 @@ function sliceVec(v: ResM, h: number): ResM {
 /** Hourly accrual (called on whole game hours). Production first, then upkeep (partial if short). */
 export function economyHour(state: GameState): void {
   const h = (hourOfDay(state.clock.tick) + 23) % 24;
-  const rates = allRates(state);
+  const rates = computeRates(state);
   for (const c of state.countryOrder) {
     const cs = state.countries[c];
     if (!cs.alive) continue;

@@ -43,7 +43,7 @@ import {
 import { S } from '../scenario/registry';
 import { streamRng } from '../rng';
 import { nextId } from '../ids';
-import { atWar, cmpId, stackLL, ustats, utype, hostileStacks } from './world';
+import { cmpId, stackLL, ustats, utype, hostileStacks as hostileStacksW } from './world';
 import { distKm } from './mapindex';
 import { awardXp, emit, toAll } from './events';
 import { sumEffect } from './economy';
@@ -210,9 +210,28 @@ function defenderCtx(state: GameState, s: Stack, node: NodeId, isDefender: boole
   return { table: isDefender ? 'defense' : 'attack', node, entrenched, defenseMult: dm };
 }
 
+/** Map of country → countries it is at war with (only countries with at least one war). */
+export function enemyMap(state: GameState): Map<CountryId, Set<CountryId>> {
+  const m = new Map<CountryId, Set<CountryId>>();
+  for (const k of Object.keys(state.relations)) {
+    if (!state.relations[k].war) continue;
+    const [a, b] = k.split('|');
+    (m.get(a) ?? m.set(a, new Set()).get(a)!).add(b);
+    (m.get(b) ?? m.set(b, new Set()).get(b)!).add(a);
+  }
+  return m;
+}
+
 /** Resolve one combat round (call on whole hours). */
 export function combatRound(state: GameState, hooks: CombatHooks): void {
   const tick = state.clock.tick;
+  const enemies = enemyMap(state);
+  if (!enemies.size) {
+    closeEngagements(state);
+    return;
+  }
+  const hostileStacks = (a: Stack, b: Stack) => a.owner !== b.owner && !!enemies.get(a.owner)?.has(b.owner);
+  const atWar = (a: CountryId, b: CountryId) => !!enemies.get(a)?.has(b);
   const fired = new Set<string>();
   const pending: Pending = new Map();
   const m = S(state).map;
@@ -232,7 +251,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     if (here.length < 2) continue;
     const owners = [...new Set(here.map((s) => s.owner))];
     let hostile = false;
-    for (let i = 0; i < owners.length && !hostile; i++) for (let j = i + 1; j < owners.length; j++) if (atWar(state, owners[i], owners[j])) { hostile = true; break; }
+    for (let i = 0; i < owners.length && !hostile; i++) for (let j = i + 1; j < owners.length; j++) if (atWar(owners[i], owners[j])) { hostile = true; break; }
     if (!hostile) continue;
     const eng = engagementFor(state, node, 'node');
     if (eng.lastRoundAt >= tick) continue; // never apply the same round twice
@@ -242,7 +261,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     const ordered = (s: Stack) => !!s.order && s.order.kind === 'move' && !!s.order.attack;
     const engagers = new Set(here.filter((s) => s.firePolicy === 'engage' || ordered(s) || s.order?.kind === 'attack').map((s) => s.id));
     for (const A of here) {
-      const targets = here.filter((D) => hostileStacks(state, A, D));
+      const targets = here.filter((D) => hostileStacks(A, D));
       if (!targets.length) continue;
       addParticipant(eng, A);
       const fires = engagers.has(A.id) || (A.firePolicy === 'return_fire' && targets.some((D) => engagers.has(D.id)));
@@ -263,6 +282,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
 
   // ── 2. ranged fire
   for (const A of all) {
+    if (!enemies.has(A.owner)) continue;
     if (fired.has(A.id) || A.pos.kind !== 'node' || A.aboard || A.moveClass === 'air') continue;
     if (A.order && A.order.kind === 'move' && A.order.route.length) continue;
     const maxR = Math.max(0, ...combatUnits(A).map((u) => ustats(state, u).rangeKm));
@@ -274,14 +294,14 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     let dist = Infinity;
     if (ordered?.targetStack) {
       const t = state.stacks[ordered.targetStack];
-      if (t && hostileStacks(state, A, t) && t.moveClass !== 'air' && !t.aboard) {
+      if (t && hostileStacks(A, t) && t.moveClass !== 'air' && !t.aboard) {
         const d = distKm(ll[0], ll[1], ...stackLL(state, t));
         if (d <= maxR && d > 0) { target = t; dist = d; }
       }
     }
     if (!target) {
       for (const D of all) {
-        if (D.owner === A.owner || D.moveClass === 'air' || D.aboard || !hostileStacks(state, A, D)) continue;
+        if (D.owner === A.owner || D.moveClass === 'air' || D.aboard || !hostileStacks(A, D)) continue;
         if (D.pos.kind === 'node' && A.pos.kind === 'node' && D.pos.node === A.pos.node) continue;
         if (!hooks.canSee(state, A.owner, D.id)) continue;
         const d = distKm(ll[0], ll[1], ...stackLL(state, D));
@@ -305,7 +325,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
       const node = ordered.targetNode;
       const owner = state.provinces[node]?.owner;
       const ck = m.cityByNode.get(node);
-      if (owner && atWar(state, A.owner, owner) && ck && state.cities[ck]) {
+      if (owner && atWar(A.owner, owner) && ck && state.cities[ck]) {
         const d = distKm(ll[0], ll[1], m.lon[node], m.lat[node]);
         if (d <= maxR) {
           let sum = 0;
@@ -324,6 +344,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
 
   // ── 3. air
   for (const P of all) {
+    if (!enemies.has(P.owner)) continue;
     if (P.moveClass !== 'air' || !P.air || P.air.state !== 'on_station' || fired.has(P.id) || !P.air.patrol) continue;
     if (P.firePolicy === 'hold') continue;
     const ll = stackLL(state, P);
@@ -331,7 +352,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     let target: Stack | null = null;
     let best = Infinity;
     for (const D of all) {
-      if (D.id === P.id || !hostileStacks(state, P, D) || D.aboard) continue;
+      if (D.id === P.id || !hostileStacks(P, D) || D.aboard) continue;
       const isAir = D.moveClass === 'air';
       if (isAir && (!D.air || D.air.state === 'landed' || D.air.state === 'refueling')) continue;
       if (isAir && !canAir) continue;
@@ -357,6 +378,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
   }
   // area air defence (distinct from return fire)
   for (const A of all) {
+    if (!enemies.has(A.owner)) continue;
     if (A.moveClass === 'air' || A.aboard || A.firePolicy !== 'engage') continue;
     const ad = combatUnits(A).filter((u) => utype(state, u.type).family === 'air_defense');
     if (!ad.length) continue;
@@ -364,7 +386,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     if (maxR <= 0) continue;
     const ll = stackLL(state, A);
     for (const P of all) {
-      if (P.moveClass !== 'air' || !P.air || P.air.state !== 'on_station' || !hostileStacks(state, A, P)) continue;
+      if (P.moveClass !== 'air' || !P.air || P.air.state !== 'on_station' || !hostileStacks(A, P)) continue;
       const d = distKm(ll[0], ll[1], ...stackLL(state, P));
       if (d > maxR || !hooks.canSee(state, A.owner, P.id)) continue;
       const anchor = A.pos.kind === 'node' ? A.pos.node : 0;
@@ -413,12 +435,13 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
 function stillHostile(state: GameState, e: Engagement): boolean {
   if (e.kind !== 'node') return e.lastRoundAt === state.clock.tick;
   const here = Object.values(state.stacks).filter((s) => s.pos.kind === 'node' && s.pos.node === e.node && !s.aboard && s.moveClass !== 'air');
-  for (let i = 0; i < here.length; i++) for (let j = i + 1; j < here.length; j++) if (hostileStacks(state, here[i], here[j])) return true;
+  for (let i = 0; i < here.length; i++) for (let j = i + 1; j < here.length; j++) if (hostileStacksW(state, here[i], here[j])) return true;
   return false;
 }
 
 export function closeEngagements(state: GameState): void {
   const m = S(state).map;
+  if (!Object.values(state.engagements).some((e) => e.open)) return;
   for (const id of Object.keys(state.engagements).sort((a, b) => cmpId({ id: a }, { id: b }))) {
     const e = state.engagements[id];
     if (!e.open || stillHostile(state, e)) continue;
