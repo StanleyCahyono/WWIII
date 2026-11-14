@@ -192,7 +192,8 @@ export function MarketPanel({ resource }: { resource: string | null }) {
   const myOrders = v.market.myOrders;
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   return (
-    <div className="p-root p-market" data-testid="market-panel">
+    <div className="p-root" data-testid="market-panel">
+     <div className="p-market">
       <div className="col" style={{ minWidth: 0 }}>
         <div className="p-markethead">
           <Icon name={RESOURCE_ICON[r]} size={34} />
@@ -357,6 +358,7 @@ export function MarketPanel({ resource }: { resource: string | null }) {
         )}
       </div>
       <OrderForm r={r} setR={setR} />
+     </div>
     </div>
   );
 }

@@ -85,7 +85,8 @@ export function DiplomacyPanel({ arg }: { arg: { country?: string } | null }) {
     agreements: v.relations.filter((r) => r.myStatusToThem !== 'peace' || r.theirStatusToMe !== 'peace' || r.sameCoalition).length,
   };
   return (
-    <div className="p-root p-diplo" data-testid="diplomacy-panel">
+    <div className="p-root" data-testid="diplomacy-panel">
+     <div className="p-diplo">
       <div className="p-diplo-list">
         <div className="p-tiles p-tiles-sm">
           <StatTile icon={<Icon name="sword" size={20} />} label="At war" value={counts.war} tone={counts.war ? 'bad' : undefined} />
@@ -141,6 +142,7 @@ export function DiplomacyPanel({ arg }: { arg: { country?: string } | null }) {
           </div>
         )}
       </div>
+     </div>
     </div>
   );
 }

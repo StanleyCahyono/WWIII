@@ -168,7 +168,8 @@ export function ResearchPanel() {
   tabs[0].badge = (q.data ?? []).filter((t) => t.status === 'available' || t.status === 'unaffordable').length || undefined;
   const sections: { key: RTab; label: string; icon: string }[] = tab === 'all' ? [...UNIT_CLASSES, ...EXTRA_TABS] : [...UNIT_CLASSES, ...EXTRA_TABS].filter((c) => c.key === tab);
   return (
-    <div className="p-root p-research" data-testid="research-panel">
+    <div className="p-root" data-testid="research-panel">
+     <div className="p-research">
       <div className="p-research-main">
         <IconTabs label="Research branch" value={tab} onChange={(k) => { setTab(k); lastTab = k; }} tabs={tabs} />
         <div className="p-legend" aria-hidden="true">
@@ -239,6 +240,7 @@ export function ResearchPanel() {
           {chosen ? <TechDetail t={chosen} all={q.data ?? []} onChanged={q.refresh} /> : <p className="muted" style={{ margin: 0 }}>Select a technology to see when it opens, its cost and time, prerequisites, and what it unlocks.</p>}
         </div>
       </aside>
+     </div>
     </div>
   );
 }

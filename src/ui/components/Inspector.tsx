@@ -857,7 +857,7 @@ export function PlaceSheet({ node, frame }: { node: number; frame: Frame }) {
             <h4>Morale & output</h4>
             <dl className="kv">
               <dt>Population</dt>
-              <dd>{num(p.private.population)}k</dd>
+              <dd>{fmtPopulation(p.private.population)}</dd>
               <dt>Morale</dt>
               <dd>
                 {Math.round(p.private.morale)} → target {Math.round(p.private.targetMorale)} {p.private.morale < 33 ? '(uprising risk)' : ''}
@@ -1008,3 +1008,10 @@ function MultiSheet({ ids, frame }: { ids: string[]; frame: Frame }) {
 export { objectToSelection, centerOn, techById, dayOf, hourLabel };
 export type { Selection };
 void useIsMobile;
+
+/** Population is stored in thousands: 950 → "950k", 3,000 → "3.0M", 10,600 → "10.6M". */
+function fmtPopulation(thousands: number): string {
+  if (!Number.isFinite(thousands)) return '—';
+  if (thousands >= 1000) return `${(thousands / 1000).toFixed(thousands >= 100000 ? 0 : 1)}M`;
+  return `${Math.round(thousands).toLocaleString('en-US')}k`;
+}

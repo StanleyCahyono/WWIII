@@ -139,7 +139,8 @@ export function NewsPanel() {
   const [compose, setCompose] = useState({ headline: '', body: '', anonymous: false });
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   return (
-    <div className="p-root p-news" data-testid="news-panel">
+    <div className="p-root" data-testid="news-panel">
+     <div className="p-news">
       <div className="col p-paper" style={{ minWidth: 0 }}>
         <div className="row p-masthead">
           <button type="button" className="btn small" onClick={() => setDay((d) => Math.max(1, d - 1))} disabled={day <= 1} aria-label="Previous edition">
@@ -211,6 +212,7 @@ export function NewsPanel() {
           <p className="muted" style={{ margin: 0, fontSize: 12 }}>Visible only inside this save. Stored and shown as plain text.</p>
         </form>
       </div>
+     </div>
     </div>
   );
 }

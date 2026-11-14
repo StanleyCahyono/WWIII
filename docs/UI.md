@@ -125,8 +125,9 @@ names or copy.
     Delay, Embark/Disembark, Retreat, Launch, Split, Merge, Refit — the same validated dialogs and
     `exec` path as before), class illustration with APP-6 symbol and unit count, name + owner, HP
     bar, ATK/DEF/SPD/HP/RDY/EFF tiles (aggregates of the player's own units), position, fire
-    control, full details, present activity and a units list with dossier links. The camera
-    offsets a centred formation upward so the card never hides it. Cities, provinces, contacts,
+    control, full details, present activity and a units list with dossier links. The card is
+    capped in height so a formation centred on the map stays above it. Toasts are click-through
+    (only their buttons take clicks) and slide under an open drawer. Cities, provinces, contacts,
     reports and multi-selections keep the right inspector column (320–380 px).
 * **Map look** (`map/renderer.ts`, `map/palette.ts`): other countries are muted (low saturation);
   the player's provinces are bright cyan with an outer glow + rim drawn from one fill of the
@@ -141,6 +142,40 @@ names or copy.
 * **Phones** (≤760 px): compact top bar (badge, clock, play, speed select, step, score, resource
   toggle, save, menu), icon destination bar, bottom sheet with the same unit card content in a
   vertical layout.
+
+## Panels (redesign 2026-11-14)
+
+Original visual language for every drawer panel: cards, inline-SVG icons, clear primary actions,
+secondary detail behind expanders. Files: `src/ui/panels/panels.css` (all panel CSS, theme tokens
+only — dark / light / monochrome follow the shell), `src/ui/panels/panelKit.tsx` (shared pieces:
+`Cost`/`ResChip` resource chips with icons and a "!" mark for what the treasury cannot pay now,
+`Duration`, `Progress`, `StatTile`, `Expander` (native details/summary), `IconTabs` (role=tablist
+with roving focus: one Tab stop, ←/→/Home/End), `SectionHead`, `topOutputs`),
+`src/ui/panels/panelIcons.tsx` (building glyphs, morale faces, lock/info/rally/gear marks, tier
+skyline badge, unit-class tab table `UNIT_CLASSES` + `unitClassOf`, `UnitPlate`/`BuildingPlate`
+illustration plates). Resource and unit-class glyphs come from the shared `src/ui/icons.tsx`.
+Layout responds to the panel's own width (CSS container queries on `.p-root`), so an open
+inspector or a phone gets the stacked layouts automatically.
+
+| Panel | Layout |
+| --- | --- |
+| Cities › City list | Tabs *City list* / *Build queue*. Daily output of all cities as icon chips. Rows: tick box, size (tier skyline + capital/port marks), city link + status pill + VP/pop, morale face + bar + target, production chips (top 3 by value, +N) and value/day, building badges (icon + level, dashed when damaged), queue count, quick **Build / Mobilize / Rally** (rally opens a picker; Mobilize disabled with reason when occupied). Bulk project select + **Preview order** unchanged (same validated preview/confirm). Below 600 px rows become cards. |
+| Cities › Build queue | Every job of the nation as a card: art, kind + name (planned units keep the APP-6 planned symbol), city, working/queued/blocked pill, progress, completion time, charged cost, **Cancel…** (refund preview). |
+| City window | Header (back, tier, name, pills, prev/next). Hero: top 4 outputs, morale face/bar/target (uprising risk pill), VP, population, condition. Three slots: *Currently constructing*, *Currently mobilizing*, *Next in queue* (with progress). Icon tab bar: Overview, Buildings, All units, one tab per unit class (infantry, armour & scouts, artillery & support, air defence, helicopters, fighters & drones, bombers & heavy air, ships, submarines — the last two only at coastal cities —, missiles, officers & special), Queue. Catalog rows: illustration, name + level, quick stats or description, cost chips, duration + start time/queue position, **ⓘ** (building: per-level effects and upkeep; unit: dossier), big **Start** (`build-<id>` / `mobilize-<id>`, disabled with the validator's reason). Overview: profile, morale breakdown (signed bars), administration (annex, rally), building cards (effects, condition bar, demolish with preview), production chips + base/net table in an expander. |
+| Research | Tabs: All, the eleven unit classes, Doctrine, Industry, Mobility (badge = startable count). Each unit is a line (illustration, name, "Level n of m") with level nodes as diamonds joined by arrows: green ✓ researched (standard-issue L1 shown as "Std"), highlighted = ready, ring fill = researching %, dashed + lock = locked with the day it opens ("Prereq." once only prerequisites block). Same-stem non-unit technologies chain (I → II → III, blueprint → qualified); lone ones are cards. A technology shared by two units appears in both lines (only the first carries `tech-<id>`). Right sidebar: *Currently researching* (every slot, free or busy with progress and ETA) and *Selected research* (status, day available, duration, cost chips, prerequisites ✓/lock, unlocks with art, current-vs-next table, eligible cities, big **Start research** / **Cancel research…** with refund preview). |
+| Diplomacy | Tiles (at war, pending offers, agreements); search + filter chips; nation rows (flag, controller, neighbour/coalition, both directions as status glyphs, trust bar on −100…+100, pending badge). Detail: header (war tint), *You grant* ⇄ *They grant* cards, trust, primary **Send request / offer…**, Revoke, **Declare war…** (preview), explanation in an expander, offer cards (direction, status pill, gives ⇄ asks, Accept/Decline/Counter/Withdraw), chat-style private thread. |
+| Coalition | Status banner, coalition table (emblem, slot dots), detail with key facts as tiles (`dt`/`dd` pairs kept), member table, applications, chat-style coalition thread. |
+| Economy / Market | Advisor report card; seven resource tiles (stock, ▲/▼ net/day, 24/72 h) that open the by-city ledger; full balance table and ledger table in expanders; reconciliation line always visible. Market: header with good icon and last trade, icon tabs (Best / All / My trades), sell/bid books, sticky order form with a Buy/Sell segmented control. |
+| Forces / dossier | Stat tiles (fielded, ready with share bar, committed, maintenance), domain cards, formations table with readiness bars; dossier header with the unit illustration. |
+| Journal / News / Score / Intel | Journal: icon tabs, category chips with icons, sticky day headings, event rows as cards. News: masthead, article cards, dispatch grid, nation index. Score: tiles with a progress bar to the threshold, area sparkline, standings with fraction bars. Intel: tiles (active agents, reports, next report), cards and tables. |
+
+Contracts kept for tests and accessibility: every `data-testid` used by `e2e/**`, the tab roles and
+names (`city-tab-overview|build|mobilize|queue`; new `city-tab-unit-<class>`, `rtab-<key>`), the
+`button.tech[data-status]` nodes, table structures the specs query (bulk rows, build catalog rows,
+standings, open orders, coalition rows, journal `li`/`.tag`). No new data reaches the UI: panels
+read only the filtered `CountryView` and worker queries, and every action still goes through
+`exec()` / previews. Not restyled yet: the order dialogs in `components/{Orders,MoveOrder,Planning,
+Briefing,Features}.tsx` (they inherit the shell's modal styling).
 
 ## Screens → components
 

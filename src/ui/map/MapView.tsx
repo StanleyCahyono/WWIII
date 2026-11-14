@@ -261,9 +261,6 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     if (camReq && rRef.current) {
       const r = rRef.current;
       r.center(camReq.lon, camReq.lat, camReq.zoom ?? r.cam.z);
-      // desktop: a selected formation opens the unit card docked at the bottom — keep the
-      // formation in the upper part of the map instead of under the card
-      if (!window.matchMedia('(max-width: 760px)').matches && ui.get().selection?.kind === 'stack') r.panBy(0, -Math.round(r.h * 0.18));
     }
   }, [camReq]);
 

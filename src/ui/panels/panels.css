@@ -150,7 +150,7 @@ table.data.p-citytable td { vertical-align: middle; padding: 6px 6px; }
 .p-hero-facts span { display: inline-flex; align-items: center; gap: 5px; }
 .p-hero-facts .ico { color: var(--text-3); }
 .p-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.p-slot { display: flex; flex-direction: column; gap: 6px; padding: 9px 11px; border: 1px dashed var(--line-2); border-radius: calc(var(--radius) + 2px); background: color-mix(in srgb, var(--panel-2) 55%, transparent); min-width: 0; }
+.p-slot { display: flex; min-height: 64px; flex-direction: column; gap: 6px; padding: 9px 11px; border: 1px dashed var(--line-2); border-radius: calc(var(--radius) + 2px); background: color-mix(in srgb, var(--panel-2) 55%, transparent); min-width: 0; }
 .p-slot.busy { border-style: solid; border-color: var(--line-2); background: var(--panel-2); box-shadow: inset 3px 0 0 var(--accent); }
 .p-slot-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .p-slot-row .p-prog { margin: 4px 0 2px; }
@@ -447,10 +447,6 @@ table.data.p-formtable td { vertical-align: middle; }
   .p-research-side { position: static; }
 }
 @container pnl (max-width: 760px) {
-  .p-slots { grid-template-columns: 1fr; }
-  .p-hero-block { border-right: 0; border-bottom: 1px solid var(--line); width: 100%; }
-  .p-hero-block:last-child { border-bottom: 0; }
-  .p-hero-facts { margin-left: 0; }
   .p-cityhead h3 { font-size: 18px; }
   .p-search input { width: 120px; }
   .p-citytable .p-acts .p-qbtn span { display: none; }
@@ -475,6 +471,31 @@ table.data.p-formtable td { vertical-align: middle; }
   .p-cat > tbody > tr.p-cat-group > th { display: block; }
   .p-cat > tbody > tr.p-cat-info { display: block; padding: 0; border: 0; }
   .p-cat > tbody > tr.p-cat-info > td { display: block; padding: 8px !important; }
+}
+@container pnl (max-width: 600px) {
+  .p-slots { grid-template-columns: 1fr; }
+  .p-hero-block { border-right: 0; border-bottom: 1px solid var(--line); width: 100%; }
+  .p-hero-block:last-child { border-bottom: 0; }
+  .p-hero-facts { margin-left: 0; }
+  .p-tiles-sm .p-tile-ico { display: none; }
+  .p-tiles-sm .p-tile h4 { font-size: 9.5px; }
+  /* city list rows become cards */
+  .p-citytable, .p-citytable > tbody { display: block; }
+  .p-citytable > thead > tr { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+  .p-citytable > thead th { display: block; position: static; border: 0; padding: 4px; }
+  .p-citytable > thead th.p-acts-h, .p-citytable > thead th.p-hide-narrow { display: none; }
+  .p-citytable > tbody > tr { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: 'chk name morale' 'chk prod prod' 'chk size acts'; gap: 4px 8px; padding: 8px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+  table.data.p-citytable > tbody > tr > td { display: block; border: 0; padding: 0; background: transparent; }
+  .p-citytable > tbody > tr > td:nth-child(1) { grid-area: chk; }
+  .p-citytable > tbody > tr > td:nth-child(2) { grid-area: size; align-self: center; }
+  .p-citytable > tbody > tr > td:nth-child(3) { grid-area: name; }
+  .p-citytable > tbody > tr > td:nth-child(4) { grid-area: morale; }
+  .p-citytable > tbody > tr > td:nth-child(5) { grid-area: prod; }
+  table.data.p-citytable > tbody > tr > td:nth-child(6), table.data.p-citytable > tbody > tr > td:nth-child(7) { display: none; }
+  .p-node { width: 50px; }
+  .p-rnodes > li.link::before { width: 12px; }
+  .p-citytable > tbody > tr > td:nth-child(8) { grid-area: acts; }
+  .p-citytable .p-cost { flex-wrap: wrap; }
 }
 @media (max-width: 760px) {
   .p-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
