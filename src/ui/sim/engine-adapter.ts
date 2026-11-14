@@ -87,7 +87,10 @@ export function view(state: GameState, viewer: string) {
     const from = l.mine && raw ? sc.map.nodes[raw.fromNode]?.center ?? null : null;
     return { ...l, from, to: sc.map.nodes[l.target]?.center ?? null };
   });
-  return { ...rest, launches };
+  // thread keys come from the engine (never rebuilt in the UI)
+  const threadKeys: Record<string, string> = {};
+  for (const r of rest.relations) threadKeys[r.country] = E.threadFor(viewer, r.country);
+  return { ...rest, launches, threadKeys };
 }
 
 export function submit(state: GameState, cmd: Command) {

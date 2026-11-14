@@ -491,9 +491,28 @@ function ContactSheet({ o, frame }: { o: MapObject; frame: Frame }) {
           <button type="button" className="btn" onClick={() => { const p = ui.get().pinned; ui.patch({ pinned: p.includes(o.id) ? p.filter((x) => x !== o.id) : [...p, o.id] }); }}>
             {ui.get().pinned.includes(o.id) ? 'Unpin' : 'Pin report'}
           </button>
+          <LaunchAtSector node={c.node} frame={frame} />
         </div>
         <p className="muted" style={{ fontSize: 12 }}>To attack, select one of your formations and use Move… onto this contact's province; the engine checks visibility, war status and range.</p>
       </div>
+    </>
+  );
+}
+
+/** Missile launch shortcut targeting the sector of a contact/report. Opens the normal launch dialog
+ *  (validated preview, outcomes, war confirmation); the sector is a public node id, never the hidden
+ *  stack. Disabled with a reason when there is no ready inventory. */
+function LaunchAtSector({ node, frame }: { node: number | null; frame: Frame }) {
+  const [open, setOpen] = useState(false);
+  if (node === null) return null;
+  const ro = frame.meta.readOnly || frame.meta.reviewMode;
+  const ready = Object.values(frame.view.self.missiles ?? {}).reduce((a, m) => a + (m?.ready ?? 0), 0);
+  return (
+    <>
+      <ActionButton className="btn" disabledReason={ro ? 'Read-only campaign' : ready < 1 ? 'No ready missiles — research and produce a batch in Forces first.' : null} onClick={() => setOpen(true)} data-testid="contact-launch">
+        Launch missile at this sector…
+      </ActionButton>
+      {open && <LaunchDialog target={node} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -537,6 +556,9 @@ function ReportSheet({ o, frame }: { o: MapObject; frame: Frame }) {
         </ul>
       )}
       <p className="muted" style={{ fontSize: 12 }}>The marker stays at the reported position even if the formation has moved since. It is not live.</p>
+      <div className="actions">
+        <LaunchAtSector node={s?.node ?? null} frame={frame} />
+      </div>
     </div>
   );
 }

@@ -529,12 +529,14 @@ export function useMissileInfo() {
   return useQuery<MissileInfo>('missileInfo');
 }
 
-export function LaunchDialog({ missile: initial, onClose }: { missile?: string; onClose: () => void }) {
+/** `target` pre-selects a sector (e.g. from a contact or report sheet); the engine still validates
+ *  range, inventory, war status and eligibility on every preview and on commit. */
+export function LaunchDialog({ missile: initial, target: initialTarget, onClose }: { missile?: string; target?: number | null; onClose: () => void }) {
   const frame = useFrame()!;
   const q = useMissileInfo();
   const [missile, setMissile] = useState<string>(initial ?? '');
   const [fromIdx, setFromIdx] = useState<number | null>(null);
-  const [target, setTarget] = useState<number | null>(null);
+  const [target, setTarget] = useState<number | null>(initialTarget ?? null);
   const [launched, setLaunched] = useState<{ ready: number; arriveAt: number } | null>(null);
   const t = q.data?.types.find((x) => x.id === missile);
   const mt = missileById.get(missile);

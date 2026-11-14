@@ -123,9 +123,21 @@ export function openPanel(panel: Panel, arg: unknown = null) {
 export function closePanel() {
   const s = ui.get();
   const ret = s.focusReturn;
+  const before = typeof document !== 'undefined' ? document.activeElement : null;
   ui.patch({ panel: null, panelArg: null, panelStack: [], focusReturn: null });
-  if (ret && typeof ret.focus === 'function' && document.contains(ret)) setTimeout(() => ret.focus(), 0);
-  else setTimeout(() => (document.getElementById('map-canvas') as HTMLElement | null)?.focus(), 0);
+  setTimeout(() => {
+    // Restore focus to the opener (or the map) only if the user has not already moved focus
+    // somewhere else meanwhile (e.g. straight into the search box) — never steal it back.
+    if (userMovedFocus(before)) return;
+    if (ret && typeof ret.focus === 'function' && document.contains(ret)) ret.focus();
+    else (document.getElementById('map-canvas') as HTMLElement | null)?.focus();
+  }, 0);
+}
+
+/** True when focus now rests on a live element other than the one focused when a layer closed. */
+export function userMovedFocus(before: Element | null): boolean {
+  const a = document.activeElement;
+  return !!a && a !== document.body && a !== before && document.contains(a);
 }
 
 export function backPanel() {

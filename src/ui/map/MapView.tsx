@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapRenderer, type MapInput, type RouteLine, type Hit } from './renderer';
 import { buildObjects, searchPlaces, type MapObject } from './objects';
-import { loadGeometry, NODES, unitById, countryName, cityByNode, TERRAIN_LABEL, MAP } from '../data/static';
+import { loadGeometry, NODES, countryName, cityByNode, TERRAIN_LABEL, MAP } from '../data/static';
 import { prefs, setMapPrefs, type FillLayer } from '../persist/prefs';
 import { useStore } from '../state/store';
 import { ui, select, centerOn, type Selection, openPanel } from '../state/ui';
@@ -58,13 +58,6 @@ function relationFn(frame: Frame) {
   };
 }
 
-function sensorKm(type: string, level: number): number {
-  const ut = unitById.get(type);
-  if (!ut) return 0;
-  const st = ut.levels[Math.min(ut.levels.length - 1, Math.max(0, level - 1))];
-  return Math.max(st?.sightKm ?? 0, st?.radarKm ?? 0);
-}
-
 export function routeFromSegments(start: [number, number], segs: { to: number }[]): [number, number][] {
   const pts: [number, number][] = [start];
   for (const s of segs) {
@@ -79,22 +72,18 @@ function buildInput(frame: Frame, objects: MapObject[], extra: { routes: RouteLi
   const morale = new Map<number, number>();
   for (const p of v.provinces) morale.set(p.node, p.morale);
   for (const c of v.cities) morale.set(c.node, c.morale);
-  const observed = new Set<number>();
-  for (const p of v.provinces) observed.add(p.node);
-  for (const c of v.contacts) if (c.node !== null && c.ageMin < 180) observed.add(c.node);
-  for (const r of v.reports) if (!r.expired) observed.add(r.targetNode);
+  // Visibility fill: the engine's projection of nodes covered by the viewer's own and allied
+  // (coalition / shared-intel) sensors and territory — never derived from hidden foreign state.
+  const observed = new Set<number>(v.observedNodes);
   const rel = relationFn(frame);
-  v.owners.forEach((o, i) => {
-    if (o && (rel(o) === 'coalition')) observed.add(i);
-  });
   const routes: RouteLine[] = [];
   for (const s of v.stacks) {
     if (s.order && s.order.kind === 'move' && s.order.route.length) routes.push({ id: s.id, points: routeFromSegments(s.lonlat, s.order.route), kind: 'order' });
   }
   const sensors: MapInput['sensors'] = [];
   for (const s of v.stacks) {
-    let km = 0;
-    for (const u of s.units) km = Math.max(km, sensorKm(u.type, u.level));
+    // effective radii from the engine (terrain sight modifier, unit levels, radar_range_mult; 0 aboard)
+    const km = Math.max(s.sightKm ?? 0, s.radarKm ?? 0);
     if (km > 0) sensors.push({ lonlat: s.lonlat, km });
   }
   const cityOwners = new Map<string, string | null>();
@@ -134,7 +123,36 @@ function buildInput(frame: Frame, objects: MapObject[], extra: { routes: RouteLi
   };
 }
 
-function ownersSig(frame: Frame): string {
+/** Fullscreen toggle (SPEC Annex A C: magnification, fullscreen, sound keep visible buttons). Local
+ *  browser API only; hidden when the browser does not support it (with no other side effects). */
+function FullscreenButton() {
+  const supported = typeof document !== 'undefined' && !!document.documentElement.requestFullscreen;
+  const [on, setOn] = useState(() => typeof document !== 'undefined' && !!document.fullscreenElement);
+  useEffect(() => {
+    const f = () => setOn(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', f);
+    return () => document.removeEventListener('fullscreenchange', f);
+  }, []);
+  if (!supported) return null;
+  return (
+    <button
+      type="button"
+      className="btn icon"
+      aria-label={on ? 'Exit fullscreen' : 'Enter fullscreen'}
+      title={on ? 'Exit fullscreen' : 'Fullscreen'}
+      aria-pressed={on}
+      data-testid="fullscreen"
+      onClick={() => {
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+        else void document.documentElement.requestFullscreen().catch(() => undefined);
+      }}
+    >
+      <Icon name={on ? 'exit-fullscreen' : 'fullscreen'} />
+    </button>
+  );
+}
+
+function ownersSig(frame: Frame, fill: string): string {
   let h = 0;
   const o = frame.view.owners;
   for (let i = 0; i < o.length; i++) {
@@ -143,7 +161,10 @@ function ownersSig(frame: Frame): string {
   }
   const mor = frame.view.provinces.reduce((a, p) => a + Math.round(p.morale / 5), 0) + frame.view.cities.reduce((a, c) => a + Math.round(c.morale / 5), 0);
   const rel = frame.view.relations.map((r) => (r.war ? 'w' : r.sameCoalition ? 'c' : r.myStatusToThem[0] + r.theirStatusToMe[0])).join('');
-  return `${h}|${mor}|${rel}|${frame.view.rebelNodes.length}|${frame.view.contacts.length}`;
+  // the visibility fill depends on the engine's observed-node set; hash it only when that layer is shown
+  let obs = 0;
+  if (fill === 'visibility') for (const n of frame.view.observedNodes) obs = (obs * 31 + n + 1) | 0;
+  return `${h}|${mor}|${rel}|${frame.view.rebelNodes.length}|${frame.view.contacts.length}|${obs}`;
 }
 
 export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
@@ -216,11 +237,11 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
   useEffect(() => {
     const r = rRef.current;
     if (!r || !frame) return;
-    const sig = ownersSig(frame);
+    const sig = ownersSig(frame, p.map.fill);
     const changed = sig !== lastSig.current;
     lastSig.current = sig;
     r.setInput(buildInput(frame, synthetic.objects.length ? [...objects, ...synthetic.objects] : objects, { routes: extraRoutes, selection, pinned, draft, preview: previewMarker }), changed);
-  }, [frame, objects, selection, pinned, extraRoutes, draft, previewMarker]);
+  }, [frame, objects, selection, pinned, extraRoutes, draft, previewMarker, p.map.fill]);
 
   // ───────── pointer handling ─────────
   const ptr = useRef<{ id: number; x: number; y: number; button: number; moved: boolean; shift: boolean; ctrl: boolean } | null>(null);
@@ -487,6 +508,7 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
         <button type="button" className="btn icon" aria-label={showLegend ? 'Hide legend' : 'Show legend'} title="Legend" aria-pressed={showLegend} onClick={() => setShowLegend((s) => !s)}>
           <Icon name="legend" />
         </button>
+        <FullscreenButton />
       </div>
       {isMobile && (
         <div className="dpad" role="group" aria-label="Pan the map">

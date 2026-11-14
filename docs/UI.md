@@ -128,9 +128,9 @@ main thread (React 18)                         Web Worker (src/workers/sim.worke
 | --- | --- |
 | `e2e/core.spec.ts` | title → Indonesia → map centred near Jakarta, paused → select city → research → build → recruit → move with preview/confirm → advance 1 h → save → reload → Continue shows the save |
 | `e2e/acceptance.spec.ts` | A01 (Indonesia + Bolivia separate slots, 119 AI), A13/W10 (all non-loopback requests blocked; export → import into a fresh profile, identical seed/clock/stock/jobs; damaged import rejected), A04/W05 (injected radar-only contact over a real hidden stack: no type/name in aria, inspector, search; SIDC entity 000000), W06 (draw/rename/hide/delete leave `stateHash` + RNG unchanged; Issue order opens the move preview), A15 (island port pick, layer switch, city sheet, camera unchanged, layer restored after reload), A14 (second tab read-only) |
-| `e2e/workflows.spec.ts` | Bulk construction preview/confirm charges the previewed total; bot negotiation reply in the thread |
+| `e2e/workflows.spec.ts` | Bulk construction preview/confirm charges the previewed total; bot negotiation reply in the thread; SPEC worked interaction (Indonesia → Surabaya → maritime formation selected from the roster = map selection, inspector names its port → private route idea survives a switch to Economy → +1 h, the formation has no orders → a purchased dated report stays frozen) |
 | `e2e/mobile-keyboard.spec.ts` | A12 on iPhone 13 viewport, keyboard only: title → campaign → city → mobilize → Esc restores focus → Forces list → move preview/confirm → Stop → advance hour |
-| `e2e/military.spec.ts` | Missiles research (test hook) → production job → ready → launch dialog (4 outcomes, headline) → in flight with origin → report in viewer terms; aircraft patrol preview → on station → landed → rebase → new home; retreat with forecast HP cost (test hook engages a foreign stack); intelligence agent mission + purchased report |
+| `e2e/military.spec.ts` | Missiles research (test hook) → production job → ready → launch dialog (4 outcomes, headline) → in flight with origin → report in viewer terms; contact-sheet launch shortcut (disabled with a reason without inventory, then opens the validated dialog with the contact's sector preselected; cancel commits nothing); aircraft patrol preview → on station → landed → rebase → new home; retreat with forecast HP cost (test hook engages a foreign stack); intelligence agent mission + purchased report |
 | `e2e/perf.spec.ts` | Map input response / pan fps probe with 2,000 synthetic render-only stacks |
 
 `?e2e=1` enables test-only worker ops (`debugContact` for A04, `debugMissileSetup` = grant the
@@ -171,23 +171,22 @@ Used: `loadWorld120`, `registerScenario`, `createCampaign`, `advance`, `advanceT
 `marketView`, `forceModel`, `planRoute`, `computeDenominator`, `thresholdFor`, `scenarioOf`,
 `BasicController`.
 
-Gaps (worked around in the adapter; nice to have in the engine):
-1. A `sensorCoverage(view)` / per-stack sight+radar radius in `StackView` (UI derives it from the
-   catalog level stats).
-2. A projected "observed nodes" set for the visibility fill (UI approximates from own territory,
-   coalition territory, recent contacts and reports).
-3. `CountryView.uiPrefs`/`drawings` are read by the worker from `state.ui` directly.
-4. Exported `pairKey/threadFor` (UI rebuilds `dm:A|B`).
-5. Bulk preview rows for rural targets need a public name (they use the node name).
+Also used (since the release audit): `CountryView.observedNodes` (visibility fill),
+`StackView.sightKm/radarKm` (sensor-coverage layer), `threadFor` (the adapter adds
+`view.threadKeys[counterpart]`, which the Diplomacy thread uses).
+
+Remaining gaps (worked around; nice to have in the engine):
+1. `CountryView.uiPrefs`/`drawings` are read by the worker from `state.ui` directly.
+2. Bulk preview rows for rural targets need a public name (they use the node name).
+3. No exported helper for the coalition thread key (`co:<id>` is built in `Diplomacy.tsx`).
 
 ## Known gaps / resume notes
 
-* Missile launch on the map has no target-click shortcut from the contact sheet (use Forces → Launch…
-  or a platform's stack sheet; the dialog supports “Pick on map”).
+* Contact and report sheets offer **Launch missile at this sector…** (opens the normal validated
+  launch dialog with that public sector preselected; disabled with a reason without ready stock).
 * The adapter imports a few read-only engine internals (`systems/air` range/base checks,
-  `economy.sumEffect`) and, for `?e2e=1` hooks only, `grantTech`/`declareWarInternal`. If the
-  engine exposes sight radius, observed nodes or `threadFor`, switch `engine-adapter.ts` to them
-  (not exposed as of this pass).
+  `economy.sumEffect`) and, for `?e2e=1` hooks only, `grantTech`/`declareWarInternal`.
+* The map toolbar has a Fullscreen toggle (browser Fullscreen API; hidden if unsupported).
 * Sound is a stored preference only (no audio assets).
 * The End screen derives losses/captures from journal event kinds; a dedicated engine summary would
   be more precise.

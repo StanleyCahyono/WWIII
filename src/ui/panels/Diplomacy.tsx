@@ -18,9 +18,6 @@ export function termText(t: OfferTerm): string {
   if (t.kind === 'coalition_invite') return 'Coalition membership';
   return `${num(t.amount / 1000)} ${RESOURCE_LABEL[t.resource].toLowerCase()}`;
 }
-function threadKey(a: string, b: string) {
-  return `dm:${a < b ? `${a}|${b}` : `${b}|${a}`}`;
-}
 
 let lastSel: string | null = null;
 
@@ -113,7 +110,7 @@ function CountryDetail({ r, frame }: { r: DiplomacyRow; frame: Frame }) {
   const [compose, setCompose] = useState(false);
   const [war, setWar] = useState<{ effects: string[] } | null>(null);
   const [msg, setMsg] = useState('');
-  const thread = v.messages[threadKey(v.viewer, r.country)] ?? [];
+  const thread = v.messages[v.threadKeys[r.country] ?? ''] ?? [];
   const offers = v.offers.filter((o) => o.from === r.country || o.to === r.country).sort((a, b) => b.createdAt - a.createdAt);
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   const gone = !r.alive;

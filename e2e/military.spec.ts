@@ -72,6 +72,48 @@ test.describe('military orders (desktop)', () => {
     await shot(page, 'mil-04-report');
   });
 
+  test('contact sheet: launch shortcut opens the validated launch dialog with the sector preselected', async ({ page }) => {
+    test.setTimeout(240_000);
+    await clearStorage(page);
+    await newCampaign(page, 'IDN', 7171, '/?e2e=1');
+    await wc(page, 'wc.host().request({ op: "debugMissileSetup", missile: "msl_cruise" })');
+    // produce one batch through the normal production command
+    await page.getByTestId('rail-forces').click();
+    await page.getByTestId('produce-msl_cruise').click();
+    await page.getByTestId('produce-confirm').click();
+    await expect.poll(() => frame<number>(page, 'f => f.view.self.jobs.filter(j => j.kind === "missile").length')).toBe(1);
+    await page.getByTestId('panel-close').click();
+    // before inventory is ready the shortcut is disabled with a reason
+    const pre = (await wc(page, 'wc.host().request({ op: "debugContact" })')) as { contactId: string; node: number };
+    await page.getByRole('button', { name: 'Roster' }).click();
+    await page.getByRole('button', { name: 'Known contacts', exact: true }).click();
+    await page.locator(`[data-roster-id="C:${pre.contactId}"]`).click();
+    await expect(page.getByTestId('contact-sheet')).toBeVisible();
+    await expect(page.getByTestId('contact-launch')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('inspector')).toContainText('No ready missiles');
+    for (let i = 0; i < 4 && (await frame<number>(page, 'f => (f.view.self.missiles.msl_cruise || {}).ready || 0')) === 0; i++) await wc(page, 'wc.host().step(720)');
+    const ready0 = await frame<number>(page, 'f => f.view.self.missiles.msl_cruise.ready');
+    expect(ready0).toBeGreaterThan(0);
+    // fresh injected radar contact (the previous one may have been refreshed away by visibility)
+    const info = (await wc(page, 'wc.host().request({ op: "debugContact" })')) as { contactId: string; node: number };
+    if (!(await page.getByRole('button', { name: 'Known contacts', exact: true }).isVisible().catch(() => false))) await page.getByRole('button', { name: 'Roster' }).click();
+    await page.getByRole('button', { name: 'Known contacts', exact: true }).click();
+    await page.locator(`[data-roster-id="C:${info.contactId}"]`).click();
+    await expect(page.getByTestId('contact-sheet')).toBeVisible();
+    await expect(page.getByTestId('contact-launch')).not.toHaveAttribute('aria-disabled', 'true');
+    await page.getByTestId('contact-launch').click();
+    await expect(page.getByTestId('launch')).toBeVisible();
+    await page.getByTestId('launch-missile').selectOption('msl_cruise');
+    await page.getByTestId('launch-from').selectOption('0');
+    await expect(page.getByTestId('launch-node-select')).toHaveValue(String(info.node));
+    // the engine validator answers (preview or an explicit reason such as range) — nothing is committed
+    await expect(page.getByTestId('launch-preview').or(page.getByTestId('launch').getByRole('alert')).first()).toBeVisible({ timeout: 15_000 });
+    await shot(page, 'mil-09-contact-launch');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    expect(await frame<number>(page, 'f => f.view.self.missiles.msl_cruise.ready')).toBe(ready0);
+    expect(await frame<number>(page, 'f => f.view.launches.length')).toBe(0);
+  });
+
   test('aircraft: patrol with footprint/endurance preview, then rebase (new home)', async ({ page }) => {
     test.setTimeout(240_000);
     await clearStorage(page);

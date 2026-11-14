@@ -4,6 +4,7 @@ import { useStore } from '../state/store';
 import type { Frame, QueryName } from '../sim/protocol';
 import { symbolSvg } from '../map/symbols';
 import { countryName } from '../data/static';
+import { userMovedFocus } from '../state/ui';
 
 export function useFrame(): Frame | null {
   return useStore(getHost().store, (s) => s.frame);
@@ -114,7 +115,9 @@ export function Modal({ title, onClose, children, footer, wide, labelledBy, init
     return () => {
       modalDepth--;
       const o = opener.current;
-      if (o && document.contains(o)) setTimeout(() => o.focus(), 0);
+      const before = document.activeElement;
+      // restore focus to the opener unless the user already moved focus elsewhere
+      if (o) setTimeout(() => { if (document.contains(o) && !userMovedFocus(before)) o.focus(); }, 0);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -189,6 +192,8 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
     search: <path d="M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-5-5" />,
     legend: <path d="M4 5h4v4H4zM4 15h4v4H4zM11 7h9M11 17h9" />,
     menu: <path d="M3 6h18M3 12h18M3 18h18" />,
+    fullscreen: <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />,
+    'exit-fullscreen': <path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" />,
   };
   return (
     <svg className="ico" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

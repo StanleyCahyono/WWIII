@@ -1,5 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { clearStorage, newCampaign, frame, shot } from './helpers';
+
+const wc = (page: Page, expr: string) => page.evaluate(`(() => { const wc = window.__wc; return ${expr}; })()`);
 
 test.describe('SPEC §2 workflows (desktop)', () => {
   test.skip(({ isMobile }) => !!isMobile, 'desktop');
@@ -58,5 +60,61 @@ test.describe('SPEC §2 workflows (desktop)', () => {
     await page.getByTestId('nation-MYS').click();
     await expect(page.getByTestId('thread')).not.toContainText('No messages yet');
     await shot(page, 'wf-offer-answered');
+  });
+
+  test('SPEC worked interaction: Indonesia → Surabaya → maritime formation → private route idea survives Economy → +1 h, no orders → dated report stays put', async ({ page }) => {
+    test.setTimeout(240_000);
+    await clearStorage(page);
+    await newCampaign(page, 'IDN', 1040);
+    // centre on Surabaya
+    await page.locator('#map-search-input').fill('Surabaya');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('inspector-title')).toHaveText('Surabaya');
+    const cam = (await wc(page, 'wc.camera()')) as { cx: number; cy: number };
+    expect(Math.abs(cam.cx - 112.7)).toBeLessThan(3);
+    // a known friendly maritime formation (prefer one in Surabaya)
+    const fleet = await frame<{ id: string; node: number | null }>(page, `f => { const sur = f.view.cities.find(c => c.name === 'Surabaya').node; const n = f.view.stacks.filter(s => s.moveClass === 'naval'); const s = n.find(s => s.pos.kind === 'node' && s.pos.node === sur) || n[0]; return { id: s.id, node: s.pos.kind === 'node' ? s.pos.node : null }; }`);
+    await page.getByRole('button', { name: 'Roster' }).click();
+    await page.locator(`[data-roster-id="S:${fleet.id}"]`).click();
+    // the map selects the same object and the inspector names its current port
+    expect(await wc(page, 'wc.ui().selection')).toEqual({ kind: 'stack', id: fleet.id });
+    const portName = fleet.node !== null ? ((await wc(page, `wc.frame().view.cities.find(c => c.node === ${fleet.node})?.name ?? null`)) as string | null) : null;
+    if (portName) await expect(page.getByTestId('stack-position')).toContainText(portName);
+    else await expect(page.getByTestId('stack-position')).not.toBeEmpty();
+    const h0 = (await wc(page, 'wc.host().hash()')) as { hash: string };
+    // draw a private route idea
+    await page.getByTestId('rail-planning').click();
+    await page.getByTestId('draw-route').click();
+    const a = (await wc(page, 'wc.project(112.75, -7.25)')) as { x: number; y: number };
+    const b = (await wc(page, 'wc.project(115.2, -8.6)')) as { x: number; y: number };
+    await page.mouse.click(a.x, a.y + 25);
+    await page.mouse.click(b.x, b.y + 25);
+    await page.getByTestId('finish-draw').click();
+    await expect.poll(() => frame<number>(page, 'f => f.drawings.length')).toBe(1);
+    expect(((await wc(page, 'wc.host().hash()')) as { hash: string }).hash).toBe(h0.hash);
+    // switch to Economy and back: the drawing (and the selection) are preserved
+    await page.getByTestId('rail-economy').click();
+    await expect(page.getByTestId('panel-economy')).toBeVisible();
+    await page.getByTestId('panel-close').click();
+    expect(await frame<number>(page, 'f => f.drawings.length')).toBe(1);
+    expect(await wc(page, 'wc.ui().selection')).toEqual({ kind: 'stack', id: fleet.id });
+    await shot(page, 'wf-worked-route-idea');
+    // a separate dated contact report (intelligence purchase)
+    await page.getByTestId('rail-intel').click();
+    const sel = page.locator('#intel-target');
+    const v = await sel.locator('option').nth(1).getAttribute('value');
+    await sel.selectOption(v!);
+    await page.getByRole('button', { name: 'Assign agent' }).click();
+    await expect.poll(() => frame<number>(page, 'f => f.view.agents.length')).toBe(1);
+    await page.getByTestId('buy-report').click();
+    await expect.poll(() => frame<number>(page, 'f => f.view.reports.length')).toBeGreaterThan(0);
+    const rep0 = await frame<string>(page, 'f => JSON.stringify(f.view.reports.map(r => ({ id: r.id, at: r.observedAt, pos: r.stacks.map(s => s.node) })))');
+    await page.getByTestId('panel-close').click();
+    // advance one hour: drawing a line gave the formation no orders; the report is frozen
+    await page.getByTestId('step-hour').click();
+    await expect(page.getByTestId('game-clock')).toContainText('D1 07:00');
+    expect(await frame<boolean>(page, `f => { const s = f.view.stacks.find(s => s.id === "${fleet.id}"); return !!(s && s.order); }`)).toBe(false);
+    const rep1 = await frame<string>(page, 'f => JSON.stringify(f.view.reports.map(r => ({ id: r.id, at: r.observedAt, pos: r.stacks.map(s => s.node) })))');
+    expect(rep1).toBe(rep0);
   });
 });

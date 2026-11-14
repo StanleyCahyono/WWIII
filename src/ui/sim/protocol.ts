@@ -4,7 +4,10 @@
  */
 import type { Command, CountryView, Difficulty, PlanningDrawing } from '../../engine/index';
 
-export type ViewNoRules = Omit<CountryView, 'rules'>;
+export type ViewNoRules = Omit<CountryView, 'rules'> & {
+  /** Bilateral diplomacy thread key per counterpart, from the engine's `threadFor(viewer, c)`. */
+  threadKeys: Record<string, string>;
+};
 
 export interface FrameMeta {
   campaignId: string | null;
