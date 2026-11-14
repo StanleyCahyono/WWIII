@@ -20,7 +20,7 @@ Worker (UI). Every tunable constant is in [`src/engine/rules.ts`](../src/engine/
 | `sim.ts` | `advance`, `stepOnce`, step order, day-change processing. |
 | `power.ts` | Opening power index. |
 | `commands/` | `types.ts` (the `Command` union), `forces.ts`, `national.ts`, `index.ts` (validate/submit). |
-| `systems/` | `mapindex` (graph, A*, bins), `world` (queries/rights), `movement`, `combat`, `air`, `government` (capture/morale/revolts), `economy`, `ledger`, `production`, `research`, `missiles`, `visibility`, `intel`, `diplomacy`, `coalitions`, `market`, `score`, `readiness`, `events`, `queue`, `hooks`. |
+| `systems/` | `mapindex` (graph, A*, bins), `world` (queries/rights), `movement`, `combat`, `air`, `airmobile` (helicopter lift), `blockade` (port blockades), `government` (capture/morale/revolts), `economy`, `ledger`, `production`, `research`, `missiles`, `visibility`, `intel`, `diplomacy`, `coalitions`, `market`, `score`, `readiness`, `events`, `queue`, `hooks`. |
 | `view/` | `country-view.ts` (`getCountryView`, the only projection UI/AI consume) and `queries.ts` (UI models). |
 | `save/` | serialize / deserialize / migrate / validate / `stateHash` / UI planning layer. |
 | `scenario/` | `types.ts` (Scenario/Catalog), `registry.ts` (static indexes), `create.ts` (`createCampaign`), `defaults.ts` (synthesized profiles), `world120.ts` (real-data loader). |
@@ -55,6 +55,12 @@ getCountryViews(state, ids, opts?) : Map<country, CountryView>   // batch; share
 //         trust changes toward that country ({ at, kind, delta }; free-text reasons omitted)
 //   CountryView.observedNodes: NodeId[] — nodes covered by the viewer's (+ vision sources') sensors/territory
 //   StackView.sightKm / radarKm — effective sensor radii of the viewer's own stacks
+//   CountryView.blockades: own blockaded ports (role 'blockaded', blockaders not named) and enemy
+//         ports the viewer's warships blockade (role 'enforcing')
+//   Offer.territory?: { give, receive } (peace cessions), Offer.round? / counterOf? (haggling)
+liftInfo, canAirLift, interceptionRisk, airborneLifts      // air-mobile lift (systems/airmobile.ts)
+updateBlockades, isBlockaded, portIndex                     // blockades (systems/blockade.ts)
+cessionError, offerRound                                    // peace settlements (systems/diplomacy.ts)
 observedNodes(state, country) ; stackSensorRadii(state, stack)   // same values as the view fields
 pairKey(a, b) ; threadFor(a, b)                                     // relation / diplomacy-thread keys
 ledgerModel, forecastModel, scoreBreakdown, researchTree, cityList, provinceInspector,
@@ -105,9 +111,11 @@ counts as true. `src/ai`'s `UtilityController` declares both (`wantsCall`, `lite
   1. scheduled events with `at ≤ T` ordered by **(at, priority class, seq)**; the clock reads `at`
      while each runs. Classes: offer_effect 0, offer_expire 1, coalition_depart 2, research_done 3,
      job_done 4, missile_arrive 5, agent_report 6, report_expire 7.
-  2. air operations; 3. ground/naval movement (stacks by numeric id);
+  2. air operations; 2b. air-mobile lifts due to land (`airmobileStep`); 3. ground/naval movement
+     (stacks by numeric id);
   4. whole hours: attack-order refresh + combat round; 5. capture;
-  6. whole hours: economy accrual; 7. visibility (every `VISIBILITY_INTERVAL_MIN` = 30);
+  6. whole hours: blockade refresh (`updateBlockades`), then economy accrual; 7. visibility (every
+     `VISIBILITY_INTERVAL_MIN` = 30);
   8. day change: government (morale/population/revolts), readiness, trust decay, daily digest,
      **score settlement**, pruning; 9. eliminations; 10. AI scheduler.
 * Commands submitted between steps apply immediately at the current tick.
@@ -115,7 +123,7 @@ counts as true. `src/ai`'s `UtilityController` declares both (`wantsCall`, `lite
 ## Determinism guarantees
 
 * Random draws: `streamRng(seed, stream, key)` with stable keys (`combat:<eng>:<round>:<stack>`,
-  `missile:<launchId>`, `revolt:<city>:<day>`, `uprising:<city>:<tick>`, `agent:<id>:<n>`,
+  `missile:<launchId>`, `airmobile:<stack>:<launchedAt>`, `revolt:<city>:<day>`, `uprising:<city>:<tick>`, `agent:<id>:<n>`,
   `trust:<a>><b>`, `personality:<c>`, `ai:<c>:<tick>`). Adding an unrelated event never perturbs others.
 * Iteration over records always uses sorted ids/keys; ties broken by id.
 * Same seed + same command history ⇒ identical `stateHash` at any speed and across save/reload
@@ -150,7 +158,7 @@ counts as true. `src/ai`'s `UtilityController` declares both (`wantsCall`, `lite
   are recorded (`ledger.unpaid`, `country.shortages`); stock never goes negative.
 * Ledger categories: production, upkeep, occupation, construction, recruitment, research,
   missile_production, market_escrow, market_fill, refund, loot, corruption, treaty_transfer, intel,
-  annex. Invariant (tested): `ledger.initial + Σ ledger.totals == stock` (spendable).
+  annex, operations (air-mobile fuel). Invariant (tested): `ledger.initial + Σ ledger.totals == stock` (spendable).
   On-hand = stock + escrow; escrow == Σ open-order reservations (validated on load).
 * **Jobs are charged in full at enqueue.** Cancel: queued → 100 % refund; active → `cost ×
   remaining fraction × 0.75`. Per city: one construction (incl. annexation) + one mobilization
@@ -188,6 +196,39 @@ counts as true. `src/ai`'s `UtilityController` declares both (`wantsCall`, `lite
   reloaded one (before, both-ends-illegal stacks turned back on every re-check).
 * Effective speed = slowest unit × terrain (catalog terrain speed or default table) × logistics.
 
+### Air-mobile lift (helicopters) — `systems/airmobile.ts`, command `airmobile`
+
+Helicopters are ground-class stacks (they move with ground formations), but a formation with lift can
+fly one direct **air-mobile hop** through the shared validator (`{ type: 'airmobile', stack, dest,
+confirmActOfWar? }`, human and AI identical):
+
+* Lift: `UnitType.airmobileCapacity` (additive catalog field) — seats for light infantry on a
+  helicopter (utility gunship `heli_gunship` = 2; mini-fixture `heli` = 2); an infantry type with a value
+  lifts itself (`inf_airmobile` = 1, organic lift). Passengers = every non-helicopter unit without own
+  lift; each must be light infantry (family infantry, target class unarmored) or an officer, and
+  passengers ≤ Σ seats of living helicopters (attack helicopters fly along as escort). Codes:
+  `invalid_domain` (armour/guns aboard, sea destination), `insufficient_lift`, `missing_facility` (no
+  lift), `refueling` (turnaround), `insufficient_range`, `insufficient_resources` (fuel), `act_of_war`.
+* Range: min `operationalRangeKm` of the flying units (default `AIRMOBILE.defaultRangeKm` = 400) ×
+  `air_operational_range_mult`; minimum hop 20 km. Fuel = flyers × ⌈km/100⌉ × 3, charged at launch
+  (ledger `operations`). Flight time = 30 min load + km / min(220, slowest helicopter) km/h.
+* In flight the stack is in an `air` position with `order.airmobile = { from, launchedAt, arriveAt,
+  km }`; it cannot stop, delay, split, merge, move or attack (`busy`). `routeEtaTick` = landing tick.
+* Landing (step 2b): (1) a destination that became foreign-at-peace without passage and was not
+  confirmed turns the lift back to its origin (`airmobile_aborted`); a confirmed one declares war on
+  landing (as ground entry). (2) Interception: risk = Σ hostile (at war) air-defence units within
+  max(range, 60 km) of the straight path (0.12 × level × hp fraction) + hostile fighters on patrol
+  whose circle touches the path (0.08 each) + an opposed landing (0.1), cap 0.75; one seeded draw
+  (`airmobile:<stack>:<launchedAt>`); if intercepted every unit loses a seeded 25–60 % of max HP
+  (dead units removed; an emptied formation is destroyed) — events to the owner and the defenders.
+  (3) Node position, land mode, order cleared, flyers get `cooldownUntil = now + 120`. Capture then
+  follows the ordinary rule in the same step.
+* Hidden information: the preview's `riskEstimate`/`riskNote` use only the issuer's own identified
+  contacts (an unobserved battery gives 0 % plus a warning); the resolution uses real positions.
+* Tests: `tests/engine/features.test.ts` › helicopter air-mobile lift (validation, fuel/ledger,
+  in-flight refusals, turnaround, capture on landing, abort, risk estimate without leaks, seeded
+  interception, save/reload + chunking hash equality).
+
 ## Combat (documented solo algorithm)
 
 Hourly rounds keyed by tick (a round can never apply twice). See `systems/combat.ts` header:
@@ -208,10 +249,30 @@ at landing) → divert to nearest legal base within remaining range, else aircra
 count). Aircraft on the ground at a captured base evacuate the same way; a disabled base (condition
 < 25) grounds them; aircraft aboard a sunk carrier are lost. Re-tasking a patrol keeps take-off time.
 
+## Blockades — `systems/blockade.ts` (AI request #12)
+
+A port city (map port flag; adjacent sea zones = its coast edges) is **blockaded** when at least one
+adjacent sea zone holds a naval stack with a warship (living sea/subsurface unit with attack > 0) of a
+country at war with the city's owner, and **no** adjacent zone holds any naval stack of the owner or
+a coalition partner (ships in the harbour node itself do not count). Refreshed every whole hour
+before the economy (pure function of stack positions at that boundary); saved as
+`state.blockades[city] = { since, by, zones }` because start/lift events need the previous status.
+Effects: city output × `BLOCKADE.outputFactor` (0.7, port trade lost; applied in
+`cityAdjustedOutput` before the territory factor; the city output cache keys on the flag and
+`updateBlockades` announces the node with `bumpEconomy(state, node)`), and naval mobilization there is
+refused (`checkMobilize` code `blockaded`; jobs already queued still complete). Journal:
+`blockade_started` / `blockade_lifted` (economy category) — the owner is told its port is blockaded
+"by hostile warships" without naming them; the blockaders are told whose port. View:
+`CountryView.blockades` (own ports `role: 'blockaded'`, enemy ports we enforce `role: 'enforcing'`).
+**Direct test edits of `state.blockades` must call `bumpEconomy(state, node)`.** Tests:
+`tests/engine/features.test.ts` › port blockade.
+
 ## Capture and government
 
 Capture: surviving capture-capable land unit at the control node, at war with the owner (or rebel
-node), no hostile stack present. Liberation restores `homeland`; otherwise `occupied`. Annex
+node), no hostile stack present. Liberation restores `homeland`; otherwise `occupied`. A treaty
+cession (`transferNode(..., 'treaty')`) gives `annexed` (or `homeland` on return) — no loot, event
+`territory_ceded` with a public headline. Annex
 (occupied only, cost + 24 h job) → 50 % output and mobilization; lost on recapture. Loot 2 %×tier
 of the former owner's money. Morale target from signed factors (base 75, occupation −30, annexed
 −12, wars, shortages, distance to capital, hostile neighbours, population losses, facilities,
@@ -282,6 +343,24 @@ level (deep-scan tested).
 
 * Exactly four statuses per direction: war, peace, right_of_way, shared_intel. Offers: recipient-
   only, idempotent resolution, stale if relation version changed, effects at `acceptedAt + 60`.
+* **Peace settlements** (v2): an offer with `peace` may carry `territory: { give, receive }`
+  (control nodes; `give` = sender cedes, `receive` = recipient cedes) next to `resource` terms
+  (moved at acceptance). Rules (`validateTerms` / `cessionError`, re-checked at acceptance and at
+  the effective time): peace term required, the giver holds the province, never its capital, never
+  every province it holds, no duplicates, ≤ `PEACE.maxTerritoryTerms` (6). Cessions apply after peace
+  at the effective time (`DiploHooks.cede` → `transferNode(..., 'treaty')`); a clause that became
+  impossible is skipped with a `cession_skipped` event. Territory is a separate offer field (not an
+  `OfferTerm` kind) so existing term renderers stay exhaustive.
+* **Haggling**: `proposeOffer.counterTo = <offer id>` answers a pending offer addressed to the issuer
+  with a new offer back to its sender: the countered offer is declined (`responseReason` "countered
+  (round n/4)…", no trust penalty, `offer_countered` event), the new one has `counterOf` and
+  `round = previous + 1` ≤ `PEACE.maxRounds` (4, else code `negotiation_limit`); the pending-pair
+  limit discounts the countered offer. Tests: `tests/engine/features.test.ts` › peace settlements.
+* **Coalition co-belligerence (AI request #14) — not adopted.** SPEC keeps exactly four statuses per
+  direction and asks not to invent a fifth; an implicit "fights without a declaration" state would be
+  a hidden fifth relation (combat, capture, access and visibility would all need it, and the human
+  could be attacked by countries never at war with them). Partners join a war by the ordinary,
+  visible declaration (the planner's `joinVerdict`).
   Trust per ordered pair with history entries and daily decay.
 * Coalitions: max 5, applications, leader decides, 24 h departure notice, history kept.
 * Market: price-time priority, execution at resting price, escrow at placement, partial fills,
@@ -321,7 +400,7 @@ Derived caches never live in the save; they are validated by version counters in
 (ownership, with a per-node change journal), `econv` (territory output inputs), `techv` (unit
 levels), `trustDays`. Every engine path that mutates the corresponding data bumps the counter
 (`bumpEconomy(state, node?)`, `recordOwnerChange`, …). **Code that edits buildings, condition,
-morale, population or ownership directly (tests, tools) must call `bumpEconomy(state)`** — the
+morale, population, ownership or `state.blockades` directly (tests, tools) must call `bumpEconomy(state)`** — the
 economy additionally guards with a structural fingerprint. Because every memo is a pure function of
 state, a reloaded save (cold caches) continues bit-identically (`stateHash` tests).
 
@@ -411,11 +490,12 @@ by `cov` + the coalitions object (membership, leader and dissolution change only
 ## Save format
 
 ```json
-{ "format": "world-command-save", "schemaVersion": 1, "scenarioId": "...", "scenarioVersion": "...",
+{ "format": "world-command-save", "schemaVersion": 2, "scenarioId": "...", "scenarioVersion": "...",
   "seed": 42, "savedRevision": 3, "state": { ...GameState } }
 ```
-`deserialize` parses into a temporary copy, runs `MIGRATIONS[v]` stepwise (v0 → v1 included and
-tested), validates (finite numbers, non-negative stocks, references, escrow vs open orders, queued
+`deserialize` parses into a temporary copy, runs `MIGRATIONS[v]` stepwise (v0 → v1 and v1 → v2
+included and tested; v2 adds the `blockades` section — the optional offer `territory`/`round`/
+`counterOf` fields and `MoveOrder.airmobile` need no conversion), validates (finite numbers, non-negative stocks, references, escrow vs open orders, queued
 work has completion events, queue order, scenario version) and throws `SaveError{code:
 parse|format|version|scenario|invalid}` without touching the caller's state. `ui` (planning
 drawings, prefs) is saved but excluded from `stateHash`. `markSaved`/`revisionConflict` support
@@ -604,7 +684,9 @@ inclusive samples per function and per line (`positionTicks`).
   `MapIndex.staticCache` keeps its field but the memo is per state (a shared memo could leak between
   different games with equal version counters).
 * Emergency diversion now respects airfield/carrier capacity (`nearestBase(..., need)`).
-* Helicopters share ground movement; no separate air-mobile embark rules.
+* Helicopters share ground movement and fly air-mobile hops (see "Air-mobile lift"); a lift is not
+  shot at by ordinary combat rounds in flight beyond the landing-time interception rule, and
+  passengers cannot be dropped at sea.
 * Agents' "corruption" drains money only; officers apply one bonus per officer type.
 * `BasicController` is a test bot; the real planner belongs in `src/ai/` (consumes CountryView).
 * Real-scenario tests (`tests/engine/world120.test.ts`) run when `src/data` is present and print

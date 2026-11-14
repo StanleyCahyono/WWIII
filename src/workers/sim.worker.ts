@@ -456,6 +456,12 @@ async function handle(req: Request): Promise<unknown> {
       debugWar = { at: state.clock.tick + Math.max(1, Math.floor(req.inMinutes)), by: req.by };
       return { ...debugWar };
     }
+    case 'debugFeature': {
+      if (!debugEnabled || !state || !viewer) throw new Error('Debug operations are disabled.');
+      const r = A.debugFeature(state, viewer, req.what);
+      pushFrame();
+      return r;
+    }
     case 'debugEnable':
       debugEnabled = true;
       return { ok: true };

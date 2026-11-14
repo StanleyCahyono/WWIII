@@ -5,6 +5,7 @@ import { select, centerOn, openPanel, backPanel, ui } from '../state/ui';
 import { unitById, placeName, missileById, techById, TERRAIN_LABEL, buildingById } from '../data/static';
 import { num, resM, duration, cap, gameTime } from '../format';
 import { MissileProgramTable } from '../components/Orders';
+import { AirmobileDialog, airLiftActivity, hasAirLift, inAirLift } from '../components/Features';
 import { TARGET_CLASSES, TERRAINS } from '../../engine/data-types';
 
 interface Force { fielded: number; ready: number; committed: number; inRefit: number; units: number; stacks: number; maintenanceUsed: number; maintenanceCapacity: number; byDomain: Record<string, { units: number; fielded: number; ready: number }> }
@@ -16,6 +17,8 @@ export function ForcesPanel() {
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   const stacks = frame.view.stacks;
   const missiles = Object.entries(frame.view.self.missiles);
+  const [lift, setLift] = useState<string | null>(null);
+  const liftStack = lift ? stacks.find((x) => x.id === lift) : undefined;
   return (
     <div className="col" data-testid="forces-panel">
       <div className="row wrap" style={{ gap: 12 }}>
@@ -75,6 +78,7 @@ export function ForcesPanel() {
               <th className="num">Readiness</th>
               <th>Activity</th>
               <th>Supply</th>
+              <th>Orders</th>
             </tr>
           </thead>
           <tbody>
@@ -91,14 +95,22 @@ export function ForcesPanel() {
                   <td className="num">{s.units.length}</td>
                   <td>{s.pos.kind === 'node' ? placeName(s.pos.node) : s.pos.kind === 'edge' ? `→ ${placeName(s.pos.to)}` : 'airborne'}</td>
                   <td className="num">{rd}%</td>
-                  <td>{s.order ? (s.order.kind === 'move' ? `Moving to ${placeName(s.order.dest)}${s.eta ? `, ETA ${gameTime(s.eta)}` : ''}` : 'Attacking') : s.refit ? 'Refitting' : 'Holding'}</td>
+                  <td>{inAirLift(s) ? airLiftActivity(s) : s.order ? (s.order.kind === 'move' ? `Moving to ${placeName(s.order.dest)}${s.eta ? `, ETA ${gameTime(s.eta)}` : ''}` : 'Attacking') : s.refit ? 'Refitting' : 'Holding'}</td>
                   <td>{cap(s.supply)}</td>
+                  <td>
+                    {hasAirLift(s) && (
+                      <ActionButton className="btn small" disabledReason={ro ? 'Read-only campaign' : inAirLift(s) ? 'Already airborne.' : s.pos.kind !== 'node' ? 'Must be stationary at a province.' : null} onClick={() => setLift(s.id)} data-testid={`airmobile-${s.id}`}>
+                      Air assault…
+                    </ActionButton>
+                    )}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       )}
+      {liftStack && <AirmobileDialog s={liftStack} onClose={() => setLift(null)} />}
       <h3>Strategic inventory</h3>
       <MissileProgramTable />
     </div>

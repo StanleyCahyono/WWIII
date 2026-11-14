@@ -125,8 +125,8 @@ Status totals in COVERAGE (after verification pass 2): 199 implemented and teste
    human walkthroughs are now automated: E-W08-USA / -BOL / -IDN).
 2. ~~Screenshot regression~~ and ~~mobile worked interaction~~ — done (E-shots, E-m-worked).
 4. Heavy-war simulation day ≤ 400 ms (now 530–640 ms with ~650 movers) — §23; engine agent's area.
-5. AI peace terms with territory/resources, multi-round haggling — §20.
-6. Helicopter air-mobile embark rules — §6. Newspaper article image attachment — §14.
+5. ~~AI peace terms with territory/resources, multi-round haggling~~ — done (features pass, see below).
+6. ~~Helicopter air-mobile embark rules~~ — done (features pass). Newspaper article image attachment — §14.
 
 **Awaiting verification** (code exists, no end-to-end test). Highest value next:
 * W08: run the observer suite at a longer horizon — `npm run report:observer -- --runs 120 --days 30 --long 4 --long-days 180` (≈ 3.5 h on 4 vCPU) — §21.
@@ -137,7 +137,8 @@ Status totals in COVERAGE (after verification pass 2): 199 implemented and teste
   covered by E-v-*).
 * ~~`tests/ai/world120.test.ts` invalid-command failure (USA `rebase` × 4)~~ — fixed.
 * Engine+AI ≤ 1 s per game day (now ≈ 1.4 s on a loaded container) — ENGINE.md known gaps.
-* Engine rules suggested by the AI: blockade effects, coalition co-belligerence without a war declaration — AI.md #12, #14.
+* ~~Engine rules suggested by the AI: blockade effects~~ (landed), coalition co-belligerence without a war declaration
+  — not adopted (four-status rule; ENGINE.md "Diplomacy") — AI.md #12, #14.
 
 ## File ownership (parallel work — do not edit another owner's files without coordinating)
 
@@ -168,6 +169,9 @@ When working alone (e.g. Codex with no other agents), all areas are yours, but k
 ## Contract change log
 
 - catalog agent: `UnitType.carrierCapable?: boolean`, `UnitType.liftCapacity?: number` (additive).
+- features agent: `UnitType.airmobileCapacity?: number` (additive; `heli_gunship` 2, `inf_airmobile` 1). Engine state
+  **schema v2** (migration v1 → v2 adds `blockades`); optional `Offer.territory/round/counterOf`, `MoveOrder.airmobile`,
+  ledger category `operations`; command `airmobile`, `proposeOffer.territory/counterTo`; `CountryView.blockades`.
 - Level-tech IDs follow `<unitId>_l<N>` (exceptions: transport L2/L3 = `mob_strategic_airlift_2/3`, cruise launcher L2 = `str_cruise_missile_2`). Building level effects are totals, not increments.
 - engine: `CountryView.observedNodes`, `StackView.sightKm/radarKm`, exported `observedNodes`, `stackSensorRadii`, `pairKey`, `threadFor` (now used by the UI adapter).
 - UI protocol (UI-internal): `Frame.view.threadKeys: Record<country, threadKey>` added by the adapter.

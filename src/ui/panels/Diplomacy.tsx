@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useFrame, ActionButton, Modal, FlagChip } from '../components/common';
 import { getHost } from '../sim/host';
 import { ui } from '../state/ui';
-import { countryName, RESOURCE_LABEL, MAP } from '../data/static';
+import { countryName, RESOURCE_LABEL, MAP, placeName } from '../data/static';
 import { gameTime, duration, cap, num, wallTime } from '../format';
 import { exec } from '../sim/exec';
 import { RESOURCES } from '../../engine/data-types';
@@ -17,6 +17,16 @@ export function termText(t: OfferTerm): string {
   if (t.kind === 'peace') return 'Peace treaty';
   if (t.kind === 'coalition_invite') return 'Coalition membership';
   return `${num(t.amount / 1000)} ${RESOURCE_LABEL[t.resource].toLowerCase()}`;
+}
+
+/** Terms of one side of an offer, including territory clauses (peace settlements). */
+export function offerSide(o: Offer, side: 'give' | 'receive'): string {
+  const parts = [...o[side].map(termText), ...(o.territory?.[side] ?? []).map((n) => `cession of ${placeName(n)}`)];
+  return parts.length ? parts.join(', ') : 'nothing';
+}
+/** Mirrors engine `rules.PEACE.maxRounds` (the frame omits rules; the validator enforces the limit). */
+function maxRounds(_frame: Frame): number {
+  return 4;
 }
 
 let lastSel: string | null = null;
@@ -214,6 +224,8 @@ export function OfferCard({ o, frame }: { o: Offer; frame: Frame }) {
   const mine = o.from === v.viewer;
   const recipient = o.to === v.viewer;
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
+  const [counter, setCounter] = useState(false);
+  const fromRow = v.relations.find((r) => r.country === o.from);
   const respond = async (accept: boolean) => {
     if (busy) return; // double-click safe (plus nonce idempotency in the engine)
     setBusy(true);
@@ -230,8 +242,9 @@ export function OfferCard({ o, frame }: { o: Offer; frame: Frame }) {
         </span>
       </div>
       <div style={{ fontSize: 13 }}>
-        {countryName(o.from)} gives: {o.give.length ? o.give.map(termText).join(', ') : 'nothing'} · asks: {o.receive.length ? o.receive.map(termText).join(', ') : 'nothing'}
+        {countryName(o.from)} gives: {offerSide(o, 'give')} · asks: {offerSide(o, 'receive')}
       </div>
+      {(o.round ?? 1) > 1 && <div className="muted" style={{ fontSize: 12 }} data-testid={`offer-round-${o.id}`}>Counter-offer, round {o.round} of {maxRounds(frame)}</div>}
       {o.effectiveAt && <div className="muted" style={{ fontSize: 12 }}>Effective {gameTime(o.effectiveAt)}{o.applied ? ' (applied)' : ''}</div>}
       {o.responseReason && <div className="dim" style={{ fontSize: 12.5 }}>Reply: {o.responseReason}</div>}
       {o.status === 'pending' && recipient && (
@@ -242,8 +255,12 @@ export function OfferCard({ o, frame }: { o: Offer; frame: Frame }) {
           <ActionButton className="btn small" disabledReason={ro ? 'Read-only campaign' : busy ? 'Submitting…' : null} onClick={() => respond(false)}>
             Decline
           </ActionButton>
+          <ActionButton className="btn small" disabledReason={ro ? 'Read-only campaign' : (o.round ?? 1) >= maxRounds(frame) ? `Final round (${maxRounds(frame)}): accept or decline.` : !fromRow ? 'Unknown sender.' : null} onClick={() => setCounter(true)} data-testid={`counter-${o.id}`}>
+            Counter…
+          </ActionButton>
         </div>
       )}
+      {counter && fromRow && <OfferComposer to={fromRow} counter={o} onClose={() => setCounter(false)} />}
       {o.status === 'pending' && mine && (
         <div className="row">
           <span className="muted" style={{ fontSize: 12 }}>Awaiting their answer — only the recipient can accept.</span>
@@ -256,11 +273,14 @@ export function OfferCard({ o, frame }: { o: Offer; frame: Frame }) {
   );
 }
 
-function OfferComposer({ to, onClose }: { to: DiplomacyRow; onClose: () => void }) {
+function OfferComposer({ to, onClose, counter }: { to: DiplomacyRow; onClose: () => void; counter?: Offer }) {
   const frame = useFrame()!;
   const v = frame.view;
-  const [give, setGive] = useState<OfferTerm[]>([]);
-  const [receive, setReceive] = useState<OfferTerm[]>(to.war ? [] : [{ kind: 'status', level: 'right_of_way' }]);
+  // a counter-offer starts from the received terms seen from our side (their give = our receive)
+  const [give, setGive] = useState<OfferTerm[]>(counter ? counter.receive : []);
+  const [receive, setReceive] = useState<OfferTerm[]>(counter ? counter.give : to.war ? [] : [{ kind: 'status', level: 'right_of_way' }]);
+  const [terr, setTerr] = useState<{ give: number[]; receive: number[] }>({ give: counter?.territory?.receive ?? [], receive: counter?.territory?.give ?? [] });
+  const [terrPick, setTerrPick] = useState<{ side: 'give' | 'receive'; node: string }>({ side: 'receive', node: '' });
   const [hours, setHours] = useState(24);
   const [text, setText] = useState('');
   const [check, setCheck] = useState<{ ok: boolean; reason?: string } | null>(null);
@@ -276,7 +296,12 @@ function OfferComposer({ to, onClose }: { to: DiplomacyRow; onClose: () => void 
   const [resAmt, setResAmt] = useState<{ r: string; amt: string; side: 'give' | 'receive' }>({ r: 'money', amt: '500', side: 'give' });
   const has = (list: OfferTerm[], t: OfferTerm) => list.some((x) => JSON.stringify(x) === JSON.stringify(t));
   const toggle = (side: 'give' | 'receive', t: OfferTerm) => (side === 'give' ? setGive : setReceive)((l) => (has(l, t) ? l.filter((x) => JSON.stringify(x) !== JSON.stringify(t)) : [...l, t]));
-  const cmd = { type: 'proposeOffer' as const, to: to.country, give, receive, expiresInMin: hours * 60, text: text.trim() || undefined };
+  const hasTerr = terr.give.length + terr.receive.length > 0;
+  const cmd = { type: 'proposeOffer' as const, to: to.country, give, receive, expiresInMin: hours * 60, text: text.trim() || undefined, ...(hasTerr ? { territory: terr } : {}), ...(counter ? { counterTo: counter.id } : {}) };
+  // provinces each side could cede (current owners, never a capital — the engine re-checks)
+  const capitals = new Set(v.publicCities.filter((c) => c.capital).map((c) => c.node));
+  const holder = terrPick.side === 'give' ? v.viewer : to.country;
+  const cedable = to.war ? v.owners.map((o, n) => (o === holder && !capitals.has(n) && !terr.give.includes(n) && !terr.receive.includes(n) ? n : -1)).filter((n) => n >= 0).sort((a, b) => placeName(a).localeCompare(placeName(b))) : [];
   React.useEffect(() => {
     let alive = true;
     void getHost().preview(cmd).then((r) => alive && setCheck(r.ok ? { ok: true } : { ok: false, reason: r.reason }));
@@ -287,7 +312,7 @@ function OfferComposer({ to, onClose }: { to: DiplomacyRow; onClose: () => void 
   }, [JSON.stringify(cmd)]);
   return (
     <Modal
-      title={`Offer to ${to.name}`}
+      title={counter ? `Counter-offer to ${to.name} (round ${(counter.round ?? 1) + 1} of ${maxRounds(frame)})` : `Offer to ${to.name}`}
       onClose={onClose}
       wide
       footer={
@@ -295,8 +320,8 @@ function OfferComposer({ to, onClose }: { to: DiplomacyRow; onClose: () => void 
           <button type="button" className="btn" onClick={onClose}>
             Cancel
           </button>
-          <ActionButton className="btn primary" disabledReason={check && !check.ok ? check.reason ?? 'Invalid offer.' : null} onClick={async () => { const r = await exec(cmd, `Offer sent to ${to.name}. They will answer in your thread.`); if (r.ok) onClose(); }} data-testid="send-offer">
-            Send request
+          <ActionButton className="btn primary" disabledReason={check && !check.ok ? check.reason ?? 'Invalid offer.' : null} onClick={async () => { const r = await exec(cmd, counter ? `Counter-offer sent to ${to.name}.` : `Offer sent to ${to.name}. They will answer in your thread.`); if (r.ok) onClose(); }} data-testid="send-offer">
+            {counter ? 'Send counter-offer' : 'Send request'}
           </ActionButton>
         </>
       }
@@ -341,6 +366,39 @@ function OfferComposer({ to, onClose }: { to: DiplomacyRow; onClose: () => void 
           Add
         </button>
       </div>
+      {to.war && (
+        <fieldset data-testid="territory-clauses">
+          <legend>Territory (peace settlements only)</legend>
+          {(['give', 'receive'] as const).map((side) =>
+            terr[side].map((n) => (
+              <div key={`${side}-${n}`} className="row">
+                {side === 'give' ? `You cede ${placeName(n)}` : `${to.name} cedes ${placeName(n)}`}
+                <button type="button" className="btn small" onClick={() => setTerr((t) => ({ ...t, [side]: t[side].filter((x) => x !== n) }))}>
+                  Remove
+                </button>
+              </div>
+            )),
+          )}
+          <div className="row wrap">
+            <select value={terrPick.side} onChange={(e) => setTerrPick({ side: e.target.value as 'give' | 'receive', node: '' })} aria-label="Who cedes">
+              <option value="receive">{to.name} cedes</option>
+              <option value="give">I cede</option>
+            </select>
+            <select value={terrPick.node} onChange={(e) => setTerrPick({ ...terrPick, node: e.target.value })} aria-label="Province" data-testid="territory-node" style={{ maxWidth: 240 }}>
+              <option value="">Province…</option>
+              {cedable.map((n) => (
+                <option key={n} value={n}>
+                  {placeName(n)}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="btn small" disabled={terrPick.node === ''} onClick={() => { const n = Number(terrPick.node); setTerr((t) => ({ ...t, [terrPick.side]: [...t[terrPick.side], n] })); setTerrPick({ ...terrPick, node: '' }); }} data-testid="territory-add">
+              Add clause
+            </button>
+          </div>
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>Ceded provinces change hands at the agreement's effective time, after peace, as annexed territory (homeland if it returns to its original owner). Capitals cannot be ceded.</p>
+        </fieldset>
+      )}
       <label className="row" style={{ gap: 6 }}>
         Expires in
         <input type="number" min={1} max={336} value={hours} onChange={(e) => setHours(Math.max(1, Math.min(336, Math.floor(Number(e.target.value) || 1))))} style={{ width: 80 }} />

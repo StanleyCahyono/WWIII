@@ -135,7 +135,9 @@ export type Request =
   /** Test-only: a computer country submits an ordinary validated market order (same command path as every bot). */
   | { op: 'debugMarketOrder'; side: 'buy' | 'sell'; resource: string; qty: number; price: number }
   /** Test-only: computer country `by` submits an ordinary validated `declareWar` on the human once the running clock reaches tick+inMinutes. */
-  | { op: 'debugScheduleWar'; by: string; inMinutes: number };
+  | { op: 'debugScheduleWar'; by: string; inMinutes: number }
+  /** Test-only (features pass): an air-mobile helicopter group at the capital, or an enemy warship off a port. */
+  | { op: 'debugFeature'; what: 'airlift' | 'blockade' };
 
 export type QueryName =
   | 'cityList'

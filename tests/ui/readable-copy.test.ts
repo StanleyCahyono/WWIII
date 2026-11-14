@@ -51,3 +51,11 @@ describe('diplomatic event text', () => {
     for (const raw of ['of_way', 'of31', '(co3)', '[—]', 'MEX', 'ISR']) expect(t + humanizeIds('ISR gives [coalition membership (co3)] for [—].', f.view)).not.toContain(raw);
   });
 });
+
+describe('offer summary with territory clauses', () => {
+  it('mentions ceded provinces on both sides', async () => {
+    const { offerSummary } = await import('../../src/ui/eventText');
+    const s = offerSummary({ from: 'MEX', to: 'USA', give: [], receive: [], territory: { give: [0], receive: [1] } } as never, 'USA');
+    expect(s).toMatch(/^Mexico gives the cession of .+ in exchange for the cession of .+$/);
+  });
+});

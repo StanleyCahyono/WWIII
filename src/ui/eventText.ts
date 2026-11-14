@@ -8,7 +8,7 @@
  */
 import type { Offer, OfferTerm } from '../engine/index';
 import type { Frame } from './sim/protocol';
-import { countryName, RESOURCE_LABEL } from './data/static';
+import { placeName, countryName, RESOURCE_LABEL } from './data/static';
 import { gameTime, num } from './format';
 
 export interface EventLike {
@@ -41,11 +41,12 @@ function list(parts: string[]): string {
 }
 
 /** "Mexico gives right of way and 500 money in exchange for right of way" (from the viewer's side). */
-export function offerSummary(o: Pick<Offer, 'from' | 'to' | 'give' | 'receive'>, viewer: string, view?: View | null): string {
+export function offerSummary(o: Pick<Offer, 'from' | 'to' | 'give' | 'receive'> & { territory?: Offer['territory'] }, viewer: string, view?: View | null): string {
   const mine = o.from === viewer;
   const who = mine ? 'you' : name(o.from);
-  const give = list(o.give.map((t) => termPhrase(t, view)));
-  const ask = list(o.receive.map((t) => termPhrase(t, view)));
+  const cede = (side: 'give' | 'receive') => (o.territory?.[side] ?? []).map((n) => `the cession of ${placeName(n)}`);
+  const give = list([...o.give.map((t) => termPhrase(t, view)), ...cede('give')]);
+  const ask = list([...o.receive.map((t) => termPhrase(t, view)), ...cede('receive')]);
   if (!give && !ask) return `${who} ${mine ? 'propose' : 'proposes'} no terms`;
   if (!give) return `${who} ${mine ? 'ask' : 'asks'} for ${ask}, offering nothing in return`;
   return `${who} ${mine ? 'give' : 'gives'} ${give}${ask ? ` in exchange for ${ask}` : ', asking nothing in return'}`;

@@ -64,6 +64,8 @@ Test IDs: `V:` = Vitest (`npm test`), written `file › test name` (prefix of th
 | E-v-rural | `e2e/verification.spec.ts` › rural province sheet: its own construction catalog, deposit shown, zero-output warning for a deposit improvement without a deposit; the order is still validated and queued |
 | E-v-research | `e2e/verification.spec.ts` › research detail: a level upgrade compares current vs next level stats; a completed unlock lists the cities eligible to mobilize it and opens one |
 | E-v-touch | `e2e/verification.spec.ts` › touch: d-pad pans, two-finger pinch zooms around the fingers, a tap on a crowded sector opens the two-step picker (mobile) |
+| E-feat-air | `e2e/features.spec.ts` › helicopter air assault: previewed hop with range, fuel and observed-risk estimate, airborne, then lands |
+| E-feat-blk | `e2e/features.spec.ts` › blockade shows in the economy report and journal (blockader not named); peace offer with a territory clause through the diplomacy UI |
 | E-readable | `e2e/screens.spec.ts` › readable copy: city building effects use plain labels (Hamburg); offer toasts and journal rows name countries, terms and offers, and repeated offers collapse into one toast |
 
 Reference URLs for Annex rows are the wiki links given in the SPEC section named in the "Spec" column
@@ -176,7 +178,7 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Aircraft: patrol (radius, time on station, home, refuel), rebase/ferry, diversion/loss events | Annex A·E Aircraft, A10 | `Orders.tsx` (`PatrolDialog`, `RebaseDialog`, `AircraftPanel`), engine `systems/air.ts` | E-air; V: `tests/engine/air.test.ts` (all) | implemented and tested |
 | Deployables (uses, cooldown, placement range) | §3 Forces, Annex B Special categories | `Orders.tsx` (`DeployableDialog`), engine | V: `tests/engine/commands.test.ts › intel agents, articles, deployables…`; UI not e2e | implemented awaiting verification |
 | Officers: one bonus per officer type in the same group | Annex B Special categories | engine `combat.ts` (`officerMult`), catalog | V: `tests/catalog/integrity.test.ts › officers carry an officerBonus…` (data only); combat effect not tested | implemented awaiting verification |
-| Helicopter-specific air-mobile embark rules | §3 Orders | helicopters move with ground stacks (`docs/ENGINE.md` known gaps) | — | missing |
+| Helicopter-specific air-mobile embark rules | §3 Orders | engine `systems/airmobile.ts` + command `airmobile` (lift seats `UnitType.airmobileCapacity`, light-infantry passengers, range/fuel/turnaround, act of war on landing, seeded interception by hostile air defence/fighters/opposed landing, ordinary capture on landing; `docs/ENGINE.md` "Air-mobile lift"); AI `src/ai/airmobile.ts` (short-notice reinforcement); UI `components/Features.tsx` (Forces › Air assault…) | V: `tests/engine/features.test.ts › helicopter air-mobile lift` (7 tests incl. save/reload + chunking hash); `tests/ai/features.test.ts › AI air-mobile reinforcement` (2); E-feat-air | implemented and tested |
 
 ## 7. Cities, production and bulk orders
 
@@ -345,9 +347,11 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 | Bots propose/accept/reject/revoke; leave coalitions by explicit rule; anti-spam cooldowns | §4 Diplomacy, Peace and coalition | `src/ai/diplomacy.ts`, `memory.ts` | V: `tests/ai/diplomacy.test.ts` (all) | implemented and tested |
 | Personality weights and decaying memory; developer-only decision log outside the save | §4 | `src/ai/memory.ts`, `log.ts` | V: `tests/ai/contract.test.ts › decision log is a bounded developer-only ring buffer…` | implemented and tested |
 | Coalition mutual defence (reinforce a partner's threatened capital/core city, help requests honoured, grievances/favours) | §4 Defence vs expansion, Peace and coalition policy | `src/ai/alliance.ts` (landed during this audit by the AI agent) | V: `tests/ai/alliance.test.ts › AI coalition mutual defence` (5 tests) | implemented and tested |
-| Naval escort of embarked formations, blockade only with sea superiority, carrier wings embark | §4, W04 | `src/ai/naval.ts` | V: `tests/ai/alliance.test.ts › AI naval escort, blockade and carriers` (3 tests). Engine has no blockade effect yet (positional only) | implemented and tested |
+| Naval escort of embarked formations, blockade only with sea superiority, carrier wings embark | §4, W04 | `src/ai/naval.ts` | V: `tests/ai/alliance.test.ts › AI naval escort, blockade and carriers` (3 tests); the engine blockade effect now applies (row below); relief of own blockaded ports: `tests/ai/features.test.ts › AI and blockades` | implemented and tested |
 | Trade agreements sized to forecast deficit and actual surplus; recipient refuses beyond reserve | §4 Industrial investment, Depth·Economy | `src/ai/diplomacy.ts`, `economic.ts` | V: `tests/ai/alliance.test.ts › AI trade agreements sized to surplus and deficit` (3 tests) | implemented and tested |
-| Peace terms with territory or resources; multi-round haggling | §4 Peace and coalition policy | not implemented (`docs/AI.md` Known gaps) | — | missing |
+| Peace terms with territory or resources; multi-round haggling | §4 Peace and coalition policy | engine: `Offer.territory` cession clauses (peace only, no capitals, treaty transfer as annexed after peace), `proposeOffer.counterTo` rounds ≤ 4 (`systems/diplomacy.ts`); AI `src/ai/peace.ts` (terms in proportion to the war, counters conceding 25 %/round, reasons logged); UI `Diplomacy.tsx` (territory clauses, Counter…) | V: `tests/engine/features.test.ts › peace settlements` (3 tests); `tests/ai/features.test.ts › AI peace terms and haggling` (3 tests: winner counters with demands, bot–bot haggling within 4 rounds and 0 invalid commands, losing bot vs human cession); E-feat-blk (territory clause composed and sent) | implemented and tested |
+| Port blockade effect (AI request #12) | §4 naval policy, Annex A economy | engine `systems/blockade.ts` (hostile warships in an adjacent sea zone, no own/coalition ship ⇒ output × 0.7, no naval mobilization; hourly, saved `state.blockades`, schema v2 migration); `view.blockades`; journal `blockade_started/lifted`; UI Economy › Blockades | V: `tests/engine/features.test.ts › port blockade` (2 tests: effects, hidden blockader identity, lift by relief/peace, save/reload hash) and `› save migration v1 → v2`; E-feat-blk | implemented and tested |
+| Coalition co-belligerence without a declaration (AI request #14) | §4 Peace and coalition policy, Annex B diplomatic statuses | not adopted: SPEC keeps four statuses per direction and forbids inventing a fifth; partners join by an explicit declaration (`joinVerdict`) — reasoning in `docs/ENGINE.md` "Diplomacy" | — | deferred by stated product choice |
 | Zero-human-order campaign reaches a terminal condition | A02 | `src/ai`, engine | V: `tests/engine/ai.test.ts › A02…`; `tests/ai/world120.test.ts › several bots mobilize, invest, negotiate, fight and change control`; observer suite 4 × 180 d (`docs/reports/observer-summary.md`) | implemented and tested |
 
 ## 21. Opening power, balance evidence
@@ -450,21 +454,21 @@ Reference URLs for Annex rows are the wiki links given in the SPEC section named
 
 ## Status counts (all rows above, excluding the legend)
 
-Counted from the last cell of every data row in sections 1–24 and the A/W/cross-check tables (238 rows; the legend and this table excluded).
+Counted from the last cell of every data row in sections 1–24 and the A/W/cross-check tables (240 rows; the legend and this table excluded).
 
 | Status | Rows |
 | --- | ---: |
-| implemented and tested | 199 |
+| implemented and tested | 202 |
 | implemented awaiting verification | 25 |
-| deferred by stated product choice | 9 |
-| missing | 5 |
+| deferred by stated product choice | 10 |
+| missing | 3 |
 
 ## Top missing items (priority order)
 
 1. **Full-length observer evidence**: 120 campaigns were run to a 5-day horizon only (4 × 180 days); run `npm run report:observer -- --runs 120 --days 30 --long 4 --long-days 180` (≈ 3.5 h) or longer (W08 — the three human walkthroughs are now automated: E-W08-USA, E-W08-BOL, E-W08-IDN).
 2. **Playtest record** of a high/medium/small start against the U.S. bot (§21).
-3. **AI depth**: peace terms with territory/resources and multi-round haggling.
+3. ~~**AI depth**: peace terms with territory/resources and multi-round haggling~~ — done (engine features pass).
 4. **Heavy-war simulation day** still 530–640 ms with ~650 movers (target 400 ms; engine agent working on it).
-5. Helicopter air-mobile embark rules; newspaper article image attachment.
+5. ~~Helicopter air-mobile embark rules~~ (done, engine features pass); newspaper article image attachment.
 6. ~~W04: two peers completing a hypersonic branch~~ — done (`tests/profiles/hypersonic-playthrough.test.ts`).
 7. UI rows still "awaiting verification": fullscreen toggle, building repair, end screen with a coalition winner, failed-write recovery checkpoint, storage-cannot-persist explanation, small-state marker click, label priority, visibility/sensor drawing, drawings metadata, first economic report in the UI (the resource/time strip, interrupt-and-pause, order dialogs, multi-selection, context menu/lasso, pinch/picker/d-pad, journal-after-destruction, recovery list and score/end rows are now covered by E-v-*).

@@ -35,13 +35,13 @@ function defend(t: Turn, a: Analysis, stacks: StackView[]): void {
       })
       .sort((x, y) => d[(x.pos as { node: NodeId }).node] - d[(y.pos as { node: NodeId }).node] || (x.id < y.id ? -1 : 1));
     let need = c.required - c.present;
+    // short-notice help by helicopter first when land reinforcements are far away or cut off
+    need -= airmobileReinforce(t, a, stacks, c, need, d);
     for (const s of avail.slice(0, 3)) {
       if (need <= 0 || t.full) break;
       const reason = c.threat > 0 ? `defend ${c.capital ? 'capital' : 'city'} ${c.key}: observed hostile strength ${c.threat.toFixed(0)} vs ${c.present.toFixed(0)}` : `garrison capital ${c.key}`;
       if (issueMove(t, s, c.node, 'defend', reason, 18 * HOUR)) need -= stackGroundPower(t.ix, s);
     }
-    // short-notice help by helicopter when land reinforcements are far away or cut off
-    if (need > 0 && !t.full) need -= airmobileReinforce(t, a, stacks, c, need, d);
   }
 }
 

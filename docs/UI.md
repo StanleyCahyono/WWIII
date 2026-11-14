@@ -106,6 +106,9 @@ main thread (React 18)                         Web Worker (src/workers/sim.worke
 | Stack orders: attack (current contacts or a province), retreat (adjacent destination + forecast HP cost), delay, embark/disembark, deployables (uses, cooldown, placement range); aircraft patrol (area, radius, time on station, home, refuel) and rebase/ferry (new home); aircraft panel (mission, elapsed endurance, footprint, diversion/loss/landing events) | `components/Orders.tsx` (+ `components/Inspector.tsx`) |
 | Missiles: program table (research flags, maturity badges with distinct prototype art, backlog, batch cost, ceiling, replacement time), production dialog, launch dialog (facility/platform, range-limited sector picker or map pick, all four outcomes + headline chance before commit, conditional-accuracy definition, war confirmation, inventory after commit), strike reports (“effect unconfirmed” when unobserved), map origin→sector line without steering | `components/Orders.tsx`, `panels/Forces.tsx`, `map/renderer.ts` |
 | Career ledger (local XP, separate from VP) | `panels/Score.tsx` (Campaign info) |
+| Helicopter air assault (Forces › formation row › **Air assault…** for formations with helicopter lift: landing-zone picker or map pick, previewed distance vs range, load vs seats, landing time, fuel, interception-risk estimate from own observations, act-of-war confirmation; "Air-mobile hop to …, lands …" activity while airborne) | `components/Features.tsx` (`AirmobileDialog`), `panels/Forces.tsx` |
+| Blockade report (Economy: own blockaded ports with since/effect/how to lift — blockaders never named; enemy ports our warships blockade) — journal rows come from the engine events `blockade_started` / `blockade_lifted` | `components/Features.tsx` (`BlockadeReport`), `panels/Economy.tsx` |
+| Peace settlements: composer territory clauses at war ("<them> cedes" / "I cede", own capital never offered), offer cards show cessions and the negotiation round, **Counter…** on a received offer opens the composer pre-filled with the mirrored terms (disabled in the final round) | `panels/Diplomacy.tsx` |
 
 ## Keyboard chart
 
@@ -136,6 +139,7 @@ main thread (React 18)                         Web Worker (src/workers/sim.worke
 | `e2e/screens.spec.ts` | Annex A walkthrough 5 (market sell order → partial computer fill via `debugMarketOrder` → abort the rest → stock/escrow/cash/history reconcile before and after reload); coalition create/details/thread/leave with 24 h notice; journal (day groups, five filters, event detail, notification history + Go) and toasts (jump-to, dismiss, clock unaffected); newspaper (no future edition, previous/next, nation index, anonymous plain-text statement); unit dossier; split/merge conservation and fire control; tutorial skip/reopen/auto-complete/persisted; archive/restore/delete; settings persistence, credits, diagnostics, closed-app catch-up |
 | `e2e/mobile-touch.spec.ts` | iPhone 13, taps only: mobile worked interaction (as E-worked); W10 touch pass in monochrome (locate a ship formation by symbol meaning "friendly surface" + SIDC check, planned vs present via APP-6 status digit and "Planned" label, dated radar contact without hidden type); narrow-width dossier selectors |
 | `e2e/verification.spec.ts` | Verification pass 2 (desktop unless noted). **Resource/time strip** (Singapore: negative net vs insufficient stock after escrowing all supplies, tooltip breakdown, shortage ledger row + market link; research deadline, build job, arrival, refit and dated report in the timeline, previews never advance the clock). **Interrupt-and-pause** (`debugScheduleWar`: a computer country declares war while the clock runs → the worker pauses within one 15-min chunk, dialog, Stay paused; with the Settings preference off the clock keeps running). **Order dialogs** (embark/delay/disembark with previews; attack lists only current non-air contacts without hidden types, act-of-war confirmation carried by the order). **Map input chart** (Shift/Ctrl multi-select + common actions incl. Move all/Stop all, cluster chooser, right-drag lasso, context menu by right-click and Shift+F10 with arrow keys and Escape, right-click cancels targeting, ocean/province clicks, zoom buttons + scale bar, locator arrow, independent layer toggles). **Journal** after the formation is destroyed (`debugEngage` with `stack`/`strongest`), lost-selection explanation, Go, save/reload. **Recovery copies** (revision conflict → dialog → recovery list → restore as new campaign → delete). **Score + end** (standings, territories sum, history after two settlements; China save moved to one hour before the final settlement via export → edit clock → import; end panel, campaign-end interruption, review mode: controls disabled, step no-op, victory XP awarded once). Choose-country region counts + preview fields, map ≥ 70 % of 1440×900, previous/next formation and city, WASD vs typing, advisor; rural province sheet with zero-output warning; research current-vs-next table and eligible cities. **Mobile**: d-pad, CDP two-finger pinch (anchored), tap on a crowded sector → picker |
+| `e2e/features.spec.ts` | Engine features pass (desktop, `?e2e=1` hook `debugFeature`): helicopter air assault from Forces (picker → preview with range/fuel/risk → airborne activity → lands → turnaround refusal); blockade (enemy warship off an Indonesian port → Economy blockade report names the port, never the blockader; journal text); peace offer with a territory clause composed in Diplomacy and shown as "cession of …" |
 | `e2e/visual.spec.ts` | `toHaveScreenshot` of the map canvas: crowded Europe (2,000 deterministic synthetic stacks, four affiliations) at regional and local zoom, Surabaya at regional and local zoom (baselines in `e2e/visual.spec.ts-snapshots/`, maxDiffPixelRatio 1 %); symbol-gallery manifest regenerated in memory (`e2e/gallery-manifest.mts`) must equal `docs/gallery/manifest.json` |
 
 `?e2e=1` enables test-only worker ops (`debugContact` for A04, `debugMissileSetup` = grant the
@@ -176,6 +180,10 @@ Used: `loadWorld120`, `registerScenario`, `createCampaign`, `advance`, `advanceT
 `marketView`, `forceModel`, `planRoute`, `computeDenominator`, `thresholdFor`, `scenarioOf`,
 `BasicController`.
 
+Also used (engine features pass): command `airmobile`, `proposeOffer.territory` / `counterTo`,
+`Offer.territory/round/counterOf`, `CountryView.blockades`; test hook `debugFeature` (adapter uses
+`newUnit`/`spawnStack`/`portIndex`, `?e2e=1` only).
+
 Also used (since the release audit): `CountryView.observedNodes` (visibility fill),
 `StackView.sightKm/radarKm` (sensor-coverage layer), `threadFor` (the adapter adds
 `view.threadKeys[counterpart]`, which the Diplomacy thread uses).
@@ -186,6 +194,12 @@ Remaining gaps (worked around; nice to have in the engine):
 3. No exported helper for the coalition thread key (`co:<id>` is built in `Diplomacy.tsx`).
 
 ## Known gaps / resume notes
+
+* Features pass: the air-assault order is reachable from the Forces panel only (the inspector and
+  city sheet were being edited by another agent; add an inspector action when convenient). The
+  composer mirrors `rules.PEACE.maxRounds` = 4 locally (frames omit `rules`); the validator enforces it.
+  `eventText.termPhrase` does not know territory clauses (they are a separate offer field, so toasts
+  describing an offer omit cessions; the offer card and the engine journal text include them).
 
 * Contact and report sheets offer **Launch missile at this sector…** (opens the normal validated
   launch dialog with that public sector preselected; disabled with a reason without ready stock).

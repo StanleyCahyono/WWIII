@@ -55,10 +55,10 @@ for the proposed scheduler pre-check (Engine request 1).
 | Industrial investment | `self.resources` net/day, forecast, hours-to-depletion (lookahead by difficulty), shortages, city threat (safety), days remaining (payback < 60 % of remaining days), free construction slots (one per city, concurrency cap), building effects (increment over the current level) | Electronics shortage ⇒ electronics-producing building scores ×3, market buy placed first, expensive electronics research and missile procurement delayed (`economic.ts` `construction`, `market`, `techValue`, `tradeIndex`). Test: `economy.test.ts` "electronics shortage". |
 | Research and recruitment | Doctrine (preview), facilities (requirements per city), observed opponents (war/threat raises land weight), geography (`geo.ts`: landlocked / maritime / coastal), upkeep headroom (no unit whose upkeep drives any resource below 14 days of stock), force mix targets | Archipelago ⇒ mobility ×1.3, naval ×1.1, lift/embark modifiers +0.8, naval bases/pontoons valued; landlocked ⇒ naval weight 0, sea techs filtered, naval units never mobilized, ships never ordered. Spending goes through the shared validator and the ledger (test reconciles stock). |
 | Territorial objectives | Reachable nodes (land hop distance from own territory, sea for coastal states), VP value, power ratio, trust, grievance, border exposure, travel (hops), observation age of the objective | Re-target triggers: lost port, new transit agreement, observation expired (> 2 days without a valid report), objective taken, target eliminated / joined our coalition; otherwise a 2-day commitment window with 20 % hysteresis prevents oscillation (`strategic.ts`). |
-| Defense vs expansion | Per-city required garrison (tier/capital prior + 1.25 × observed hostile strength within 320 km), present strength, reserves (stacks not needed as garrison), commitments (stack tasks) | Coalition partner defends its exposed capital and declines a partner's (human's) operation with a concrete reason (`operationRequests` + `defend`). Test: `diplomacy.test.ts`. |
+| Defense vs expansion | Per-city required garrison (tier/capital prior + 1.25 × observed hostile strength within 320 km), present strength, reserves (stacks not needed as garrison), commitments (stack tasks); helicopter lift of idle formations (`airmobile.ts`: seats vs light-infantry passengers, turnaround, catalog range), land hop distance to the city, validator's observed interception estimate | Coalition partner defends its exposed capital and declines a partner's (human's) operation with a concrete reason (`operationRequests` + `defend`). A threatened city that land reinforcements reach slowly (> 3 land hops or cut off) first gets an air-mobile hop from an idle lift-capable formation in range (not stripping another city's garrison; skipped when the estimated interception risk ≥ 35 %). Tests: `diplomacy.test.ts`, `features.test.ts` › air-mobile reinforcement. |
 | Mutual defence (coalition) | Partners' capitals / major core cities (public cities), hostile ground contacts within 320 km — countries publicly at war with the partner (`view.wars`), our enemies, the foe a partner named, or unidentified formations inside the partner's territory at half weight (coalition-shared sensors); only partners at war or with an open request are assessed — vs partner + own forces present; own capital exposure; spare formations beyond every own city's garrison; land reach (≤ 8 hops) through own / coalition / passage territory; public power of the members (share) and of the foe; loyalty, trust, grievance; partners' `request_operation` messages | A capable member joins the partner's war (combat only happens between belligerents; rule `joinVerdict`: no truce, ≤ 2–3 wars, bloc ≥ 70 % of the foe's power, no provoking a much stronger neighbour) and sends a proportionate share of the deficit (its power share among the other members, ≥ ⅓, capped at 35–65 % of spare strength by loyalty), with a 2-day `ally_defend` commitment. An exposed member asks the bloc (`request_operation`, reason names city, node, foe, strengths); partners answer with a concrete reason and honour an accepted request for 2 days. A partner that accepted but never arrived gets grievance +10 (`broken_commitment`), one that came gets favour +6. Tests: `alliance.test.ts`. |
 | Diplomacy | Trust by counterpart (view), grievances (war declared on us +50, revoked grant +12, captures +15/+4; decay 10 %/day), favours (agreements in effect; decay 5 %/day), common threats, border length, offer history (declined ⇒ 5-day cooldown), relative power/score | Propose/accept/reject/revoke; replies carry a brief reason equal to the logged decision (`evaluateOffer`). Tests: poor offer refused with reason; generous offer accepted; two bots reach a treaty. |
-| Peace and coalition policy | War duration, losses (capitals lost, threatened cities), power ratio, multiple wars, aggression; bloc power, trust in members, small-state status, threat; solo vs bloc fraction of threshold | Peace offers/acceptance, 15-day truce after peace, coalition apply (per-coalition 7-day cooldown) / found / invite / admit (3-day consolidation) / coordinate joint objective / leave by explicit rules (below). |
+| Peace and coalition policy | War duration, losses (capitals lost, threatened cities), power ratio, multiple wars, aggression; war advantage `adv` (`peace.ts`: territory balance = enemy homeland VP we hold − our homeland VP they hold, public power ratio, capital threat, capitals lost); bloc power, trust in members, small-state status, threat; solo vs bloc fraction of threshold | Peace offers with terms in proportion to the war (`peaceTerms`: winner e ≥ 0.25 demands 1–3 border provinces the enemy holds — our lost homeland first, never its capital — plus reparations ≈ e × 1,000 + 100/province money; loser e ≤ −0.25 offers money from its spare stock and at e ≤ −0.55 one border province; otherwise status-quo peace); multi-round haggling (`counterPeace`: a peace offer we would decline is countered while rounds remain, each counter conceding 25 % more; last round accept/decline; every reply and counter carries its logged reason); territory clauses valued by VP/homeland/city tier in `evaluateOffer`; 15-day truce after peace, coalition apply (per-coalition 7-day cooldown) / found / invite / admit (3-day consolidation) / coordinate joint objective / leave by explicit rules (below). Tests: `tests/ai/features.test.ts`. |
 | Information gathering | Uncertainty about the objective (no observation or older than 12 h, no unexpired report), budget (≥ 3,000 money above reserve), objective importance, war | `buyIntelReport` on the objective node, an information agent on an enemy capital; when the report arrives the plan updates (commit or re-plan) — logged as `plan_update`. Test: `economy.test.ts` "information gathering". |
 | Missiles ("Why build one?") | Qualified programme, war, best enemy city VP in range, headline chance × (1 − interception estimate), unit/condition damage vs. ground units bought with the same reference value; trade index = days of coverage of the batch inputs (stock + 3 days net, penalised by market premium and shortages) | Two-phase procurement: proposed → confirmed ≥ 4 h later only if the trade index has not fallen below 60 %; a queued batch is cancelled (full refund) if it falls below 30 %. Seeded example in `economy.test.ts` (Ardenia, seed 77). Launches only at a value ≥ 1.5 points. |
 
@@ -247,17 +247,20 @@ _Requests 1–9 landed in the engine pass of 2026-11-14 (details: docs/ENGINE.md
 11. **Market depth.** Bots are the only counterparties; with 119 sellers of common surpluses the books are
    one-sided. The planner creates demand (it buys inputs that blocked a planned investment) and lets
    cash-starved states undercut; a scenario-level importer/exporter of last resort would stabilise prices.
-12. **Blockade effect.** Warships parked off an enemy port have no engine effect beyond engaging what comes
-   by. A rule such as "a port whose adjacent sea zones hold only hostile warships loses its port trade /
-   naval production / sea supply" would make the planner's superiority-gated blockade matter.
+12. ~~**Blockade effect.**~~ **Landed** (engine features pass): a port with hostile warships in an adjacent sea
+   zone and no own/coalition ship in any adjacent zone is blockaded — city output × 0.7 and no naval
+   mobilization there (`systems/blockade.ts`, docs/ENGINE.md "Blockades"); `view.blockades` lists own
+   blockaded ports and ports we enforce. The planner's superiority-gated blockade now costs the enemy
+   output and shipyards, and `naval.ts` `breakBlockade` sends the nearest free ship into an adjacent
+   zone of an own blockaded port (unless clearly outmatched).
 13. ~~**Partners' wars in the view.**~~ **Landed**: `view.wars` = every current war as a sorted `[a, b]`
    pair (public, frozen, shared; keyed by `relv`). Used by mutual defence (`alliance.ts`): a partner's
    attackers are the countries publicly at war with it, and only partners at war (or with an open request)
    are assessed — no false alarms from passage-holders transiting a partner's land.
-14. **Coalition co-belligerence.** Combat requires a war between the two owners, so mutual defence means a
-   declaration of war by the helper. If the design intends defensive coalition members to fight an attacker
-   automatically (or a "defensive war" status with lower trust cost), that is an engine rule; the planner
-   would then skip `join_defence`.
+14. **Coalition co-belligerence — declined by the engine (by design).** SPEC fixes four statuses per direction
+   and forbids guessing a fifth; fighting without a declaration would be a hidden fifth relation affecting
+   combat, capture, access and visibility. Mutual defence keeps using an explicit `declareWar` gated by
+   `joinVerdict` (docs/ENGINE.md "Diplomacy").
 
 ## Known gaps
 
@@ -266,13 +269,19 @@ _Requests 1–9 landed in the engine pass of 2026-11-14 (details: docs/ENGINE.md
   strike packages. Carriers embark carrier-qualified wings (`carrierCapable`; family rule when a catalog has
   no such flag) and take station off the focus coast at war under sea superiority (×2); no carrier strike planning.
 * Naval: escorts embarked formations, blockades the most valuable enemy port within 3,000 km only with sea
-  superiority (fleet ≥ attack ratio + 0.2 × observed or prior hostile naval strength within 600 km). The engine has
-  no blockade effect yet, so a blockade is positional pressure only (Engine request 12).
+  superiority (fleet ≥ attack ratio + 0.2 × observed or prior hostile naval strength within 600 km) — the engine
+  now applies the blockade effect — and relieves blockades of its own ports. Port value does not yet weigh the
+  blockade's economic damage separately from VP.
 * Trade agreements are sized: receive the forecast deficit (net burn × 3–9 days by difficulty lookahead + reserve
   refill), pay with up to two surpluses (stock beyond 3× reserve and the horizon's burn) at reference value +25 %,
   surpluses the public market bids for first; scaled down when our surplus cannot pay. The recipient refuses to give
-  beyond its reserve and values a resource it holds in glut at 0.6. Still no multi-round haggling (one offer, accept/decline).
-* Peace terms never include territory or resources.
+  beyond its reserve and values a resource it holds in glut at 0.6. Trade offers are still one offer, accept/decline;
+  multi-round haggling is implemented for peace settlements only.
+* Peace terms include territory and resources (see the policy table); bots never cede their capital (engine
+  rule) and the human sees the same counter-offer flow (Diplomacy › offer › Counter…).
+* Air-mobile: bots only fly formations that already hold helicopters + light infantry (or air-assault infantry);
+  they do not yet merge a helicopter stack with an infantry stack to build a lift, and do not plan offensive air
+  assaults.
 * Mutual defence covers capitals and tier ≥ 3 core cities only; occupied partner provinces are not
   counter-attacked on the partner's behalf (the helper's own offence may still pick the foe's territory). A partner
   under attack by an unidentified (radar-only) force gets presence but no declaration of war.

@@ -12,6 +12,9 @@ import { airEndurance, airRange, checkBase, nodeAirSlots, isCarrier } from '../.
 import { sumEffect } from '../../engine/systems/economy';
 import { grantTech } from '../../engine/systems/research';
 import { declareWarInternal } from '../../engine/systems/diplomacy';
+import { newUnit, spawnStack } from '../../engine/systems/production';
+import { portIndex } from '../../engine/systems/blockade';
+import { invalidateViewCache } from '../../engine/view/country-view';
 import type { CountryPreview, QueryName, ScenarioSummary } from './protocol';
 
 export type { GameState, Scenario, Command };
@@ -361,6 +364,37 @@ export function debugMarketOrder(state: GameState, viewer: string, side: 'buy' |
   const country = cands[0];
   const r = E.submitCommand(state, { type: 'marketOrder', country, side, resource, qty, price } as Command);
   return { country, ok: r.ok, reason: r.ok ? null : (r as { reason: string }).reason };
+}
+
+/**
+ * Test-only setups for the features pass (e2e/features.spec.ts):
+ *  - `airlift`: a utility-helicopter group (1 gunship + 2 motorized infantry) at the viewer's capital;
+ *  - `blockade`: the computer country with the strongest navy declares war on the viewer (ordinary
+ *    rule path) and one of its warships is placed in a sea zone next to a viewer port (no viewer ship
+ *    there); the blockade itself is derived by the engine at the next whole hour.
+ */
+export function debugFeature(state: GameState, viewer: string, what: 'airlift' | 'blockade') {
+  const sc = E.scenarioOf(state);
+  if (what === 'airlift') {
+    const cap = state.countries[viewer].capitalCity;
+    const node = cap ? state.cities[cap].node : Object.values(state.provinces).find((p) => p && p.owner === viewer)!.node;
+    const units = ['heli_gunship', 'inf_motorized', 'inf_motorized'].map((t) => newUnit(state, t, 1));
+    const st = spawnStack(state, viewer, node, units, 'Air Assault Group');
+    invalidateViewCache(state);
+    return { stack: st.id, node, name: sc.map.nodes[node].name };
+  }
+  const warship = [...unitById.values()].find((u) => u.domain === 'sea' && !u.carries && Object.values(u.levels[0].attack).some((v) => (v ?? 0) > 0))!;
+  const foe = state.countryOrder.filter((c) => c !== viewer && state.countries[c].alive).sort((a, b) => Object.values(state.stacks).filter((s) => s.owner === b && s.moveClass === 'naval').length - Object.values(state.stacks).filter((s) => s.owner === a && s.moveClass === 'naval').length || (a < b ? -1 : 1))[0];
+  const pi = portIndex(E.getStatic(sc).map);
+  const mine = Object.keys(state.cities).sort().filter((k) => state.provinces[state.cities[k].node]?.owner === viewer && pi.portSeas.has(k));
+  const ownNaval = new Set(Object.values(state.stacks).filter((s) => s.owner === viewer && s.moveClass === 'naval' && s.pos.kind === 'node').map((s) => (s.pos as { node: number }).node));
+  const key = mine.find((k) => !pi.portSeas.get(k)!.some((z) => ownNaval.has(z)) && !state.countries[viewer].capitalCity?.includes(k)) ?? mine[0];
+  if (!key) throw new Error('No port city');
+  const zone = pi.portSeas.get(key)![0];
+  if (!state.relations[E.pairKey(foe, viewer)]?.war) declareWarInternal(state, foe, viewer, 'test: blockade setup');
+  const st = spawnStack(state, foe, zone, [newUnit(state, warship.id, 1)], 'Blockade Squadron');
+  invalidateViewCache(state);
+  return { foe, city: key, cityName: state.cities[key].name, zone, stack: st.id };
 }
 
 export function buildingName(id: string): string {

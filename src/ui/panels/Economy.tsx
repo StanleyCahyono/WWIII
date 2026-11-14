@@ -7,6 +7,7 @@ import { milli, num, signed, resM, duration, gameTime, cap } from '../format';
 import { exec } from '../sim/exec';
 import { RESOURCES, type Resource } from '../../engine/data-types';
 import { ShortageLedger } from '../components/ResourceStrip';
+import { BlockadeReport } from '../components/Features';
 
 interface RS { resource: Resource; stock: number; reserved: number; onHand: number; spendable: number; committedJobs: number; grossPerDay: number; consumptionPerDay: number; netPerDay: number; forecast24h: number; forecast72h: number; hoursToDepletion: number | null; insufficientStock: boolean; negativeNet: boolean }
 interface Ledger { initial: Record<string, number>; totals: Record<string, Record<string, number>>; days: { day: number; cats: Record<string, Record<string, number>> }[]; stock: Record<string, number>; escrow: Record<string, number>; reconciled: boolean }
@@ -55,6 +56,7 @@ export function EconomyPanel() {
           </button>
         </div>
       </div>
+      <BlockadeReport />
       <h3>Balances and forecast</h3>
       <table className="data" data-testid="balance-table">
         <thead>

@@ -429,7 +429,9 @@ test.describe('verification pass 2 (desktop)', () => {
         const p = wc.project(lon, lat), x = p.x - b.left, y = p.y - b.top;
         if (x < 40 || y < 40 || x > m.w - 40 || y > m.h - 40 || m.hitAt(x, y, 14)) continue;
         const n = m.nodeAt(lon, lat);
-        if (n !== null && f.view.owners[n] === f.view.viewer) return { x: p.x, y: p.y, node: n };
+        // well inside the coastline: every point 0.15° around it is in the same province
+        const inland = [[0.15, 0], [-0.15, 0], [0, 0.15], [0, -0.15]].every(([dx, dy]) => m.nodeAt(lon + dx, lat + dy) === n);
+        if (n !== null && inland && f.view.owners[n] === f.view.viewer) return { x: p.x, y: p.y, node: n };
       }
       return null;
     })()`);
