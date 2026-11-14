@@ -28,7 +28,7 @@ function defend(t: Turn, a: Analysis, stacks: StackView[]): void {
     const avail = stacks
       .filter((s) => s.pos.kind === 'node' && !t.movedStacks.has(s.id) && d[(s.pos as { node: NodeId }).node] > 0 && orderDest(s) !== c.node)
       .filter((s) => {
-        const at = a.cities.find((x) => x.node === (s.pos as { node: NodeId }).node);
+        const at = a.cityAt.get((s.pos as { node: NodeId }).node);
         // do not strip another city below its own requirement (unless defending the capital)
         return !at || c.capital || at.present - stackGroundPower(t.ix, s) >= at.required;
       })
@@ -69,7 +69,7 @@ function offence(t: Turn, a: Analysis, stacks: StackView[]): void {
   const free = stacks.filter((s) => {
     if (t.movedStacks.has(s.id) || !canCapture(t.ix, s) || !idleGround(s)) return false;
     if (heldByTask(t, s)) return false;
-    const at = a.cities.find((x) => x.node === (s.pos as { node: NodeId }).node);
+    const at = a.cityAt.get((s.pos as { node: NodeId }).node);
     return !at || at.present - stackGroundPower(t.ix, s) >= at.required * 0.9;
   });
   if (!free.length) return;
@@ -135,7 +135,7 @@ function staging(t: Turn, a: Analysis, stacks: StackView[]): void {
   }
   if (best === null) return;
   const spare = stacks.filter((s) => canCapture(t.ix, s) && idleGround(s) && !t.movedStacks.has(s.id) && !t.mem.tasks[s.id] && (() => {
-    const at = a.cities.find((x) => x.node === (s.pos as { node: NodeId }).node);
+    const at = a.cityAt.get((s.pos as { node: NodeId }).node);
     return !at || at.present - stackGroundPower(t.ix, s) >= at.required;
   })());
   for (const s of spare.slice(0, 1)) issueMove(t, s, best, 'stage', `stage at frontier facing objective ${o.target}`, DAY);

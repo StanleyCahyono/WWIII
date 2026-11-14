@@ -73,7 +73,10 @@ async function runOne(job: Job): Promise<RunRec> {
   const s = E.createCampaign({ seed: job.seed, humanCountry: null, scenario: sc, difficulty: job.difficulty });
   const opening = new Map<string, string[]>();
   const base = AI.UtilityController;
+  // forward the scheduler hooks (pre-check, lite planner view): the wrapper must not change cost or decisions
   const ctl = {
+    wants: base.wants,
+    liteView: base.liteView,
     decide(view: Parameters<typeof base.decide>[0], ctx: Parameters<typeof base.decide>[1]) {
       const out = base.decide(view, ctx);
       const l = opening.get(view.viewer) ?? opening.set(view.viewer, []).get(view.viewer)!;

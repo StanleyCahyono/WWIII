@@ -56,7 +56,7 @@ for the proposed scheduler pre-check (Engine request 1).
 | Research and recruitment | Doctrine (preview), facilities (requirements per city), observed opponents (war/threat raises land weight), geography (`geo.ts`: landlocked / maritime / coastal), upkeep headroom (no unit whose upkeep drives any resource below 14 days of stock), force mix targets | Archipelago ⇒ mobility ×1.3, naval ×1.1, lift/embark modifiers +0.8, naval bases/pontoons valued; landlocked ⇒ naval weight 0, sea techs filtered, naval units never mobilized, ships never ordered. Spending goes through the shared validator and the ledger (test reconciles stock). |
 | Territorial objectives | Reachable nodes (land hop distance from own territory, sea for coastal states), VP value, power ratio, trust, grievance, border exposure, travel (hops), observation age of the objective | Re-target triggers: lost port, new transit agreement, observation expired (> 2 days without a valid report), objective taken, target eliminated / joined our coalition; otherwise a 2-day commitment window with 20 % hysteresis prevents oscillation (`strategic.ts`). |
 | Defense vs expansion | Per-city required garrison (tier/capital prior + 1.25 × observed hostile strength within 320 km), present strength, reserves (stacks not needed as garrison), commitments (stack tasks) | Coalition partner defends its exposed capital and declines a partner's (human's) operation with a concrete reason (`operationRequests` + `defend`). Test: `diplomacy.test.ts`. |
-| Mutual defence (coalition) | Partners' capitals / major core cities (public cities), hostile ground contacts within 320 km — our enemies, the foe a partner named, or foreign formations INSIDE the partner's territory (coalition-shared sensors) — vs partner + own forces present; own capital exposure; spare formations beyond every own city's garrison; land reach (≤ 8 hops) through own / coalition / passage territory; public power of the members (share) and of the foe; loyalty, trust, grievance; partners' `request_operation` messages | A capable member joins the partner's war (combat only happens between belligerents; rule `joinVerdict`: no truce, ≤ 2–3 wars, bloc ≥ 70 % of the foe's power, no provoking a much stronger neighbour) and sends a proportionate share of the deficit (its power share among the other members, ≥ ⅓, capped at 35–65 % of spare strength by loyalty), with a 2-day `ally_defend` commitment. An exposed member asks the bloc (`request_operation`, reason names city, node, foe, strengths); partners answer with a concrete reason and honour an accepted request for 2 days. A partner that accepted but never arrived gets grievance +10 (`broken_commitment`), one that came gets favour +6. Tests: `alliance.test.ts`. |
+| Mutual defence (coalition) | Partners' capitals / major core cities (public cities), hostile ground contacts within 320 km — countries publicly at war with the partner (`view.wars`), our enemies, the foe a partner named, or unidentified formations inside the partner's territory at half weight (coalition-shared sensors); only partners at war or with an open request are assessed — vs partner + own forces present; own capital exposure; spare formations beyond every own city's garrison; land reach (≤ 8 hops) through own / coalition / passage territory; public power of the members (share) and of the foe; loyalty, trust, grievance; partners' `request_operation` messages | A capable member joins the partner's war (combat only happens between belligerents; rule `joinVerdict`: no truce, ≤ 2–3 wars, bloc ≥ 70 % of the foe's power, no provoking a much stronger neighbour) and sends a proportionate share of the deficit (its power share among the other members, ≥ ⅓, capped at 35–65 % of spare strength by loyalty), with a 2-day `ally_defend` commitment. An exposed member asks the bloc (`request_operation`, reason names city, node, foe, strengths); partners answer with a concrete reason and honour an accepted request for 2 days. A partner that accepted but never arrived gets grievance +10 (`broken_commitment`), one that came gets favour +6. Tests: `alliance.test.ts`. |
 | Diplomacy | Trust by counterpart (view), grievances (war declared on us +50, revoked grant +12, captures +15/+4; decay 10 %/day), favours (agreements in effect; decay 5 %/day), common threats, border length, offer history (declined ⇒ 5-day cooldown), relative power/score | Propose/accept/reject/revoke; replies carry a brief reason equal to the logged decision (`evaluateOffer`). Tests: poor offer refused with reason; generous offer accepted; two bots reach a treaty. |
 | Peace and coalition policy | War duration, losses (capitals lost, threatened cities), power ratio, multiple wars, aggression; bloc power, trust in members, small-state status, threat; solo vs bloc fraction of threshold | Peace offers/acceptance, 15-day truce after peace, coalition apply (per-coalition 7-day cooldown) / found / invite / admit (3-day consolidation) / coordinate joint objective / leave by explicit rules (below). |
 | Information gathering | Uncertainty about the objective (no observation or older than 12 h, no unexpired report), budget (≥ 3,000 money above reserve), objective importance, war | `buyIntelReport` on the objective node, an information agent on an enemy capital; when the report arrives the plan updates (commit or re-plan) — logged as `plan_update`. Test: `economy.test.ts` "information gathering". |
@@ -146,24 +146,33 @@ per-step trust/resource rows) are needed for the remaining step to ≈ 1 s.
 header: `--workers` (default 4 `worker_threads`), `--seed0`, `--difficulty`, `--resume` to continue from
 the per-run checkpoint `<out>.runs.jsonl`, `--summarize-only`). Writes `docs/reports/observer-summary.md|json`.
 
-**What was run (final code):** 120 seeded campaigns (seeds 1–120) to a **5-day** horizon plus **4 full
-180-day** campaigns (seeds 1–4), normal difficulty, 4 workers, 52 min wall on this container (shared CPU).
-A 30-day horizon for all 120 seeds would take ≈ 3.5 h here at the current engine cost; it was not run.
-`docs/reports/observer-prefix.md|json` keeps the earlier 4 × 180-day cohort (before the
-balance-of-power / batch-guard changes) for comparison.
+**What was run (mutual-defence / naval / sized-trade code, 2026-11-14):** 120 seeded campaigns (seeds 1–120)
+to a **5-day** horizon plus **4 full 180-day** campaigns (seeds 1–4), normal difficulty, 4 workers, 53 min wall
+on this container (shared CPU; another agent's engine pass and builds ran concurrently, so ms/day figures are
+noisy and the observer wrapper did not yet forward `wants`/`liteView` — it does now). The workers loaded the
+planner as of the start of the run: it already had alliance defence (war-joining rule, help requests,
+broken-commitment grievances), naval escort/blockade/carriers and sized trades, but not yet the `view.wars`
+filter or the same-airfield rebase guard. `docs/reports/observer-prefix.md|json` keeps an older 4 × 180-day
+cohort (before the balance-of-power / batch-guard changes).
 
-| | 120 × 5 days | 4 × 180 days | 4 × 180 days, before fixes |
-| --- | --- | --- | --- |
-| Terminal condition | 120/120 horizon reached ("timeout") | 4/4 day-180 settlement, 0 threshold wins | 4/4 day-180 settlement |
-| Unilateral victories | — | CHN 3/4 (fractions 0.27, 0.28, 0.26 of the solo threshold) | RUS 3/4 |
-| Coalition victories | — | 1/4: ALB+FIN+FRA+POL+USA (0.20 of the 5-member threshold) | 1/4: CHN+ITA+MMR+PAK+PER |
-| Strongest / median rival | CHN 0.19 / ECU 0.03 | CHN 0.256 / PRK 0.023 (RUS 0.249, USA 0.240) | RUS 0.26 / BLR 0.02 |
-| USA | survives 100 %, median rank 2 | survives 100 %, median rank 2.5, 1 coalition win | survives, median rank 3 |
-| Survival by opening-rank quintile | 100 % all | 99 / 93 / 87 / 80 / 57 % | 99 / … |
-| Wars / captures per run | 1.3 / 1.2 | 137 / 791 | 145 / 756 |
-| Invalid bot commands | **0** | **0** | 2 (fixed: batch-consistency guard) |
-| Repeated stalls / no legal opening order | none / none | none / none | none / none |
-| Flags | none | noncompetitive peer set (CHN 3 of 4 wins — see below) | same (RUS) |
+| | 120 × 5 days | 4 × 180 days (now) | 4 × 180 days, before mutual defence | 4 × 180 days, before balance fixes |
+| --- | --- | --- | --- | --- |
+| Terminal condition | 120/120 horizon reached ("timeout") | 4/4 day-180 settlement, 0 threshold wins | 4/4 day-180 settlement | 4/4 day-180 settlement |
+| Unilateral victories | — | CHN 3/4 | CHN 3/4 | RUS 3/4 |
+| Coalition victories | — | 1/4: FIN+FRA+HRV+POL+USA | 1/4: ALB+FIN+FRA+POL+USA | 1/4: CHN+ITA+MMR+PAK+PER |
+| Strongest / median rival | CHN 0.187 / ECU 0.026 | CHN 0.275 / BGD 0.024 | CHN 0.256 / PRK 0.023 | RUS 0.26 / BLR 0.02 |
+| USA | survives 100 %, median rank 2 | survives 100 %, median rank 2, 1 coalition win | survives 100 %, median rank 2.5 | survives, median rank 3 |
+| **Survival by opening-rank quintile** | 100 % all | **100 / 91.7 / 87.5 / 82.3 / 65.6 %** | 99.0 / 92.7 / 86.5 / 80.2 / 57.3 % | 99 / … |
+| Wars / captures per run | 1.8 / 1.1 | 237 / 879 | 137 / 791 | 145 / 756 |
+| Invalid bot commands | **0** | 1 (GBR, seed 1 — see below) | **0** | 2 (fixed: batch-consistency guard) |
+| Repeated stalls / no legal opening order | none / none | none / none | none / none | none / none |
+| Flags | none | noncompetitive peer set (CHN 3 of 4) | same (CHN) | same (RUS) |
+
+Mutual defence lifts the weakest quintile's 180-day survival from 57.3 % to 65.6 % (+8.3 points; Q4 80.2 → 82.3 %),
+at the price of more wars per run (137 → 237: helpers join their partners' wars, since combat requires a war).
+Four runs per cohort: indicative, not statistical. Real-map probes (30 days, seeds 1–2) counted per run ≈ 20–36
+`ally_defend` moves, 7–13 `join_defence` declarations, 10–19 help requests, 4–10 escorts, 59–104 blockade moves,
+6–10 carrier embarkations and ≈ 11 sized trade proposals.
 
 Findings and fixes: (1) an early 60-day cohort showed small cash-poor states stalling (BHR, CRI, FIN, GUY,
 MDA): the market was one-sided, so they could not raise cash → fixed by investment-driven buying and
@@ -174,9 +183,8 @@ over-extending). The winner moved to CHN with the top three peers within 0.016 o
 fraction; with only four full runs the "noncompetitive peer set" flag (one country ≥ 70 % of decided runs)
 is not statistically meaningful, but it is reported as-is. (3) No campaign reaches a threshold in 180 days:
 the solo threshold is 24 % of ≈ 5,050 VP while the largest start holds 4.5 %; all full runs settle by the
-day-180 fraction rule. (4) The weakest quintile survives only 57 % of full runs — conquest pressure on
-small states is real; they join coalitions (≈ 10 live blocs per run) but blocs rarely defend members
-militarily (known gap). (5) A two-run invalid-command check found an offer to a country we had just
+day-180 fraction rule. (4) The weakest quintile survived only 57 % of full runs — blocs did not defend members militarily →
+mutual defence added (`alliance.ts`), 65.6 % in the current cohort. (5) A two-run invalid-command check found an offer to a country we had just
 declared war on in the same batch → guard added; 0 invalid commands since.
 
 ## Engine requests
@@ -226,10 +234,9 @@ _Requests 1–9 landed in the engine pass of 2026-11-14 (details: docs/ENGINE.md
    by. A rule such as "a port whose adjacent sea zones hold only hostile warships loses its port trade /
    naval production / sea supply" would make the planner's superiority-gated blockade matter.
 13. ~~**Partners' wars in the view.**~~ **Landed**: `view.wars` = every current war as a sorted `[a, b]`
-   pair (public, frozen, shared; keyed by `relv`). Original request: Public `war_declared`/`peace` headlines exist (newspaper) but are not in the
-   CountryView, so the planner infers that a partner is under attack from foreign formations inside its
-   territory or a named foe in its request. A public `wars: [a, b][]` list (or `relations[].atWarWith` for
-   coalition partners) would remove false alarms from passage-holders transiting a partner's land.
+   pair (public, frozen, shared; keyed by `relv`). Used by mutual defence (`alliance.ts`): a partner's
+   attackers are the countries publicly at war with it, and only partners at war (or with an open request)
+   are assessed — no false alarms from passage-holders transiting a partner's land.
 14. **Coalition co-belligerence.** Combat requires a war between the two owners, so mutual defence means a
    declaration of war by the helper. If the design intends defensive coalition members to fight an attacker
    automatically (or a "defensive war" status with lower trust cost), that is an engine rule; the planner

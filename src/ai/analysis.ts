@@ -28,6 +28,8 @@ export interface Analysis {
   myNodes: NodeId[];
   capitalNode: NodeId | null;
   cities: CityInfo[];
+  /** Own city info by node (O(1) lookup for per-stack garrison checks). */
+  cityAt: Map<NodeId, CityInfo>;
   /** Land-neighbour countries of current territory → shared border edges. */
   neighbours: Map<CountryId, number>;
   frontier: NodeId[];
@@ -96,6 +98,8 @@ export function analyse(t: Turn): Analysis {
   let capitalNode: NodeId | null = null;
   const cities: CityInfo[] = [];
   const hostileNodes = hostile.filter((c) => c.node !== null);
+  const statusAt = new Map<NodeId, string>();
+  for (const p of v.provinces) statusAt.set(p.node, p.status);
   for (const c of v.cities) {
     const info = g.cityByNode.get(c.node);
     const capital = c.key === capitalKey || (info?.capital === true && info.country === me);
@@ -103,9 +107,9 @@ export function analyse(t: Turn): Analysis {
     let threat = 0;
     for (const h of hostileNodes) {
       const n = h.node as NodeId;
-      if (n === c.node || km(g, n, c.node) <= 320) threat += contactStrength(ix, h);
+      if (n === c.node || (Math.abs(g.lat[n] - g.lat[c.node]) <= 3 && km(g, n, c.node) <= 320)) threat += contactStrength(ix, h);
     }
-    const status = v.provinces.find((p) => p.node === c.node)?.status ?? 'homeland';
+    const status = statusAt.get(c.node) ?? 'homeland';
     const vp = g.vp[c.node];
     const base = ix.avgGround * (capital ? 2.2 : c.tier >= 3 ? 1.2 : 0.8);
     cities.push({ key: c.key, node: c.node, tier: c.tier, capital, port: c.port, status, vp, threat, present: presentAt.get(c.node) ?? 0, required: base + threat * 1.25 });
@@ -133,10 +137,13 @@ export function analyse(t: Turn): Analysis {
   const myPower = power(me);
   const rank = op?.rank ? op.rank.indexOf(me) : -1;
   const small = myNodes.length <= 6 || (op?.composite?.[me] ?? 30) < 18 || (rank >= 0 && op!.rank.length > 40 && rank >= op!.rank.length * 0.6);
+  const cityAt = new Map<NodeId, CityInfo>();
+  for (const c of cities) if (!cityAt.has(c.node)) cityAt.set(c.node, c);
   return {
     myNodes,
     capitalNode,
     cities,
+    cityAt,
     neighbours,
     frontier,
     hostile,

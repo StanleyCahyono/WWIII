@@ -3,8 +3,9 @@
  * contacts incl. coalition-shared ones, coalition roster, messages, own stacks and memory).
  *
  *  • Partner threat: a partner's capital or major core city with observed hostile ground strength
- *    nearby — contacts of our enemies, of the foe a partner named in a request, or foreign
- *    formations standing INSIDE the partner's territory — against the partner's (and our) forces present.
+ *    nearby — contacts of countries publicly at war with the partner (`view.wars`), of our enemies,
+ *    of the foe a partner named in a request, or unidentified formations INSIDE the partner's
+ *    territory (half weight) — against the partner's (and our) forces present.
  *  • Commitment: a capable member (own capital not exposed, spare formations beyond every own city's
  *    garrison requirement, a land route through own/coalition/passage territory) sends a proportionate
  *    share of the deficit: its public power share among the other members, capped by loyalty
@@ -58,6 +59,15 @@ export function partnerSites(t: Turn, a: Analysis): AllySite[] {
   const enemies = new Set(a.enemies);
   const namedFoes = new Map<CountryId, Set<CountryId>>();
   for (const x of t.mem.assist) if (x.foe) (namedFoes.get(x.partner) ?? namedFoes.set(x.partner, new Set()).get(x.partner)!).add(x.foe);
+  // public war list (newspaper facts): who is fighting each partner
+  const partnerFoes = new Map<CountryId, Set<CountryId>>();
+  for (const [x, y] of v.wars ?? []) {
+    if (pset.has(x)) (partnerFoes.get(x) ?? partnerFoes.set(x, new Set()).get(x)!).add(y);
+    if (pset.has(y)) (partnerFoes.get(y) ?? partnerFoes.set(y, new Set()).get(y)!).add(x);
+  }
+  // only partners publicly at war (combat needs a war) or with an open request can be under attack
+  const active = new Set<CountryId>([...partnerFoes.keys(), ...t.mem.assist.filter((x) => x.until > t.now).map((x) => x.partner)]);
+  if (!active.size) return [];
   const sites = new Map<NodeId, AllySite>();
   const land = v.contacts.filter((c) => c.node !== null && (c.domain === 'land' || c.domain === 'unknown'));
   const mine = v.stacks.filter((s) => s.moveClass === 'ground');
@@ -74,8 +84,9 @@ export function partnerSites(t: Turn, a: Analysis): AllySite[] {
       if (o === t.me) continue;
       // cheap latitude pre-filter (3° ≈ 333 km) before the great-circle distance
       if (n !== node && (Math.abs(g.lat[n] - g.lat[node]) > 3 || km(g, n, node) > RADIUS_KM)) continue;
-      const inside = v.owners[n] === partner;
-      const hostile = o ? enemies.has(o) || !!namedFoes.get(partner)?.has(o) || inside : inside;
+      // attackers: at war with the partner (public), our own enemies, or the foe the partner named;
+      // an unidentified formation counts (half) only inside the partner's territory
+      const hostile = o ? !!partnerFoes.get(partner)?.has(o) || enemies.has(o) || !!namedFoes.get(partner)?.has(o) : v.owners[n] === partner;
       if (!hostile) continue;
       const cs = contactStrength(ix, c);
       threat += cs * (o ? 1 : 0.5);
@@ -94,7 +105,7 @@ export function partnerSites(t: Turn, a: Analysis): AllySite[] {
     }
   };
   for (const pc of v.publicCities) {
-    if (!pc.owner || !pset.has(pc.owner) || pc.status === 'rebel') continue;
+    if (!pc.owner || !active.has(pc.owner) || pc.status === 'rebel') continue;
     if (!pc.capital && !(pc.homeland === pc.owner && pc.tier >= 3)) continue;
     assess(pc.owner, pc.node, pc.name, pc.capital, 0, false, null);
   }
@@ -145,7 +156,7 @@ function spareStacks(t: Turn, a: Analysis, stacks: StackView[]): StackView[] {
     if (heldByTask(t, s)) return false;
     const p = stackGroundPower(t.ix, s);
     if (p <= 0) return false;
-    const at = a.cities.find((x) => x.node === (s.pos as { node: NodeId }).node);
+    const at = a.cityAt.get((s.pos as { node: NodeId }).node);
     return !at || at.present - p >= at.required;
   });
 }

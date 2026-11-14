@@ -39,12 +39,23 @@ const milli = (v: Partial<Record<Resource, number>>, m = 1) => {
   return o;
 };
 
+/** Static per-tech facts (pure function of the catalog ⇒ cached): sea-related wording and reference cost. */
+const techStatic = new WeakMap<TechNode, { sea: boolean; cost: number }>();
+function techFacts(t: Turn, tech: TechNode): { sea: boolean; cost: number } {
+  let f = techStatic.get(tech);
+  if (!f) {
+    f = { sea: /sea|naval|carrier|amphib|marine|submarine|embark/.test(`${tech.id} ${tech.name}`.toLowerCase()), cost: resValue(t.ix, tech.cost) };
+    techStatic.set(tech, f);
+  }
+  return f;
+}
+
 function techValue(t: Turn, a: Analysis, tech: TechNode, w: Record<string, number>): number {
   const geo = t.mem.geography;
   let base = w[tech.branch] ?? 0.3;
   if (base <= 0) return 0;
-  const txt = `${tech.id} ${tech.name}`.toLowerCase();
-  if (geo === 'landlocked' && /sea|naval|carrier|amphib|marine|submarine|embark/.test(txt)) return 0;
+  const facts = techFacts(t, tech);
+  if (geo === 'landlocked' && facts.sea) return 0;
   const e = tech.effects;
   let v = base;
   const fielded = fieldedOf(t);
@@ -68,8 +79,7 @@ function techValue(t: Turn, a: Analysis, tech: TechNode, w: Record<string, numbe
   // electronics shortage: delay expensive electronics-heavy programs
   const ec = (tech.cost.electronics ?? 0) * 1000;
   if (t.mem.plan.shortages.includes('electronics') && ec > (t.res.electronics?.stock ?? 0) * 0.3) return 0;
-  const cost = resValue(t.ix, tech.cost);
-  return v / Math.sqrt(cost / 800 + 1) / (1 + tech.tier * 0.08);
+  return v / Math.sqrt(facts.cost / 800 + 1) / (1 + tech.tier * 0.08);
 }
 
 function research(t: Turn, a: Analysis): void {
@@ -111,6 +121,20 @@ function incEffects(bt: BuildingType, level: number): BuildingLevel['effects'] |
   if (!m) { m = new Map(); incCache.set(bt, m); }
   if (m.has(level)) return m.get(level)!;
   const r = incEffectsRaw(bt, level);
+  m.set(level, r);
+  return r;
+}
+/** Static per-level data for construction scoring (pure function of the catalog ⇒ cached). */
+interface LevelInfo { L: BuildingLevel; inc: BuildingLevel['effects']; costM: Partial<Record<Resource, number>>; costV: number; upkeepV: number }
+const lvlCache = new WeakMap<BuildingType, Map<number, LevelInfo | null>>();
+function levelInfo(t: Turn, bt: BuildingType, level: number): LevelInfo | null {
+  let m = lvlCache.get(bt);
+  if (!m) { m = new Map(); lvlCache.set(bt, m); }
+  let r = m.get(level);
+  if (r !== undefined) return r;
+  const L = bt.levels.find((l) => l.level === level);
+  const inc = incEffects(bt, level);
+  r = L && inc ? { L, inc, costM: milli(L.cost), costV: resValue(t.ix, L.cost), upkeepV: resValue(t.ix, L.upkeepPerDay) } : null;
   m.set(level, r);
   return r;
 }
@@ -156,6 +180,7 @@ function construction(t: Turn, a: Analysis): void {
   const maxConcurrent = Math.max(2, Math.ceil(v.cities.length * 0.4));
   if (constructing.length >= maxConcurrent) return;
   const geo = t.mem.geography;
+  const techs = new Set(v.self.techs);
   const need = wantedRequirements(t);
   const dl = daysLeft(t);
   const cands: { b: BuildingType; target: string | NodeId; roi: number; why: string }[] = [];
@@ -167,20 +192,20 @@ function construction(t: Turn, a: Analysis): void {
   const pool = ranked.filter((c, i) => i < 8 || a.cities.some((x) => x.key === c.key && (x.capital || x.threat > 0)));
   for (const c of pool) {
     if (busyNodes.has(c.node)) continue;
-    const info = a.cities.find((x) => x.key === c.key);
+    const info = a.cityAt.get(c.node);
     let outVal = 0;
     for (const r of RESOURCES) outVal += ((c.baseOutput[r] ?? 0) / 1000) * (t.ix.price[r] ?? 1) * shortMult(t, r);
     for (const bt of t.ctx.catalog.buildings) {
       if (bt.scope !== 'city') continue;
-      if (bt.unlockTech && !v.self.techs.includes(bt.unlockTech)) continue;
+      if (bt.unlockTech && !techs.has(bt.unlockTech)) continue;
       if (bt.coastalOnly && (!c.port || geo === 'landlocked')) continue;
       const cur = c.buildings.find((b) => b.type === bt.id)?.level ?? 0;
       const level = cur + 1;
       if (level > bt.maxLevel) continue;
-      const L = bt.levels.find((l) => l.level === level);
-      const inc = incEffects(bt, level);
-      if (!L || !inc) continue;
-      if (!t.affordable(milli(L.cost))) continue;
+      const li = levelInfo(t, bt, level);
+      if (!li) continue;
+      const inc = li.inc;
+      if (!t.affordable(li.costM)) continue;
       let gain = 0;
       const why: string[] = [];
       for (const r of Object.keys(inc.produces ?? {}) as Resource[]) {
@@ -203,9 +228,8 @@ function construction(t: Turn, a: Analysis): void {
       const req = need.get(bt.id);
       if (req !== undefined && level <= req) { gain += 60; why.push('unlocks unit production'); }
       if (!gain) continue;
-      const upkeep = resValue(t.ix, L.upkeepPerDay);
-      const net = gain - upkeep;
-      const costV = resValue(t.ix, L.cost);
+      const net = gain - li.upkeepV;
+      const costV = li.costV;
       if (net <= 0 || costV / net > Math.min(dl * 0.5, 45)) continue;
       const diversity = 1 / (1 + (counts.get(bt.id) ?? 0) * 0.15);
       cands.push({ b: bt, target: c.key, roi: (net / Math.max(1, costV)) * diversity * (info?.capital ? 1.1 : 1), why: why[0] ?? (inc.productionMult ? 'raise city output' : inc.researchSlots ? 'expand research capacity' : 'improve infrastructure') });
@@ -219,7 +243,7 @@ function construction(t: Turn, a: Analysis): void {
     if (!dep || busyNodes.has(p.node) || t.geo.cityByNode.has(p.node)) continue;
     for (const bt of t.ctx.catalog.buildings) {
       if (bt.scope !== 'rural' || !bt.levels.some((l) => l.effects.productionMult)) continue;
-      if (bt.unlockTech && !v.self.techs.includes(bt.unlockTech)) continue;
+      if (bt.unlockTech && !techs.has(bt.unlockTech)) continue;
       const cur = p.buildings.find((b) => b.type === bt.id)?.level ?? 0;
       if (cur + 1 > bt.maxLevel) continue;
       const L = bt.levels.find((l) => l.level === cur + 1);
@@ -304,7 +328,8 @@ function mobilization(t: Turn, a: Analysis): void {
   const scored = avail.map((u) => ({ u, sc: unitScore(t, u, a) })).filter((x) => x.sc) as { u: UnitType; sc: { role: 'ground' | 'air' | 'naval'; s: number } }[];
   const maxJobs = satisfied ? 1 : war ? 3 : 2;
   let issued = 0;
-  const homeCities = v.cities.filter((c) => (v.provinces.find((p) => p.node === c.node)?.status ?? 'homeland') !== 'occupied');
+  const occupied = new Set(v.provinces.filter((p) => p.status === 'occupied').map((p) => p.node));
+  const homeCities = v.cities.filter((c) => !occupied.has(c.node));
   // order roles: ground first when below garrison requirement
   const roles = a.myGround < required ? ['ground', ...deficitRole.map((x) => x.r).filter((r) => r !== 'ground')] : deficitRole.map((x) => x.r);
   for (const role of roles) {
