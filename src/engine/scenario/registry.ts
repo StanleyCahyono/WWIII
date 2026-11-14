@@ -12,6 +12,8 @@ const registry = new Map<string, Scenario>();
 
 export function registerScenario(s: Scenario): void {
   registry.set(s.id, s);
+  lastState = null;
+  lastStatic = null;
 }
 export function getScenarioById(id: string): Scenario | undefined {
   return registry.get(id);
@@ -79,8 +81,15 @@ export function getStatic(s: Scenario): Static {
   return st;
 }
 
+/** One-entry memo of the hot S(state) lookup (reset by registerScenario). */
+let lastState: GameState | null = null;
+let lastStatic: Static | null = null;
 export function S(state: GameState): Static {
-  return getStatic(scenarioOf(state));
+  if (state === lastState) return lastStatic!;
+  const st = getStatic(scenarioOf(state));
+  lastState = state;
+  lastStatic = st;
+  return st;
 }
 
 export function unitStats(t: UnitType, level: number): UnitLevelStats {

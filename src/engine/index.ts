@@ -44,7 +44,8 @@ export { resourceSummary, shortageBreakdown, allRates } from './systems/economy'
 export { forceSummary } from './systems/readiness';
 export { countryScores, scoreEntries, thresholdFor, computeDenominator, nodeVP } from './systems/score';
 export { planRoute, type RoutePlan } from './systems/movement';
-export { canSee, contactId } from './systems/visibility';
+export { canSee, contactId, observedNodes, stackSensorRadii } from './systems/visibility';
+export { pairKey } from './ids';
 export { distKm } from './systems/mapindex';
 
 export * as rules from './rules';
@@ -54,4 +55,4 @@ export { formatGameTime, formatDuration, dayOf, FINAL_TICK, dayEndTick } from '.
 export { bumpEconomy, popManpower, popMoney, multEffect } from './systems/economy';
 export { liftBreakdown, type LiftBreakdown } from './systems/readiness';
 export { CONSUMED_MODIFIERS, UNUSED_MODIFIERS, cmod } from './systems/modifiers';
-export { initialTrust, trustOf } from './systems/diplomacy';
+export { initialTrust, trustOf, threadFor } from './systems/diplomacy';

@@ -48,6 +48,10 @@ submitCommand(state, cmd) → { ok:true, preview, result, duplicate? } | { ok:fa
 // projections
 getCountryView(state, country) : CountryView
 getCountryViews(state, ids) : Map<country, CountryView>   // batch; shares the per-step public slices
+//   CountryView.observedNodes: NodeId[] — nodes covered by the viewer's (+ vision sources') sensors/territory
+//   StackView.sightKm / radarKm — effective sensor radii of the viewer's own stacks
+observedNodes(state, country) ; stackSensorRadii(state, stack)   // same values as the view fields
+pairKey(a, b) ; threadFor(a, b)                                     // relation / diplomacy-thread keys
 ledgerModel, forecastModel, scoreBreakdown, researchTree, cityList, provinceInspector,
 diplomacyRows, coalitionList, marketView, journal, newspaper(state, day), inbox, forceModel
 // persistence
@@ -199,17 +203,53 @@ city/day). Undefended → rebel control flag (never a new seat); garrisoned → 
 
 ## Visibility model
 
-Incremental implementation (`systems/visibility.ts`): persistent per-stack records in id-sorted
-spatial bins; only stacks whose position/roster/air state changed (or that are moving) are
-re-binned; sensor groups are rebuilt only when a member changed; a country is recomputed only if
-its sensors, its territorial observations or a bin in its sensor footprint changed, or it gained/
-lost territory; each sensor's hit list is reused unless its footprint changed. The merge is
-order-independent (max level, highest-priority domain, unions). Viewers whose detection inputs are
-unchanged are skipped. Results equal a full recompute (`tests/engine/visibility-incremental.test.ts`
-compares against `computeDetections(state, { full: true })` on random ticks of two worlds).
-Current contacts are only rewritten when a visible field changes; the view reports them as
-observed at `clock.lastVisibility` (live HP for identified members). Allied (coalition /
-shared-intel source) stacks are projected live by `getCountryView` and are not stored as contacts.
+Incremental implementation (`systems/visibility.ts`), results identical to a full recompute:
+
+* **Fine grid.** Persistent per-stack records live in 1° cells (`FINE_BIN_DEG`, `mapindex.fineBin`),
+  each cell sorted by numeric stack id. A sensor's footprint is the **exact cover** of its range
+  (`fineCover`: every cell that can hold a point within `km` great-circle distance — latitude band
+  ±km/R and longitude half-width `asin(sin(km/R)/cos φ)`, with distKm's Earth radius and a 1e-6°
+  margin). The grid is an acceleration structure only; detection still tests the real distance.
+* **Records.** Only stacks whose position/roster/air state changed, or that are in transit, are
+  refreshed; a stack in transit is updated in place (moved between cells when it crosses one). A
+  stack profile is reused when a new roster array has the same members (type, level, alive) — e.g.
+  after a combat round without losses or a tech completion elsewhere.
+* **Sensors.** Sensor groups (co-located stacks of one owner; a stack in transit is its own group
+  with a stable key) are rebuilt when a member changed or the owner's `radar_range_mult` changed.
+  City sensors are re-derived only at locations announced by the economy journal
+  (`econChangesSince`: buildings, condition), ownership changes and radar-modifier changes; a
+  global bump or a journal gap rebuilds them all. A sensor is re-evaluated only if its snapshot
+  changed or a changed cell lies inside its cover (cell → sensors index, updated by diffing sorted
+  covers); ownership changes mark the cells of the changed nodes (in-city identification) and
+  re-check territorial observers.
+* **Merge.** Each country keeps, per target, the contribution of every source (sensor hit keyed by
+  sensor, or territory). A target's merged detection (max level, highest-priority domain, union of
+  units/sources — order-independent) is rebuilt only when one of its contributions changed; a
+  re-evaluated sensor only touches targets whose hit differs.
+* **Contacts.** `updateVisibility` revisits, per viewer, only the targets whose detection changed or
+  that moved in one of its vision sources ("touched"); a viewer whose vision sources changed (or a
+  cold cache after load) is processed in full. Stale expiry scans a table only when its earliest
+  stale contact is due. A contact whose level/domain changes is refreshed in place (same fields).
+  Key insertion order of the contact tables is not semantic (the view sorts, `stateHash` is
+  canonical); `tests/engine/visibility-incremental.test.ts` compares warm vs cold-clone results
+  canonically on random ticks of the mini world, the scaled 120-country world and a heavy-war
+  scaled world, plus a radar-modifier regression case.
+* **Timing is unchanged:** every `VISIBILITY_INTERVAL_MIN` (30) minutes, for moving and stationary
+  stacks alike. (Hourly re-detection of moving stacks was evaluated and rejected: it is not a pure
+  function of state across save/reload, and an hourly refresh for everything saved only ~30 %.)
+
+Current contacts are only rewritten when a visible field changes; the view reports them as observed
+at `clock.lastVisibility` (live HP for identified members). Allied (coalition / shared-intel
+source) stacks are projected live by `getCountryView` and are not stored as contacts.
+
+**Observed nodes / sensor radii (view).** `StackView.sightKm/radarKm` (= `stackSensorRadii`) are the
+radii the model uses: best living member's sight × terrain sight modifier at its node (unit levels
+included), radar × the owner's `radar_range_mult`; 0 while aboard. `CountryView.observedNodes`
+(= `observedNodes`) lists, sorted, every node owned by a vision source plus every node inside the
+max(sight, radar) disc of a source's stack (not aboard, current position) or city (80 km + city
+radar). It is a pure function of the viewer's own/allied assets (foreign or hidden stacks never
+change it — tested) and is live at the current tick; contacts refresh every 30 min, so at a refresh
+tick every current contact standing on a node lies inside `observedNodes` (tested on random ticks).
 
 Per-viewer contact tables (`state.contacts[viewer]`, opaque contact ids — never stack ids in
 views). Sensors: stack sight/radar (co-located stacks of one owner merge), city sight 80 km +
@@ -261,6 +301,21 @@ morale, population or ownership directly (tests, tools) must call `bumpEconomy(s
 economy additionally guards with a structural fingerprint. Because every memo is a pure function of
 state, a reloaded save (cold caches) continues bit-identically (`stateHash` tests).
 
+Per-location announcements (non-serialized, consumed by caches; a gap forces a full rebuild):
+* `bumpEconomy(state, node)` also journals the node (`econChangesSince(state, sinceEconv)` →
+  nodes | 'all' | null); `bumpEconomyCountry(state, c)` (research modifiers) dirties only `c`'s
+  locations. `governmentDay` announces only the locations whose morale/population changed (it no
+  longer bumps everything). The economy re-derives a batch larger than half of the locations as a
+  full pass.
+* Ownership: `recordOwnerChange` journal (`ownerChangesSince` is memoized per version). Route
+  re-validation checks the changed nodes against a per-route node set.
+* Unit levels: `techv`. Profiles/speed caches compare roster content (type, level, alive), so a new
+  roster array with the same members keeps the cache.
+* Other per-state memos: sorted stack list (new stacks are appended — ids grow with the counter —
+  with a full sort as fallback), owner set for eliminations (keyed by `ownv`), cached city list,
+  `S(state)` one-entry memo (reset by `registerScenario`). Hot fixed-point vector primitives
+  (`addInto`, `add`, `mul`, …) are written per resource (same results, monomorphic).
+
 ## Save format
 
 ```json
@@ -286,31 +341,64 @@ creation (before any treaty or random event).
 
 ## Performance (real World 120 map, Node 22, this container: 4 vCPU)
 
-Measured with esbuild-bundled scripts (`node`), 120 seats, 2,363 nodes, ~1,080 stacks at start.
-Other agents were running tests/builds concurrently (load average 3–9 on 4 vCPU), so wall times
-are noisy; CPU times (`process.cpuUsage`) are given where they differ.
+Measured with esbuild-bundled scripts (`node`), 120 seats, 2,363 nodes, ~1,080–1,260 stacks.
+Other agents were running tests/builds concurrently (load average 5–7 on 4 vCPU), so wall times
+are noisy; CPU (`process.cpuUsage`, all threads incl. JIT/GC helpers) is given too. Saves used:
+`war.json` = 40 declared neighbour wars + one BasicController day (124 stacks under orders at
+load), `war2.json` = 69 wars after 5 more days (647 stacks under orders at load, decaying to ~300
+by the end of day 1). Days are engine-only (`IdleController`). "JIT-warm" = the same save loaded and
+run again in the same process (a running game/worker); "process-cold" = first run in a fresh
+process (includes JIT compilation and cold caches). Same-state check: the end-of-run `stateHash`
+(ignoring the `econv` cache counter, whose bump count changed) is identical before/after.
 
-| Metric | Before (fd88e62) | After |
+| Metric (wall ms, CPU ms in brackets) | Before (this session's start) | After |
 | --- | --- | --- |
-| Peace, engine-only game day (median of 4–6 days) | 402 ms | **65–85 ms** (CPU median 78 ms) |
-| ~40 wars (40 declared neighbour wars + 1 BasicController day of moves), steady day | 915 ms (65 wars, median) | **165–340 ms** (min 163) |
-| Same, first day while ~120 ordered stacks still move/fight | — | 550–1000 ms (incl. cold caches after load) |
-| Heavy war: 69 wars, 650 stacks moving at once (BasicController sends every army) | — | 0.95–1.8 s CPU per day |
-| `getCountryView` (one country, warm) | 0.48 ms median, 9 ms max | **0.3–0.4 ms median**, p90 ≈ 0.9 ms |
-| `getCountryViews` for all 120 | — | 37–47 ms |
-| Opening save size | 2,953 KB | **1,657 KB** |
-| Synthetic 2,040-stack world, peace day | 210 ms | ≈ 70–90 ms |
+| Peace day, engine-only (median of 6; min) | 101; 77 (CPU 84) | **48–56; 44–45** (CPU 50–55) |
+| 40 wars, day 1 (124 movers at load), JIT-warm | 437–466 | **190–220** (first hour 35–50 + 23 h 155–170) |
+| 40 wars, days 2–3, JIT-warm | 208–269 | **91–111** |
+| 40 wars, day 1, process-cold | 1,067–1,346 (CPU 1,775–1,880) | 790–1,118 (CPU 1,200–1,510) |
+| 40 wars, days 2–3, process-cold | 268–361 | 132–338 |
+| 69 wars, day 1 (647 movers at load), JIT-warm | 1,381–1,462 | **530–640** |
+| 69 wars, days 2–3 (~280–320 movers), JIT-warm | 913–1,098 | **263–430** (typ. 280–310) |
+| 69 wars, day 1, process-cold | 1,716–1,917 (CPU 2,170–2,520) | 976–1,120 (CPU 1,340–1,550) |
+| 69 wars, days 2–3, process-cold | 1,003–1,430 | 323–611 |
+| `getCountryView` (one country, warm) | 0.50 ms median, p90 1.1 | 0.30–0.44 ms median, p90 1.3–1.6 (now incl. `observedNodes`) |
+| `getCountryViews` for all 120 | 35 ms | 42–56 ms (`observedNodes` ≈ +10 ms) |
+| Opening save size | 1,657 KB | 1,657 KB |
 
-Targets: peace ≤ 120 ms ✔; view ≤ 2 ms ✔; save < 2.5 MB ✔; war ≤ 200 ms ✔ only in steady state
-(min 163 ms) — active fighting with hundreds of simultaneous movers is still 0.5–1.8 s.
-Remaining hot spots under heavy war: visibility re-detection around moving stacks (~40 %),
-combat/engagement bookkeeping, hourly economy aggregation after captures.
+Targets: peace ≤ 120 ms ✔; view ≤ 2 ms ✔; 40-war days ≤ 250 ms ✔ (JIT-warm, every day incl. the
+capture-heavy first day; process-cold steady days ≤ 340); 69-war days ≤ 400 ms ✔ for days 2–3
+(JIT-warm; one 430 sample under load) — **✗ the first day with ~650 simultaneous movers is still
+530–640 ms** (JIT-warm). Heavy-day profile (JIT-warm): visibility ≈ 45 % (moving sensors re-evaluated
+every 30 min, contact refreshes for moved targets), movement ≈ 13 %, combat ≈ 12 %, hourly
+economy ≈ 7 %, GC ≈ 8 %.
+
+What changed (all exact; see the visibility and cache sections): fine 1° visibility grid with exact
+covers; per-target contribution merge + touched-target contact updates; in-place moving records;
+content-based profile/speed caches (a combat round or a tech completion no longer re-bins every
+stack); journal-driven city sensors; radar-modifier tracking (fixes stale group radar after a
+`radar_range_mult` research — the only behavioural fix); economy: country-scoped research bumps,
+per-location day-change bumps, fingerprint computed once per hour, monomorphic vector primitives,
+lazy missile slots; combat: fine-grid target search over index-sorted candidates, node index for
+engagement closing, cheap checks before range computation, roster copied only when a unit died;
+movement: numeric re-validation key, per-route node set, slowest-unit memo; capture candidates
+pre-filtered by war/rebel eligibility; elimination owner set cached by `ownv`; sorted stack list
+appended; `S(state)` memo; O(n) VP table.
+
+Profiling recipe: bundle a script that loads the scenario with `buildWorld120Scenario` (or a JSON
+snapshot of map/catalog/profiles) and a war save, `npx esbuild <script> --bundle --platform=node`,
+run with `node --cpu-prof` (or the inspector `Profiler` for a time window) and aggregate self /
+inclusive samples per function and per line (`positionTicks`).
 
 ## Known gaps / resume notes
 
-* Heavy-war performance (hundreds of simultaneous movers): next levers are coarser visibility for
-  in-transit stacks (re-detect moving targets only at whole hours), a node→stacks index shared by
-  combat/capture, and incremental engagement closing.
+* Heavy-war performance with ~650 simultaneous movers (first war day: 530–640 ms JIT-warm, target
+  400): next levers are (1) integer-indexed visibility structures (typed arrays for records, cells
+  and contributions instead of string-keyed Maps/Sets — the remaining cost is per-mover
+  bookkeeping, ~5 µs per moved target per refresh), (2) a persistent node→stacks index maintained by
+  movement/combat/capture (each currently builds its own per step/hour), (3) allocation-free
+  `stackLL`/contact refresh, (4) caching per-stack combat range / air-defence member lists. A rule
+  change (hourly visibility) was measured at only ~30 % of visibility cost and was not adopted.
 * Route planning first tries the rights-independent optimal path (memoized per state, keyed by
   class/owner/roster/versions) and falls back to constrained A* only if that path is now illegal.
   `MapIndex.staticCache` keeps its field but the memo is per state (a shared memo could leak between

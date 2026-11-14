@@ -12,13 +12,18 @@ function detsJson(m: ReturnType<typeof computeDetections>): string {
   for (const [c, d] of m) out[c] = [...d.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([sid, x]) => [sid, x.level, [...x.units].sort(), x.domain, [...x.src].sort()]);
   return JSON.stringify(out);
 }
+/** Canonical JSON (sorted object keys): key insertion order of the contact tables is not semantic
+ * (the view sorts contacts, stateHash is canonical) and differs between incremental and full passes. */
+function canon(x: unknown): string {
+  return JSON.stringify(x, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v));
+}
 function check(s: GameState) {
   // a clone has no cache → full recompute; compare with the warm incremental cache
   const full = cloneState(s);
   expect(detsJson(computeDetections(s))).toBe(detsJson(computeDetections(full, { full: true })));
   updateVisibility(s);
   updateVisibility(full);
-  expect(JSON.stringify(s.contacts)).toBe(JSON.stringify(full.contacts));
+  expect(canon(s.contacts)).toBe(canon(full.contacts));
 }
 
 describe('incremental visibility', () => {
@@ -38,6 +43,53 @@ describe('incremental visibility', () => {
       advance(s, 30 * (1 + r.int(16)), { fallback: BasicController });
       check(s);
     }
+  });
+});
+
+describe('incremental visibility under heavy war', () => {
+  it('equals a full recompute with many movers, captures, radar modifier and city radar changes (scaled world)', async () => {
+    const { submitCommand } = await import('../../src/engine');
+    const { bumpEconomy } = await import('../../src/engine/systems/economy');
+    const s = createCampaign({ seed: 12, humanCountry: null, scenario: scaledScenario() });
+    const order = s.countryOrder;
+    for (let i = 0; i + 1 < order.length; i += 2) submitCommand(s, { type: 'declareWar', country: order[i], target: order[i + 1] } as never);
+    const r = streamRng(5, 'test', 'vis3');
+    for (let i = 0; i < 8; i++) {
+      advance(s, 15 * (1 + r.int(12)), { fallback: BasicController });
+      if (i === 2) {
+        // national radar modifier changes (research path) and a city radar build/damage (journal path)
+        s.countries[order[3]].modifiers['radar_range_mult'] = 1.4;
+        const k = Object.keys(s.cities).sort()[r.int(Object.keys(s.cities).length)];
+        s.cities[k].buildings.push({ type: 'radar', level: 1, condition: 60 });
+        bumpEconomy(s, s.cities[k].node);
+      }
+      check(s);
+    }
+  });
+});
+
+describe('incremental visibility: radar modifier change', () => {
+  it('a national radar_range_mult change re-derives existing sensor groups (warm == cold)', async () => {
+    const { place, clearStacks } = await import('../fixtures/helpers');
+    const { S } = await import('../../src/engine/scenario/registry');
+    const { distKm } = await import('../../src/engine/systems/mapindex');
+    const s = newMiniGame({ human: null, seed: 3 });
+    clearStacks(s);
+    const m = S(s).map;
+    let pair: [number, number] | null = null;
+    for (const a of m.playable) for (const b of m.playable) {
+      const d = distKm(m.lon[a], m.lat[a], m.lon[b], m.lat[b]);
+      if (!pair && d > 230 && d < 300) pair = [a, b];
+    }
+    expect(pair).not.toBeNull();
+    place(s, 'ARD', pair![0], ['sam']);
+    const heli = place(s, 'BOR', pair![1], ['heli']);
+    updateVisibility(s);
+    const before = computeDetections(s).get('ARD')!;
+    expect(before.has(heli.id)).toBe(false);
+    s.countries.ARD.modifiers['radar_range_mult'] = 1.4;
+    check(s);
+    expect(computeDetections(s).get('ARD')!.get(heli.id)?.level).toBe('contact');
   });
 });
 

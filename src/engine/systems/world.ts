@@ -10,11 +10,17 @@ const ownerChanges = new WeakMap<GameState, { ownv: number; countries: Set<Count
 /** Record an ownership change (used by incremental visibility to limit recomputation). */
 const ownerJournal = new WeakMap<GameState, { v: number; node: NodeId }[]>();
 /** Nodes whose owner changed after ownership version `since`, or null if the journal cannot tell. */
+const ownerSinceMemo = new WeakMap<GameState, { since: number; len: number; last: object | undefined; out: Set<NodeId> | null }>();
 export function ownerChangesSince(state: GameState, since: number): Set<NodeId> | null {
   const j = ownerJournal.get(state);
-  if (!j || !j.length || j[0].v > since + 1) return null;
-  const out = new Set<NodeId>();
-  for (let i = j.length - 1; i >= 0 && j[i].v > since; i--) out.add(j[i].node);
+  const memo = ownerSinceMemo.get(state);
+  if (memo && memo.since === since && memo.len === (j?.length ?? 0) && memo.last === j?.[j.length - 1]) return memo.out;
+  let out: Set<NodeId> | null = null;
+  if (j && j.length && !(j[0].v > since + 1)) {
+    out = new Set<NodeId>();
+    for (let i = j.length - 1; i >= 0 && j[i].v > since; i--) out.add(j[i].node);
+  }
+  ownerSinceMemo.set(state, { since, len: j?.length ?? 0, last: j?.[j.length - 1], out });
   return out;
 }
 export function recordOwnerChange(state: GameState, node: NodeId, from: CountryId | null, to: CountryId | null): void {
@@ -265,7 +271,7 @@ export function sortedStacks(state: GameState): Stack[] {
     return cached.list.slice();
   }
   if (cached.counter !== counter) {
-    cached.list = sortStacks(state);
+    cached.list = appendNewStacks(state, cached.list, cached.counter, counter) ?? sortStacks(state);
     cached.counter = counter;
     return cached.list.slice();
   }
@@ -277,6 +283,27 @@ export function sortedStacks(state: GameState): Stack[] {
   }
   if (changed) cached.list = out.slice();
   return out;
+}
+/**
+ * Stacks created since the last sort get ids `s<n>` from the counter, so they sort after every
+ * existing stack: keep the surviving sorted prefix and append them. Returns null (→ full sort) if
+ * the result cannot be proven complete and ordered.
+ */
+function appendNewStacks(state: GameState, prev: Stack[], c0: number, c1: number): Stack[] | null {
+  if (c1 < c0 || c1 - c0 > 4096) return null;
+  const out: Stack[] = [];
+  for (const s of prev) if (state.stacks[s.id] === s) out.push(s);
+  let last = out.length ? idNum(out[out.length - 1].id) : -Infinity;
+  for (let n = c0 + 1; n <= c1; n++) {
+    const s = state.stacks[`s${n}`];
+    if (!s) continue;
+    if (n <= last) return null;
+    out.push(s);
+    last = n;
+  }
+  let total = 0;
+  for (const _ in state.stacks) total++;
+  return total === out.length ? out : null;
 }
 function sortStacks(state: GameState): Stack[] {
   return Object.values(state.stacks)

@@ -73,11 +73,11 @@ export function startJobs(state: GameState, c: CountryId): void {
   const cs = state.countries[c];
   const active = new Map<string, number>();
   for (const j of cs.jobs) if (j.startedAt !== null) active.set(locationKey(j), (active.get(locationKey(j)) ?? 0) + 1);
-  const mslots = missileSlots(state, c);
+  let mslots = -1; // national missile slots, computed only when a queued missile job needs them
   for (const j of cs.jobs) {
     if (j.startedAt !== null) continue;
     const k = locationKey(j);
-    const cap = k === 'missile' ? mslots : 1;
+    const cap = k === 'missile' ? (mslots < 0 ? (mslots = missileSlots(state, c)) : mslots) : 1;
     if ((active.get(k) ?? 0) >= cap) continue;
     j.startedAt = state.clock.tick;
     j.endsAt = state.clock.tick + j.durationMin;

@@ -52,9 +52,18 @@ export const productionHooks: ProductionHooks = {
 export const diploHooks: DiploHooks = { joinCoalition: joinCoalitionInternal };
 
 /** A country with no territory and no capture-capable force is eliminated (once). */
+const ownersCache = new WeakMap<GameState, { ownv: number; provs: object; owns: Set<CountryId> }>();
 export function checkEliminations(state: GameState): void {
-  const owns = new Set<CountryId>();
-  for (const p of state.provinces) if (p && p.owner) owns.add(p.owner);
+  // set of territory owners, rebuilt only when ownership changed (ownv) — every transfer bumps it
+  const ownv = state.ids.ownv ?? 0;
+  let oc = ownersCache.get(state);
+  if (!oc || oc.ownv !== ownv || oc.provs !== state.provinces) {
+    const s = new Set<CountryId>();
+    for (const p of state.provinces) if (p && p.owner) s.add(p.owner);
+    oc = { ownv, provs: state.provinces, owns: s };
+    ownersCache.set(state, oc);
+  }
+  const owns = oc.owns;
   for (const c of state.countryOrder) {
     const cs = state.countries[c];
     if (!cs.alive || owns.has(c)) continue;

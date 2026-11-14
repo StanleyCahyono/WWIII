@@ -42,7 +42,7 @@ import { trustOf } from '../systems/diplomacy';
 import { bookView, type BookLevel } from '../systems/market';
 import { countryScores, thresholdFor } from '../systems/score';
 import { routeEtaTick } from '../systems/movement';
-import { alliedContacts } from '../systems/visibility';
+import { alliedContacts, observedNodes, stackSensorRadii } from '../systems/visibility';
 import { forceSummary, liftBreakdown, type ForceSummary, type LiftBreakdown } from '../systems/readiness';
 import { RULES } from '../rules';
 import { derived, invalidateDerived } from '../derived';
@@ -76,6 +76,10 @@ export interface StackView extends Omit<Stack, 'units'> {
   units: Stack['units'];
   eta: number | null;
   lonlat: [number, number];
+  /** Effective visual sight radius (km) incl. terrain at its node and unit levels (0 while aboard). */
+  sightKm: number;
+  /** Effective radar radius (km) incl. the radar_range_mult modifier (0 while aboard or without radar). */
+  radarKm: number;
 }
 
 export interface DiplomacyRow {
@@ -132,6 +136,8 @@ export interface CountryView {
   rebelNodes: NodeId[];
   publicCities: PublicCity[];
   contacts: ContactView[];
+  /** Node ids currently covered by the viewer's (and its vision sources') sensors or territory, sorted. */
+  observedNodes: NodeId[];
   reports: (IntelReport & { expired: boolean; shared: boolean })[];
   agents: Agent[];
   relations: DiplomacyRow[];
@@ -220,7 +226,8 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
   const stacks: StackView[] = [];
   for (const s of stacksByOwner(state).get(viewer) ?? []) {
     if (state.stacks[s.id] !== s) continue;
-    stacks.push({ ...cloneStack(s), eta: routeEtaTick(state, s), lonlat: lonlatOf(state, s) });
+    const radii = stackSensorRadii(state, s);
+    stacks.push({ ...cloneStack(s), eta: routeEtaTick(state, s), lonlat: lonlatOf(state, s), sightKm: radii.sightKm, radarKm: radii.radarKm });
   }
   stacks.sort((a, b) => (a.id < b.id ? -1 : 1));
   const cities: CityState[] = [];
@@ -323,6 +330,7 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
     rebelNodes: pub.rebel,
     publicCities: pub.cities,
     contacts,
+    observedNodes: [...observedNodes(state, viewer)],
     reports,
     agents: Object.values(state.agents).filter((a) => a.country === viewer).map((a) => ({ ...a })),
     relations,

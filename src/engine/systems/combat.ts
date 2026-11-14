@@ -44,7 +44,7 @@ import { S } from '../scenario/registry';
 import { streamRng } from '../rng';
 import { nextId } from '../ids';
 import { cmpId, stackLL, ustats, utype, hostileStacks as hostileStacksW, sortedStacks, enemyMap, unitRange } from './world';
-import { binKey, binsAround, distKm } from './mapindex';
+import { distKm, fineBin, fineCover } from './mapindex';
 import { awardXp, emit, toAll } from './events';
 import { sumEffect, bumpEconomy, multEffect } from './economy';
 import { cmod } from './modifiers';
@@ -279,40 +279,43 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     }
   }
 
-  // spatial index for ranged/air target search (ties: distance, then numeric stack id)
-  const llOf = new Map<string, [number, number]>();
-  const gbins = new Map<number, Stack[]>();
-  const abins = new Map<number, Stack[]>();
-  for (const s of all) {
+  // spatial index for ranged/air target search (ties: distance, then numeric stack id). Cells hold
+  // indices into `all` (sorted by numeric id), so sorting candidates by index == cmpId order; the
+  // fine grid with an exact cover yields a superset of the stacks within range (results do not
+  // depend on the grid).
+  const gbins = new Map<number, number[]>();
+  const abins = new Map<number, number[]>();
+  for (let i = 0; i < all.length; i++) {
+    const s = all[i];
     if (s.aboard) continue;
-    const p = stackLL(state, s);
-    llOf.set(s.id, p);
     const isAir = s.moveClass === 'air';
     if (isAir && (!s.air || s.air.state === 'landed' || s.air.state === 'refueling')) continue;
+    const p = stackLL(state, s);
     const bins = isAir ? abins : gbins;
-    const k = binKey(p[0], p[1]);
+    const k = fineBin(p[0], p[1]);
     const l = bins.get(k);
-    if (l) l.push(s);
-    else bins.set(k, [s]);
+    if (l) l.push(i);
+    else bins.set(k, [i]);
   }
-  const nearby = (bins: Map<number, Stack[]>, at: [number, number], r: number): Stack[] => {
-    const out: Stack[] = [];
-    for (const k of binsAround(at[0], at[1], r)) {
+  const nearbyIdx = (bins: Map<number, number[]>, at: [number, number], r: number, out: number[]): number[] => {
+    for (const k of fineCover(at[0], at[1], r)) {
       const l = bins.get(k);
-      if (l) for (const s of l) out.push(s);
+      if (l) for (const i of l) out.push(i);
     }
-    return out.sort(cmpId);
+    return out;
   };
+  const nearby = (bins: Map<number, number[]>, at: [number, number], r: number): Stack[] => nearbyIdx(bins, at, r, []).sort((a, b) => a - b).map((i) => all[i]);
 
   // ── 2. ranged fire
   for (const A of all) {
     if (!enemies.has(A.owner)) continue;
     if (fired.has(A.id) || A.pos.kind !== 'node' || A.aboard || A.moveClass === 'air') continue;
     if (A.order && A.order.kind === 'move' && A.order.route.length) continue;
-    const maxR = Math.max(0, ...combatUnits(A).map((u) => unitRange(state, A.owner, u)));
-    if (maxR <= 0) continue;
     const ordered = A.order?.kind === 'attack' ? A.order : null;
     if (A.firePolicy !== 'engage' && !ordered) continue;
+    let maxR = 0;
+    for (const u of A.units) if (u.hp > 0) maxR = Math.max(maxR, unitRange(state, A.owner, u));
+    if (maxR <= 0) continue;
     const ll = stackLL(state, A);
     let target: Stack | null = null;
     let dist = Infinity;
@@ -376,7 +379,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     const canAir = combatUnits(P).some((u) => (ustats(state, u).attack.airplane ?? 0) > 0);
     let target: Stack | null = null;
     let best = Infinity;
-    const cands = canAir ? [...nearby(gbins, ll, P.air.patrol.radiusKm), ...nearby(abins, ll, P.air.patrol.radiusKm)].sort(cmpId) : nearby(gbins, ll, P.air.patrol.radiusKm);
+    const cands = canAir ? nearbyIdx(abins, ll, P.air.patrol.radiusKm, nearbyIdx(gbins, ll, P.air.patrol.radiusKm, [])).sort((a, b) => a - b).map((i) => all[i]) : nearby(gbins, ll, P.air.patrol.radiusKm);
     for (const D of cands) {
       if (D.id === P.id || !hostileStacks(P, D) || D.aboard) continue;
       const isAir = D.moveClass === 'air';
@@ -444,7 +447,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     }
     D.lastCombatAt = tick;
     for (const u of D.units) if (u.hp > 0) u.readiness = Math.max(0, u.readiness - COMBAT_READINESS_LOSS);
-    D.units = D.units.filter((u) => u.hp > 0);
+    if (D.units.some((u) => u.hp <= 0)) D.units = D.units.filter((u) => u.hp > 0);
     if (!D.units.length) {
       const by = pending.get(tid)?.[0]?.from ?? null;
       hooks.onStackDestroyed(state, D, by);
@@ -458,9 +461,9 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
   closeEngagements(state);
 }
 
-function stillHostile(state: GameState, e: Engagement): boolean {
+function stillHostile(state: GameState, e: Engagement, atNode: () => Map<NodeId, Stack[]>): boolean {
   if (e.kind !== 'node') return e.lastRoundAt === state.clock.tick;
-  const here = Object.values(state.stacks).filter((s) => s.pos.kind === 'node' && s.pos.node === e.node && !s.aboard && s.moveClass !== 'air');
+  const here = atNode().get(e.node) ?? [];
   for (let i = 0; i < here.length; i++) for (let j = i + 1; j < here.length; j++) if (hostileStacksW(state, here[i], here[j])) return true;
   return false;
 }
@@ -468,9 +471,22 @@ function stillHostile(state: GameState, e: Engagement): boolean {
 export function closeEngagements(state: GameState): void {
   const m = S(state).map;
   if (!Object.values(state.engagements).some((e) => e.open)) return;
+  // ground/naval stacks per node (same filter and order as a scan of state.stacks), built lazily
+  let idx: Map<NodeId, Stack[]> | null = null;
+  const atNode = () => {
+    if (idx) return idx;
+    idx = new Map();
+    for (const s of Object.values(state.stacks)) {
+      if (s.pos.kind !== 'node' || s.aboard || s.moveClass === 'air') continue;
+      const l = idx.get(s.pos.node);
+      if (l) l.push(s);
+      else idx.set(s.pos.node, [s]);
+    }
+    return idx;
+  };
   for (const id of Object.keys(state.engagements).sort((a, b) => cmpId({ id: a }, { id: b }))) {
     const e = state.engagements[id];
-    if (!e.open || stillHostile(state, e)) continue;
+    if (!e.open || stillHostile(state, e, atNode)) continue;
     e.open = false;
     e.closedAt = state.clock.tick;
     const sides = Object.keys(e.participants).sort();

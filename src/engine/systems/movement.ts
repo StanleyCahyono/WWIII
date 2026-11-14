@@ -108,9 +108,19 @@ export function evalEdge(state: GameState, ctx: MoveCtx, ei: number, from: NodeI
 }
 
 /** Effective stack speed (km/h) = slowest unit × terrain × logistics. */
-export function stackSpeed(state: GameState, s: Stack, mode: MoveMode, terrain: Terrain, node: NodeId): number {
-  if (mode === 'embarked') return EMBARKED_SPEED_KMH;
-  let min = Infinity;
+/** Slowest unit speed per (land / other mode, terrain), cached until the roster or unit levels change. */
+const unitSpeedCache = new WeakMap<Stack, { units: object; len: number; techv: number; land: Map<Terrain, number>; other: Map<Terrain, number> }>();
+function slowestUnit(state: GameState, s: Stack, mode: MoveMode, terrain: Terrain): number {
+  const techv = state.ids.techv ?? 0;
+  let c = unitSpeedCache.get(s);
+  if (!c || c.units !== s.units || c.len !== s.units.length || c.techv !== techv) {
+    c = { units: s.units, len: s.units.length, techv, land: new Map(), other: new Map() };
+    unitSpeedCache.set(s, c);
+  }
+  const memo = mode === 'land' ? c.land : c.other;
+  let min = memo.get(terrain);
+  if (min !== undefined) return min;
+  min = Infinity;
   for (const u of s.units) {
     const t = utype(state, u.type);
     const st = ustats(state, u);
@@ -118,6 +128,12 @@ export function stackSpeed(state: GameState, s: Stack, mode: MoveMode, terrain: 
     const v = st.speedKmh * tm;
     if (v < min) min = v;
   }
+  memo.set(terrain, min);
+  return min;
+}
+export function stackSpeed(state: GameState, s: Stack, mode: MoveMode, terrain: Terrain, node: NodeId): number {
+  if (mode === 'embarked') return EMBARKED_SPEED_KMH;
+  const min = slowestUnit(state, s, mode, terrain);
   if (!Number.isFinite(min)) return 0;
   const p = state.provinces[node];
   let logi = p && p.buildings.length ? multEffect(state, p.buildings, 'speedMult') : 1;
@@ -309,31 +325,44 @@ function stopWithEvent(state: GameState, s: Stack, text: string, kind = 'route_s
 }
 
 /** Re-validate the remaining route; truncate at the first illegal segment. */
-const revalidated = new WeakMap<object, { key: string; ownv: number }>();
+interface RevalKey { relv: number; grv: number; cov: number; econ: number; rl: number; ul: number; pk: string; ownv: number }
+const revalidated = new WeakMap<object, RevalKey>();
+const routeNodes = new WeakMap<object, Set<NodeId>>();
 export function revalidateRoute(state: GameState, s: Stack): void {
   const o = s.order;
   if (!o || o.kind !== 'move' || !o.route.length) return;
   // legality only changes with rights, ownership, facilities or the roster: skip when none changed
-  const key = `${state.ids.relv ?? 0}|${state.ids.grv ?? 0}|${state.ids.cov ?? 0}|${s.moveClass === 'naval' ? state.ids.econv ?? 0 : 0}|${o.route.length}|${s.units.length}|${s.pos.kind}`;
   const ownv = state.ids.ownv ?? 0;
+  const key: RevalKey = { relv: state.ids.relv ?? 0, grv: state.ids.grv ?? 0, cov: state.ids.cov ?? 0, econ: s.moveClass === 'naval' ? state.ids.econv ?? 0 : 0, rl: o.route.length, ul: s.units.length, pk: s.pos.kind, ownv };
   const prev = revalidated.get(o);
-  if (prev && prev.key === key) {
+  if (prev && prev.relv === key.relv && prev.grv === key.grv && prev.cov === key.cov && prev.econ === key.econ && prev.rl === key.rl && prev.ul === key.ul && prev.pk === key.pk) {
     if (prev.ownv === ownv) return;
     // ownership changed somewhere: only re-check if a changed node lies on the remaining route
     const changed = ownerChangesSince(state, prev.ownv);
     if (changed) {
       let touches = false;
-      for (const sg of o.route) {
-        const e = S(state).map.edges[sg.edge];
-        if (changed.has(sg.to) || changed.has(sg.from) || (e.via !== undefined && changed.has(e.via))) { touches = true; break; }
+      // nodes of the route (from/to/via), memoized per route array (a superset after shifts is fine:
+      // a spurious full re-check finds the same result)
+      let rn = routeNodes.get(o.route);
+      if (!rn) {
+        rn = new Set();
+        const edges = S(state).map.edges;
+        for (const sg of o.route) {
+          rn.add(sg.to);
+          rn.add(sg.from);
+          const via = edges[sg.edge].via;
+          if (via !== undefined) rn.add(via);
+        }
+        routeNodes.set(o.route, rn);
       }
+      for (const n of changed) if (rn.has(n)) { touches = true; break; }
       if (!touches) {
         prev.ownv = ownv;
         return;
       }
     }
   }
-  revalidated.set(o, { key, ownv });
+  revalidated.set(o, key);
   const ctx = ctxFor(state, s, { allowActOfWar: o.warConfirmed });
   for (let i = 0; i < o.route.length; i++) {
     const seg = o.route[i];

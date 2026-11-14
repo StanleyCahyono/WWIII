@@ -11,12 +11,12 @@
  */
 import { RESOURCES, type CountryId, type Resource } from '../data-types';
 import type { BuildingInstance, CityState, CountryState, GameState, ProvinceState, TerritoryStatus } from '../state';
-import { addInto, mul, type ResM, subInto, toMilli, vecFromWhole, zero, valueAt } from '../fixed';
+import { add, addInto, mul, type ResM, subInto, toMilli, vecFromWhole, zero, valueAt } from '../fixed';
 import { ESSENTIAL, MANPOWER_PER_SQRT_KPOP, MONEY_PER_SQRT_KPOP, RURAL_POP_FACTOR, MORALE, OCCUPATION_UPKEEP_PER_TIER, RURAL_DEPOSIT_OUTPUT, TERRITORY_FACTOR } from '../rules';
 import { S } from '../scenario/registry';
 import { chargePartial, credit } from './ledger';
 import { hourOfDay } from '../time';
-import { utype } from './world';
+import { stacksReadonly, utype } from './world';
 import type { BuildingLevel } from '../data-types';
 import { derived } from '../derived';
 import { cmod } from './modifiers';
@@ -186,10 +186,20 @@ const staticRatesCache = new WeakMap<GameState, StaticCache>();
 /** Nodes whose territory output changed since the last aggregation ('all' = full recompute). */
 const econDirty = new WeakMap<GameState, Set<number> | 'all'>();
 /** Cheap structural fingerprint of everything that feeds territory output (guards missed bumps). */
+const cityListCache = new WeakMap<object, { n: number; list: CityState[] }>();
+/** Cities as an array (cached per `state.cities` object; the key set is fixed after creation). */
+function cityList(state: GameState): CityState[] {
+  let e = cityListCache.get(state.cities);
+  if (!e) {
+    const list = Object.keys(state.cities).map((k) => state.cities[k]);
+    e = { n: list.length, list };
+    cityListCache.set(state.cities, e);
+  }
+  return e.list;
+}
 function econFingerprint(state: GameState): number {
   let h = 0;
-  for (const k in state.cities) {
-    const c = state.cities[k];
+  for (const c of cityList(state)) {
     h = (h * 31 + c.morale * 7 + c.condition * 13 + Math.round(c.population) + c.buildings.length * 101) | 0;
     for (const b of c.buildings) h = (h * 17 + b.level * 3 + b.condition + b.type.length) | 0;
   }
@@ -205,12 +215,67 @@ function econFingerprint(state: GameState): number {
  * buildings, condition, morale, population, national output modifiers). Pass the node to update
  * only that location's contribution; omit it for a full recompute (day change, modifiers).
  */
+/** Journal of economy bumps (node, or -1 = everything) for consumers that refresh per location. */
+const econJournal = new WeakMap<GameState, { v: number; node: number }[]>();
+function journalEcon(state: GameState, node: number): void {
+  let j = econJournal.get(state);
+  if (!j) {
+    j = [];
+    econJournal.set(state, j);
+  }
+  j.push({ v: state.ids.econv ?? 0, node });
+  if (j.length > 20000) j.splice(0, j.length - 10000);
+}
+/**
+ * Nodes announced by bumpEconomy after economy version `since`: a set of nodes, 'all' (a global
+ * bump), or null when the (non-serialized) journal cannot tell.
+ */
+export function econChangesSince(state: GameState, since: number): Set<number> | 'all' | null {
+  const now = state.ids.econv ?? 0;
+  if (now === since) return new Set();
+  const j = econJournal.get(state);
+  if (!j || !j.length || j[0].v > since + 1 || j[j.length - 1].v !== now) return null;
+  const out = new Set<number>();
+  for (let i = j.length - 1; i >= 0 && j[i].v > since; i--) {
+    if (j[i].node < 0) return 'all';
+    out.add(j[i].node);
+  }
+  return out;
+}
 export function bumpEconomy(state: GameState, node?: number): void {
   state.ids.econv = (state.ids.econv ?? 0) + 1;
+  journalEcon(state, node ?? -1);
   const d = econDirty.get(state);
   if (node === undefined || d === 'all') econDirty.set(state, 'all');
   else if (d) d.add(node);
   else econDirty.set(state, new Set([node]));
+}
+/**
+ * A change confined to one country's national output modifiers (research completion): only the
+ * locations it owns are re-derived (same result as a full recompute; the modifiers only enter the
+ * owner's city/province output).
+ */
+export function bumpEconomyCountry(state: GameState, c: CountryId): void {
+  state.ids.econv = (state.ids.econv ?? 0) + 1;
+  for (const p of state.provinces) if (p && p.owner === c) journalEcon(state, p.node);
+  let d = econDirty.get(state);
+  if (d === 'all') return;
+  if (!d) {
+    d = new Set();
+    econDirty.set(state, d);
+  }
+  for (const p of state.provinces) if (p && p.owner === c) d.add(p.node);
+}
+const upkeepVecCache = new WeakMap<object, ResM>();
+/** Building-level upkeep as a milli vector (memoized per catalog level object; never mutate). */
+function levelUpkeep(d: BuildingLevel): ResM | null {
+  if (!d.upkeepPerDay) return null;
+  let v = upkeepVecCache.get(d);
+  if (!v) {
+    v = vecFromWhole(d.upkeepPerDay);
+    upkeepVecCache.set(d, v);
+  }
+  return v;
 }
 function nodeContrib(state: GameState, node: number, occ: ResM): NodeContrib | null {
   const p = state.provinces[node];
@@ -219,7 +284,8 @@ function nodeContrib(state: GameState, node: number, occ: ResM): NodeContrib | n
   addInto(c.prod, provinceOutput(state, p));
   for (const b of p.buildings) {
     const d = buildingLevelDef(state, b);
-    if (d?.upkeepPerDay) addInto(c.bup, vecFromWhole(d.upkeepPerDay));
+    const u = d && levelUpkeep(d);
+    if (u) addInto(c.bup, u);
   }
   const ck = S(state).map.cityByNode.get(node);
   const city = ck ? state.cities[ck] : undefined;
@@ -227,7 +293,8 @@ function nodeContrib(state: GameState, node: number, occ: ResM): NodeContrib | n
     addInto(c.prod, cityOutput(state, city));
     for (const b of city.buildings) {
       const d = buildingLevelDef(state, b);
-      if (d?.upkeepPerDay) addInto(c.bup, vecFromWhole(d.upkeepPerDay));
+      const u = d && levelUpkeep(d);
+      if (u) addInto(c.bup, u);
     }
     if (p.status === 'occupied') addInto(c.occ, mul(occ, city.tier));
   }
@@ -241,7 +308,8 @@ function staticRates(state: GameState): Record<CountryId, StaticRates> {
   const occ = vecFromWhole(OCCUPATION_UPKEEP_PER_TIER);
   const dirty = econDirty.get(state);
   econDirty.delete(state);
-  if (c && c.provs === state.provinces && c.cities === state.cities && dirty && dirty !== 'all' && c.ev !== ev) {
+  // incremental when few locations changed (a large batch, e.g. day change, is cheaper as a full pass)
+  if (c && c.provs === state.provinces && c.cities === state.cities && dirty && dirty !== 'all' && c.ev !== ev && dirty.size * 2 < c.contrib.size) {
     // incremental: re-derive only the announced locations
     for (const node of [...dirty].sort((a, b) => a - b)) {
       const old = c.contrib.get(node);
@@ -259,7 +327,7 @@ function staticRates(state: GameState): Record<CountryId, StaticRates> {
       } else c.contrib.delete(node);
     }
     c.ev = ev;
-    c.fp = econFingerprint(state);
+    c.fp = fp; // re-deriving contributions does not mutate state
     return c.m;
   }
   const m: Record<CountryId, StaticRates> = {};
@@ -286,9 +354,8 @@ export function computeRates(state: GameState): Record<CountryId, CountryRates> 
     const x = st[c];
     out[c] = { production: { ...x.production }, upkeepUnits: zero(), upkeepBuildings: { ...x.upkeepBuildings }, occupation: { ...x.occupation }, consumption: zero(), net: zero() };
   }
-  // unit upkeep: per-stack vector cached until the roster changes
-  for (const id of Object.keys(state.stacks)) {
-    const s = state.stacks[id];
+  // unit upkeep: per-stack vector cached until the roster changes (summation order is irrelevant: integers)
+  for (const s of stacksReadonly(state)) {
     const r = out[s.owner];
     if (r) addInto(r.upkeepUnits, stackUpkeep(state, s));
   }
@@ -318,9 +385,7 @@ function slice(rate: number, h: number): number {
   return Math.trunc((rate * (h + 1)) / 24) - Math.trunc((rate * h) / 24);
 }
 function sliceVec(v: ResM, h: number): ResM {
-  const o = zero();
-  for (const r of RESOURCES) o[r] = slice(v[r], h);
-  return o;
+  return { supplies: slice(v.supplies, h), components: slice(v.components, h), electronics: slice(v.electronics, h), fuel: slice(v.fuel, h), rare: slice(v.rare, h), manpower: slice(v.manpower, h), money: slice(v.money, h) };
 }
 
 /** Hourly accrual (called on whole game hours). Production first, then upkeep (partial if short). */
@@ -339,20 +404,17 @@ export function economyHour(state: GameState): void {
     cs.shortages = short;
   }
   // city shortage flags (essential inputs) feed morale at day change
-  let anyShort = false;
-  for (const c of state.countryOrder) if (state.countries[c].shortages.some((x) => ESSENTIAL.includes(x))) anyShort = true;
-  if (anyShort) for (const k of Object.keys(state.cities)) {
+  let essShort: Set<CountryId> | null = null;
+  for (const c of state.countryOrder) if (state.countries[c].shortages.some((x) => ESSENTIAL.includes(x))) (essShort ??= new Set()).add(c);
+  if (essShort) for (const k in state.cities) {
     const city = state.cities[k];
     const o = state.provinces[city.node]?.owner;
     if (!o) { city.shortage = false; continue; }
-    const sh = state.countries[o]?.shortages ?? [];
-    if (sh.some((x) => ESSENTIAL.includes(x))) city.shortage = true;
+    if (essShort.has(o)) city.shortage = true;
   }
 }
 function addVec(a: ResM, b: ResM): ResM {
-  const o = zero();
-  for (const r of RESOURCES) o[r] = a[r] + b[r];
-  return o;
+  return add(a, b);
 }
 
 export function industrialValue(state: GameState, c: CountryId, rates?: Record<CountryId, CountryRates>): number {

@@ -53,7 +53,8 @@ export function captureStep(state: GameState, hooks: GovHooks): void {
     const n = s.pos.node;
     if (!m.isLand[n]) continue;
     const p = state.provinces[n];
-    if (p && p.owner !== s.owner && p.control !== 'outside') cand.add(n);
+    // only nodes where this stack could be eligible to capture (rebel node, or owner at war)
+    if (p && p.owner !== s.owner && p.control !== 'outside' && (p.control === 'rebel' || (p.owner !== null && atWar(state, s.owner, p.owner)))) cand.add(n);
   }
   if (!cand.size) return;
   const byNode = new Map<NodeId, Stack[]>();
@@ -187,13 +188,14 @@ function approach(cur: number, target: number, step: number): number {
 
 /** Day-change government update: morale, population, revolts. */
 export function governmentDay(state: GameState, hooks: GovHooks): void {
-  bumpEconomy(state);
   const m = S(state).map;
   for (const p of state.provinces) {
     if (!p || p.control === 'outside') continue;
     const ck = m.cityByNode.get(p.node);
     const city = ck ? state.cities[ck] : null;
     const { target, factors } = moraleTarget(state, p, city);
+    // announce only locations whose output inputs (morale, population) actually change
+    const pm0 = p.morale, cm0 = city ? city.morale : 0, cp0 = city ? city.population : 0;
     if (city) {
       city.targetMorale = target;
       city.moraleFactors = factors;
@@ -206,6 +208,7 @@ export function governmentDay(state: GameState, hooks: GovHooks): void {
     } else {
       p.morale = approach(p.morale, target, MORALE.dailyStep);
     }
+    if (p.morale !== pm0 || (city && (city.morale !== cm0 || city.population !== cp0))) bumpEconomy(state, p.node);
   }
   revoltChecks(state, hooks);
 }

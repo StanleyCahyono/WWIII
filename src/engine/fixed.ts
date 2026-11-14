@@ -26,26 +26,34 @@ export function vecFromWhole(v: ResVec | undefined | null): ResM {
 export function copy(v: ResM): ResM {
   return { ...v };
 }
+// Hot vector primitives are written out per resource (monomorphic property access; same results
+// as a loop over RESOURCES — the resource set is fixed by the data contract).
 export function add(a: ResM, b: ResM): ResM {
-  const o = zero();
-  for (const r of RESOURCES) o[r] = a[r] + b[r];
-  return o;
+  return { supplies: a.supplies + b.supplies, components: a.components + b.components, electronics: a.electronics + b.electronics, fuel: a.fuel + b.fuel, rare: a.rare + b.rare, manpower: a.manpower + b.manpower, money: a.money + b.money };
 }
 export function addInto(a: ResM, b: ResM): void {
-  for (const r of RESOURCES) a[r] += b[r];
+  a.supplies += b.supplies;
+  a.components += b.components;
+  a.electronics += b.electronics;
+  a.fuel += b.fuel;
+  a.rare += b.rare;
+  a.manpower += b.manpower;
+  a.money += b.money;
 }
 export function subInto(a: ResM, b: ResM): void {
-  for (const r of RESOURCES) a[r] -= b[r];
+  a.supplies -= b.supplies;
+  a.components -= b.components;
+  a.electronics -= b.electronics;
+  a.fuel -= b.fuel;
+  a.rare -= b.rare;
+  a.manpower -= b.manpower;
+  a.money -= b.money;
 }
 export function sub(a: ResM, b: ResM): ResM {
-  const o = zero();
-  for (const r of RESOURCES) o[r] = a[r] - b[r];
-  return o;
+  return { supplies: a.supplies - b.supplies, components: a.components - b.components, electronics: a.electronics - b.electronics, fuel: a.fuel - b.fuel, rare: a.rare - b.rare, manpower: a.manpower - b.manpower, money: a.money - b.money };
 }
 export function neg(a: ResM): ResM {
-  const o = zero();
-  for (const r of RESOURCES) o[r] = -a[r];
-  return o;
+  return { supplies: -a.supplies, components: -a.components, electronics: -a.electronics, fuel: -a.fuel, rare: -a.rare, manpower: -a.manpower, money: -a.money };
 }
 /** Multiply by a rational num/den, flooring toward zero for each component. */
 export function scale(a: ResM, num: number, den = 1): ResM {
@@ -55,17 +63,13 @@ export function scale(a: ResM, num: number, den = 1): ResM {
 }
 /** Multiply by a float factor, flooring toward zero (deterministic IEEE math). */
 export function mul(a: ResM, f: number): ResM {
-  const o = zero();
-  for (const r of RESOURCES) o[r] = Math.trunc(a[r] * f);
-  return o;
+  return { supplies: Math.trunc(a.supplies * f), components: Math.trunc(a.components * f), electronics: Math.trunc(a.electronics * f), fuel: Math.trunc(a.fuel * f), rare: Math.trunc(a.rare * f), manpower: Math.trunc(a.manpower * f), money: Math.trunc(a.money * f) };
 }
 export function geq(a: ResM, b: ResM): boolean {
-  for (const r of RESOURCES) if (a[r] < b[r]) return false;
-  return true;
+  return !(a.supplies < b.supplies) && !(a.components < b.components) && !(a.electronics < b.electronics) && !(a.fuel < b.fuel) && !(a.rare < b.rare) && !(a.manpower < b.manpower) && !(a.money < b.money);
 }
 export function isZero(a: ResM): boolean {
-  for (const r of RESOURCES) if (a[r] !== 0) return false;
-  return true;
+  return a.supplies === 0 && a.components === 0 && a.electronics === 0 && a.fuel === 0 && a.rare === 0 && a.manpower === 0 && a.money === 0;
 }
 /** Positive shortfall of `have` relative to `need`, in milli-units (only short keys). */
 export function shortfall(have: ResM, need: ResM): Partial<ResM> {

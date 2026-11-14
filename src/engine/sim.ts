@@ -154,31 +154,20 @@ export function stepOnce(state: GameState, host?: SimHost): GameState {
 }
 
 export function runStep(state: GameState, T: number, host: SimHost): void {
-  const P = (globalThis as any).__wcprof as Record<string, number> | undefined;
-  let t0 = P ? performance.now() : 0;
-  const lap = (k: string) => { if (P) { const t = performance.now(); P[k] = (P[k] ?? 0) + t - t0; t0 = t; } };
   invalidateViewCache(state);
   processScheduled(state, T);
   state.clock.tick = T;
   invalidateViewCache(state);
-  lap('sched');
   airStep(state, (st, s) => destroyStack(st, s, null));
-  lap('air');
   moveStep(state, sortedStacks(state), moveHooks);
-  lap('move');
   if (isHour(T)) {
     refreshAttackOrders(state);
-    lap('attackOrders');
     combatRound(state, combatHooks);
-    lap('combat');
   }
   captureStep(state, govHooks);
   invalidateViewCache(state);
-  lap('capture');
   if (isHour(T)) economyHour(state);
-  lap('economy');
   if (T % VISIBILITY_INTERVAL_MIN === 0) updateVisibility(state);
-  lap('visibility');
   if (isDayChange(T)) {
     governmentDay(state, govHooks);
     readinessDay(state);
@@ -187,17 +176,14 @@ export function runStep(state: GameState, T: number, host: SimHost): void {
     settle(state);
     prune(state);
   }
-  lap('day');
   checkEliminations(state);
   state.clock.lastStep = T;
   invalidateViewCache(state);
-  lap('elim');
   if (!state.score.result) {
     collectWakes(state);
     runAi(state, host);
   }
   invalidateViewCache(state);
-  lap('ai');
 }
 
 /** Advance the clock by `minutes` (any chunking yields identical state). */

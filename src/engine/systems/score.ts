@@ -24,19 +24,21 @@ export function nodeVP(scenario: Scenario, node: NodeId): number {
   let a = vpCache.get(scenario);
   if (!a) {
     a = new Int32Array(scenario.map.nodes.length);
-    for (let i = 0; i < a.length; i++) a[i] = nodeVPRaw(scenario, i);
+    const cities = new Map<string, Scenario['map']['cities'][number]>();
+    for (const c of scenario.map.cities) if (!cities.has(c.key)) cities.set(c.key, c); // first match, like find()
+    for (let i = 0; i < a.length; i++) a[i] = nodeVPRaw(scenario, i, cities);
     vpCache.set(scenario, a);
   }
   return a[node] ?? 0;
 }
-function nodeVPRaw(scenario: Scenario, node: NodeId): number {
+function nodeVPRaw(scenario: Scenario, node: NodeId, cities: Map<string, Scenario['map']['cities'][number]>): number {
   const st = getStatic(scenario);
   const n = scenario.map.nodes[node];
   if (n.kind !== 'land' || n.outside || !n.country) return 0;
   let v = SCORING.provinceCenter;
   const ck = st.map.cityByNode.get(node);
   if (ck) {
-    const c = scenario.map.cities.find((x) => x.key === ck);
+    const c = cities.get(ck);
     if (c) {
       const prof = scenario.profiles[c.country]?.cities.find((x) => x.city === ck);
       const tier = prof?.tier ?? c.tier;

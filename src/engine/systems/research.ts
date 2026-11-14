@@ -16,7 +16,7 @@ import { geq, mul, type ResM, shortfall, vecFromWhole } from '../fixed';
 import { charge, credit } from './ledger';
 import { schedule, unschedule } from './queue';
 import { awardXp, emit, toAll } from './events';
-import { sumEffect, multEffect, bumpEconomy } from './economy';
+import { sumEffect, multEffect, bumpEconomyCountry } from './economy';
 import { applyModifier, cmod } from './modifiers';
 import { dayOf } from '../time';
 import { derived } from '../derived';
@@ -181,7 +181,7 @@ export function grantTech(state: GameState, c: CountryId, techId: TechId, lineag
     }
   }
   for (const mo of e.modifiers ?? []) applyModifier(cs.modifiers, mo.key, mo.value);
-  if (e.modifiers?.length) bumpEconomy(state);
+  if (e.modifiers?.length) bumpEconomyCountry(state, c);
   if (e.liftCapacity) cs.lift += e.liftCapacity;
   if (e.maintenanceSlots) cs.maintenanceSlots += e.maintenanceSlots;
   void silentUpgrade;

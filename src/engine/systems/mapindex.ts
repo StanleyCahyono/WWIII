@@ -44,6 +44,91 @@ export function binKey(lon: number, lat: number): number {
   while (l >= 180) l -= 360;
   return (Math.floor(l / SPATIAL_BIN_DEG) + 500) * 1000 + (Math.floor(lat / SPATIAL_BIN_DEG) + 500);
 }
+/**
+ * Fine spatial grid (acceleration structure only — results never depend on it) used by visibility
+ * and combat target search: FINE_BIN_DEG cells, and an EXACT cover of a radius (every cell that can
+ * hold a point within `km` great-circle distance, computed with distKm's Earth radius plus a small
+ * margin). Fine cells keep sensor footprints tight, so a moving stack only invalidates the sensors
+ * that can actually reach it.
+ */
+export const FINE_BIN_DEG = 1;
+const VIS_BIN_DEG = FINE_BIN_DEG;
+const EARTH_R = R;
+const LON_CELLS = Math.round(360 / VIS_BIN_DEG);
+export function fineBin(lon: number, lat: number): number {
+  let l = lon;
+  while (l < -180) l += 360;
+  while (l >= 180) l -= 360;
+  return (Math.floor((l + 180) / VIS_BIN_DEG) % LON_CELLS) * 1000 + Math.floor((lat + 90) / VIS_BIN_DEG);
+}
+const coverCache = new Map<number, Map<number, Map<number, number[]>>>();
+let coverCacheSize = 0;
+/** Sorted cell keys covering every point within `km` of (lon, lat). Memoized (pure). */
+export function fineCover(lon: number, lat: number, km: number, memo = true): number[] {
+  if (!memo) return coverRaw(lon, lat, km);
+  let a = coverCache.get(km);
+  if (!a) {
+    a = new Map();
+    coverCache.set(km, a);
+  }
+  let b = a.get(lon);
+  if (!b) {
+    if (coverCacheSize > 200000) {
+      coverCache.clear();
+      coverCacheSize = 0;
+      a = new Map();
+      coverCache.set(km, a);
+    }
+    b = new Map();
+    a.set(lon, b);
+  }
+  let res = b.get(lat);
+  if (!res) {
+    res = coverRaw(lon, lat, km);
+    b.set(lat, res);
+    coverCacheSize++;
+  }
+  return res;
+}
+function coverRaw(lon: number, lat: number, km: number): number[] {
+  const MARGIN = 1e-6; // degrees (floating-point safety)
+  const delta = km / EARTH_R; // angular radius (rad)
+  const dDeg = (delta * 180) / Math.PI + MARGIN;
+  const latMin = Math.max(-90, lat - dDeg);
+  const latMax = Math.min(90, lat + dDeg);
+  const phi = (lat * Math.PI) / 180;
+  let full = latMax >= 90 || latMin <= -90 || delta >= Math.PI / 2;
+  let dLon = 180;
+  if (!full) {
+    const x = Math.sin(delta) / Math.cos(phi);
+    if (x >= 1) full = true;
+    else dLon = (Math.asin(x) * 180) / Math.PI + MARGIN;
+  }
+  if (dLon >= 180) full = true;
+  const out: number[] = [];
+  const la0 = Math.floor((latMin + 90) / VIS_BIN_DEG), la1 = Math.floor((latMax + 90) / VIS_BIN_DEG);
+  let lo0: number, lo1: number;
+  if (full) {
+    lo0 = 0;
+    lo1 = LON_CELLS - 1;
+  } else {
+    lo0 = Math.floor((lon - dLon + 180) / VIS_BIN_DEG);
+    lo1 = Math.floor((lon + dLon + 180) / VIS_BIN_DEG);
+    if (lo1 - lo0 >= LON_CELLS - 1) {
+      lo0 = 0;
+      lo1 = LON_CELLS - 1;
+    }
+  }
+  // lo1 - lo0 < LON_CELLS here, so every (lon, lat) cell appears once
+  let wrapped = false;
+  for (let i = lo0; i <= lo1; i++) {
+    const li = ((i % LON_CELLS) + LON_CELLS) % LON_CELLS;
+    if (li !== i) wrapped = true;
+    for (let j = la0; j <= la1; j++) out.push(li * 1000 + j);
+  }
+  return wrapped ? out.sort((x, y) => x - y) : out;
+}
+
 const aroundCache = new Map<number, Map<number, Map<number, number[]>>>();
 /** All bin keys whose cells may contain points within `km` of (lon,lat). Memoized (pure). */
 export function binsAround(lon: number, lat: number, km: number): number[] {
