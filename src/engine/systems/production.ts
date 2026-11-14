@@ -21,7 +21,7 @@ import { charge, credit } from './ledger';
 import { nextId } from '../ids';
 import { schedule, unschedule } from './queue';
 import { awardXp, emit, toAll } from './events';
-import { buildingLevelDef, sumEffect } from './economy';
+import { buildingLevelDef, sumEffect, bumpEconomy } from './economy';
 import { moveClassOf } from './world';
 
 export interface Verdict {
@@ -253,6 +253,7 @@ export function completeJob(state: GameState, jobId: string, c: CountryId, hooks
   const j = cs.jobs[idx];
   if (j.endsAt === null || j.endsAt > state.clock.tick) return;
   cs.jobs.splice(idx, 1);
+  bumpEconomy(state);
   const st = S(state);
   let text = '';
   if (j.kind === 'construct') {

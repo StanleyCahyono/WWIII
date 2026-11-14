@@ -46,7 +46,7 @@ import { nextId } from '../ids';
 import { cmpId, stackLL, ustats, utype, hostileStacks as hostileStacksW, sortedStacks, enemyMap } from './world';
 import { distKm } from './mapindex';
 import { awardXp, emit, toAll } from './events';
-import { sumEffect } from './economy';
+import { sumEffect, bumpEconomy } from './economy';
 import { derived } from '../derived';
 
 export function stackEfficiency(n: number): number {
@@ -325,6 +325,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
           const loss = Math.min(city.condition, Math.round(sum * ROUND_DAMAGE_FACTOR * 2) / 1);
           if (loss > 0) {
             city.condition = Math.max(0, city.condition - loss);
+            bumpEconomy(state);
             fired.add(A.id);
             emit(state, { kind: 'bombardment', category: 'combat', node, private: { ...toAll([A.owner], `${A.name} bombarded ${city.name} (condition −${loss}).`), ...toAll([owner], `${city.name} was bombarded (condition −${loss}).`) }, public: { headline: `${city.name} comes under bombardment`, countries: [owner] } });
           }

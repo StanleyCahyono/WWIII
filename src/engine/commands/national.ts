@@ -35,6 +35,7 @@ import { announceDeparture, canJoin, createCoalitionInternal, joinCoalitionInter
 import { checkLaunch, launchInternal, type LaunchCheck } from '../systems/missiles';
 import { assignAgentInternal, snapshotReport } from '../systems/intel';
 import { charge, credit } from '../systems/ledger';
+import { bumpEconomy } from '../systems/economy';
 import { atWar, coalitionOf, grantLevel, levelAtLeast, sameCoalition } from '../systems/world';
 import { emit, toAll } from '../systems/events';
 import { nextId } from '../ids';
@@ -188,6 +189,7 @@ export const demolish: Handler<CommandOf<'demolish'>, { refund: ResM; newLevel: 
     if (p.newLevel <= 0) list.splice(idx, 1);
     else list[idx].level = p.newLevel;
     credit(state, cmd.country, 'refund', p.refund);
+    bumpEconomy(state);
     return { refund: p.refund };
   },
 };

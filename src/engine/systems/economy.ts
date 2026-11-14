@@ -133,9 +133,42 @@ export function allRates(state: GameState): Record<CountryId, CountryRates> {
 }
 
 /** Per-day rates for all countries in one pass (uncached). */
-export function computeRates(state: GameState): Record<CountryId, CountryRates> {
-  const out: Record<CountryId, CountryRates> = {};
-  for (const c of state.countryOrder) out[c] = { production: zero(), upkeepUnits: zero(), upkeepBuildings: zero(), occupation: zero(), consumption: zero(), net: zero() };
+/** Territory-derived part of the rates (production, building upkeep, occupation upkeep). */
+interface StaticRates {
+  production: ResM;
+  upkeepBuildings: ResM;
+  occupation: ResM;
+}
+const staticRatesCache = new WeakMap<GameState, { ev: number; fp: number; provs: object; cities: object; m: Record<CountryId, StaticRates> }>();
+/** Cheap structural fingerprint of everything that feeds territory output (guards missed bumps). */
+function econFingerprint(state: GameState): number {
+  let h = 0;
+  for (const k in state.cities) {
+    const c = state.cities[k];
+    h = (h * 31 + c.morale * 7 + c.condition * 13 + Math.round(c.population) + c.buildings.length * 101) | 0;
+    for (const b of c.buildings) h = (h * 17 + b.level * 3 + b.condition + b.type.length) | 0;
+  }
+  for (const p of state.provinces) {
+    if (!p) continue;
+    h = (h * 31 + p.changedAt + p.morale + p.buildings.length * 101 + (p.status === 'homeland' ? 1 : p.status === 'annexed' ? 2 : 3)) | 0;
+    for (const b of p.buildings) h = (h * 17 + b.level * 3 + b.condition) | 0;
+  }
+  return h;
+}
+/**
+ * Bump whenever anything feeding city/province output or building upkeep changes (ownership,
+ * status, buildings, condition, morale, population). Day changes bump it too.
+ */
+export function bumpEconomy(state: GameState): void {
+  state.ids.econv = (state.ids.econv ?? 0) + 1;
+}
+function staticRates(state: GameState): Record<CountryId, StaticRates> {
+  const ev = state.ids.econv ?? 0;
+  const fp = econFingerprint(state);
+  const c = staticRatesCache.get(state);
+  if (c && c.ev === ev && c.fp === fp && c.provs === state.provinces && c.cities === state.cities) return c.m;
+  const m: Record<CountryId, StaticRates> = {};
+  for (const cc of state.countryOrder) m[cc] = { production: zero(), upkeepBuildings: zero(), occupation: zero() };
   const occ = vecFromWhole(OCCUPATION_UPKEEP_PER_TIER);
   const bUp = (list: BuildingInstance[], acc: ResM) => {
     for (const b of list) {
@@ -145,26 +178,38 @@ export function computeRates(state: GameState): Record<CountryId, CountryRates> 
   };
   for (const p of state.provinces) {
     if (!p || !p.owner || p.control !== 'country') continue;
-    const r = out[p.owner];
+    const r = m[p.owner];
     if (!r) continue;
     addInto(r.production, provinceOutput(state, p));
-    bUp(p.buildings, r.upkeepBuildings);
+    if (p.buildings.length) bUp(p.buildings, r.upkeepBuildings);
   }
   for (const k of Object.keys(state.cities)) {
     const city = state.cities[k];
     const p = state.provinces[city.node];
     if (!p || !p.owner || p.control !== 'country') continue;
-    const r = out[p.owner];
+    const r = m[p.owner];
     if (!r) continue;
     addInto(r.production, cityOutput(state, city));
     bUp(city.buildings, r.upkeepBuildings);
     if (p.status === 'occupied') addInto(r.occupation, mul(occ, city.tier));
   }
+  staticRatesCache.set(state, { ev, fp, provs: state.provinces, cities: state.cities, m });
+  return m;
+}
+
+/** Per-day rates for all countries (territory part cached by the economy version; units summed). */
+export function computeRates(state: GameState): Record<CountryId, CountryRates> {
+  const st = staticRates(state);
+  const out: Record<CountryId, CountryRates> = {};
+  for (const c of state.countryOrder) {
+    const x = st[c];
+    out[c] = { production: { ...x.production }, upkeepUnits: zero(), upkeepBuildings: { ...x.upkeepBuildings }, occupation: { ...x.occupation }, consumption: zero(), net: zero() };
+  }
   // unit upkeep: per-stack vector cached until the roster changes
   for (const id of Object.keys(state.stacks)) {
-    const st = state.stacks[id];
-    const r = out[st.owner];
-    if (r) addInto(r.upkeepUnits, stackUpkeep(state, st));
+    const s = state.stacks[id];
+    const r = out[s.owner];
+    if (r) addInto(r.upkeepUnits, stackUpkeep(state, s));
   }
   for (const c of state.countryOrder) {
     const r = out[c];

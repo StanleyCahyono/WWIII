@@ -26,7 +26,7 @@ import { schedule } from './queue';
 import { distKm } from './mapindex';
 import { atWar, cmpId, sameCoalition, stackLL, utype , sortedStacks } from './world';
 import { emit, toAll } from './events';
-import { sumEffect } from './economy';
+import { sumEffect, bumpEconomy } from './economy';
 import { allocateDamage } from './combat';
 import { observesNode } from './visibility';
 import type { Verdict } from './production';
@@ -176,6 +176,7 @@ export function resolveLaunch(state: GameState, id: string): void {
   const ck = st.map.cityByNode.get(l.target);
   const city = ck ? state.cities[ck] : null;
   if (outcome === 'arrived_effect' || outcome === 'arrived_limited') {
+    bumpEconomy(state);
     const f = outcome === 'arrived_effect' ? 1 : 0.5;
     if (city) {
       city.condition = Math.max(0, Math.round(city.condition - mt.effect.conditionDelta * f));

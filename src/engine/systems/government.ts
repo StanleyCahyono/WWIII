@@ -26,7 +26,7 @@ import { streamRng } from '../rng';
 import { atWar, cmpId, hostileStacks, stacksReadonly, ustats, utype } from './world';
 import { awardXp, emit, toAll } from './events';
 import { nodeDist, other } from './mapindex';
-import { sumEffect } from './economy';
+import { sumEffect, bumpEconomy } from './economy';
 import { allocateDamage, combatUnits } from './combat';
 import { credit, charge } from './ledger';
 import { zero } from '../fixed';
@@ -89,6 +89,8 @@ export function transferNode(state: GameState, node: NodeId, to: CountryId | nul
   p.control = to ? 'country' : 'rebel';
   p.status = to && p.homeland === to ? 'homeland' : 'occupied';
   p.changedAt = state.clock.tick;
+  bumpEconomy(state);
+  state.ids.ownv = (state.ids.ownv ?? 0) + 1;
   invalidateDerived(state);
   for (const b of p.buildings) b.condition = Math.max(0, b.condition - CAPTURE_CONDITION_LOSS);
   const ck = m.cityByNode.get(node);
@@ -185,6 +187,7 @@ function approach(cur: number, target: number, step: number): number {
 
 /** Day-change government update: morale, population, revolts. */
 export function governmentDay(state: GameState, hooks: GovHooks): void {
+  bumpEconomy(state);
   const m = S(state).map;
   for (const p of state.provinces) {
     if (!p || p.control === 'outside') continue;
@@ -258,6 +261,7 @@ export function resolveUprising(state: GameState, cityKey: string, hooks: GovHoo
     return 'garrison_defeated';
   }
   city.morale = Math.min(100, city.morale + 5);
+  bumpEconomy(state);
   emit(state, { kind: 'uprising_suppressed', category: 'government', node: city.node, private: toAll([owner], `Uprising in ${city.name} suppressed by the garrison.`, { city: cityKey }), public: { headline: `Unrest in ${city.name} put down`, countries: [owner] } });
   return 'suppressed';
 }

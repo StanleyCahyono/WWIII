@@ -33,6 +33,8 @@ export interface ClockState {
 export interface Frame {
   view: ViewNoRules;
   drawings: PlanningDrawing[];
+  /** UI-private save preferences (tutorial progress etc.) — excluded from the sim hash. */
+  uiPrefs: Record<string, string | number | boolean>;
   meta: FrameMeta;
   clock: ClockState;
   /** Monotonic frame counter. */
@@ -142,6 +144,7 @@ export type QueryName =
   | 'publicProvince'
   | 'eventDetail'
   | 'hashInfo'
+  | 'profile'
   | 'rules';
 
 export type Envelope = { id: number } & Request;

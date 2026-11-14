@@ -76,7 +76,7 @@ export function levelAtLeast(l: DiploLevel, min: DiploLevel): boolean {
 export function coalitionOf(state: GameState, c: CountryId): Coalition | null {
   const ids = Object.keys(state.coalitions);
   if (!ids.length) return null;
-  const idx = derived(state, 'coMember', () => {
+  const idx = derived(state, `coMember:${state.ids.cov ?? 0}`, () => {
     const m = new Map<CountryId, string>();
     for (const id of ids.sort()) {
       const co = state.coalitions[id];
@@ -109,14 +109,26 @@ export function isFriendlyTerritory(state: GameState, c: CountryId, owner: Count
   return sameCoalition(state, c, owner) || levelAtLeast(grantLevel(state, owner, c), 'right_of_way');
 }
 /** Countries whose sensors `viewer` sees through (self, coalition, shared_intel grantors). Sorted. */
+const visionCache = new WeakMap<GameState, { key: string; m: Map<CountryId, CountryId[]> }>();
 export function visionSources(state: GameState, viewer: CountryId): CountryId[] {
-  return derived(state, `vision:${viewer}`, () => computeVisionSources(state, viewer));
+  const key = `${state.ids.grv ?? 0}|${state.ids.relv ?? 0}|${state.ids.cov ?? 0}|${Object.keys(state.coalitions).length}`;
+  let c = visionCache.get(state);
+  if (!c || c.key !== key) {
+    c = { key, m: new Map() };
+    visionCache.set(state, c);
+  }
+  let v = c.m.get(viewer);
+  if (!v) {
+    v = computeVisionSources(state, viewer);
+    c.m.set(viewer, v);
+  }
+  return v;
 }
 function computeVisionSources(state: GameState, viewer: CountryId): CountryId[] {
   const out = new Set<CountryId>([viewer]);
   const co = coalitionOf(state, viewer);
   if (co) for (const m of co.members) out.add(m.country);
-  const shared = derived(state, 'sharedIntel', () => {
+  const shared = derived(state, `sharedIntel:${state.ids.grv ?? 0}:${state.ids.relv ?? 0}`, () => {
     const m = new Map<CountryId, CountryId[]>();
     for (const k of Object.keys(state.grants)) {
       if (state.grants[k].level !== 'shared_intel') continue;

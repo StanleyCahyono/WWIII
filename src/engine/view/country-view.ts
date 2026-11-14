@@ -42,6 +42,7 @@ import { trustOf } from '../systems/diplomacy';
 import { bookView, type BookLevel } from '../systems/market';
 import { countryScores, thresholdFor } from '../systems/score';
 import { routeEtaTick } from '../systems/movement';
+import { alliedContacts } from '../systems/visibility';
 import { forceSummary, type ForceSummary } from '../systems/readiness';
 import { RULES } from '../rules';
 import { derived, invalidateDerived } from '../derived';
@@ -222,6 +223,7 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
   const contacts: ContactView[] = [];
   const table = state.contacts[viewer] ?? {};
   for (const k of Object.keys(table).sort()) contacts.push(projectContact(table[k], t));
+  for (const c of alliedContacts(state, viewer)) if (!table[c.id]) contacts.push(projectContact(c, t));
   const srcs = new Set(visionSources(state, viewer));
   const reports: CountryView['reports'] = [];
   for (const r of Object.values(state.reports)) {

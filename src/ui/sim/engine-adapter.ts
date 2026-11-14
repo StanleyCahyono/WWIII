@@ -238,6 +238,11 @@ export function query(state: GameState, viewer: string, name: QueryName, args: u
       return { hash: E.stateHash(state), rng: { ...state.rng }, tick: state.clock.tick };
     case 'rules':
       return E.RULES;
+    case 'profile': {
+      const p = E.scenarioOf(state).profiles[viewer];
+      if (!p) return null;
+      return { id: p.id, name: p.name, doctrine: p.doctrine, summary: p.summary, startDifficulty: p.startDifficulty, tradeNeeds: p.tradeNeeds, openingDecisions: p.openingDecisions, template: p.template };
+    }
     default:
       throw new Error(`Unknown query ${name}`);
   }

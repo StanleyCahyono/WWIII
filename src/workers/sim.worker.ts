@@ -51,6 +51,7 @@ function buildFrame(): Frame | null {
   return {
     view: v,
     drawings: state.ui.planning.filter((d) => d.author === viewer).map((d) => ({ ...d, points: d.points.map((p) => [p[0], p[1]] as [number, number]) })),
+    uiPrefs: { ...state.ui.prefs },
     meta: {
       campaignId,
       campaignName,

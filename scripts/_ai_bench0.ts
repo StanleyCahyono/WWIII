@@ -1,0 +1,13 @@
+import { buildWorld120Scenario, createCampaign, advance, IdleController, BasicController } from '../src/engine/index';
+import { loadMapData } from '../src/data/map-index';
+import { CATALOG } from '../src/data/catalog/index';
+import { MANIFEST } from '../src/data/countries';
+import { PROFILES } from '../src/data/profiles/index';
+const sc = buildWorld120Scenario({ map: loadMapData(), catalog: CATALOG as any, manifest: MANIFEST, profiles: PROFILES });
+const s = createCampaign({ seed: 1, humanCountry: null, scenario: sc });
+console.log('seats', sc.seats.length, 'nodes', sc.map.nodes.length, 'stacks', Object.keys(s.stacks).length);
+let t = performance.now(); advance(s, 1440, { fallback: IdleController }); console.log('idle day', (performance.now()-t).toFixed(0));
+t = performance.now(); advance(s, 1440, { fallback: IdleController }); console.log('idle day2', (performance.now()-t).toFixed(0));
+let calls = 0;
+const empty = { decide: () => { calls++; return []; } };
+t = performance.now(); advance(s, 1440, { fallback: empty }); console.log('empty-ctl day', (performance.now()-t).toFixed(0), 'calls', calls);
