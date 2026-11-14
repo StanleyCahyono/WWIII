@@ -7,6 +7,7 @@ import { NODES, unitById, buildingById, countryName, placeName, TERRAIN_LABEL, R
 import { gameTime, duration, ageLabel, milli, num, signed, cap, dayOf, hourLabel } from '../format';
 import { exec } from '../sim/exec';
 import { cycle } from '../actions';
+import { AttackDialog, PatrolDialog, RebaseDialog, DelayDialog, EmbarkDialog, RetreatDialog, LaunchDialog, DeployableDialog, AircraftPanel } from './Orders';
 import type { StackView } from '../../engine/index';
 import type { Frame } from '../sim/protocol';
 import type { MapObject } from '../map/objects';
@@ -139,6 +140,15 @@ function NoSelection({ frame }: { frame: Frame }) {
   );
 }
 
+function airReason(s: StackView, okStates: string[]): string | null {
+  const a = s.air;
+  if (!a) return 'Not an aircraft formation.';
+  if (a.grounded) return 'Grounded: the home airfield is disabled.';
+  if (a.state === 'refueling') return `Refuelling until ${gameTime(a.refuelUntil ?? 0)}.`;
+  if (!okStates.includes(a.state)) return a.state === 'on_station' ? 'Aircraft must be landed to rebase.' : 'Aircraft are in transit.';
+  return null;
+}
+
 function hpOf(s: StackView) {
   const hp = s.units.reduce((a, u) => a + u.hp, 0);
   const mx = s.units.reduce((a, u) => a + u.maxHp, 0);
@@ -157,6 +167,11 @@ function stackSpeed(s: StackView): number {
 
 export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame: Frame }) {
   const [split, setSplit] = useState(false);
+  const [dlg, setDlg] = useState<null | 'attack' | 'patrol' | 'rebase' | 'delay' | 'embark' | 'retreat' | 'launch'>(null);
+  const [deploy, setDeploy] = useState<string | null>(null);
+  const isAir = s.moveClass === 'air' && !!s.air;
+  const deployables = s.units.filter((u) => !!unitById.get(u.type)?.deployable);
+  const canLaunch = s.units.some((u) => ['missile_launcher', 'naval', 'heavy', 'submarine'].includes(unitById.get(u.type)?.family ?? '')) && Object.values(frame.view.self.missiles).some((m) => m.ready > 0);
   const v = frame.view;
   const { frac } = hpOf(s);
   const node = s.pos.kind === 'node' ? s.pos.node : null;
@@ -247,38 +262,49 @@ export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame:
         ) : (
           <p className="muted" style={{ margin: 0 }}>Holding position — no orders.</p>
         )}
-        {s.air && (
-          <dl className="kv">
-            <dt>Air state</dt>
-            <dd>{cap(s.air.state)}</dd>
-            <dt>Home base</dt>
-            <dd>{'node' in s.air.home ? placeName(s.air.home.node) : 'Carrier'}</dd>
-            {s.air.patrol && (
-              <>
-                <dt>Patrol</dt>
-                <dd>
-                  {s.air.patrol.radiusKm} km until {gameTime(s.air.patrol.until)}
-                </dd>
-              </>
-            )}
-            {s.air.refuelUntil && (
-              <>
-                <dt>Refuelling until</dt>
-                <dd>{gameTime(s.air.refuelUntil)}</dd>
-              </>
-            )}
-          </dl>
-        )}
+        {s.air && <AircraftPanel s={s} />}
       </div>
       <div className="sect">
         <h4>Authorized actions</h4>
         <div className="actions">
-          <ActionButton className="btn primary" disabledReason={ro ? 'Read-only campaign' : null} onClick={() => ui.patch({ mode: { kind: 'move', stacks: [s.id], waypoints: [], dest: null } })} data-testid="action-move">
-            Move…
+          {!isAir && (
+            <ActionButton className="btn primary" disabledReason={ro ? 'Read-only campaign' : null} onClick={() => ui.patch({ mode: { kind: 'move', stacks: [s.id], waypoints: [], dest: null } })} data-testid="action-move">
+              Move…
+            </ActionButton>
+          )}
+          {!isAir && (
+            <ActionButton disabledReason={ro ? 'Read-only campaign' : s.pos.kind === 'air' ? 'Airborne.' : null} onClick={() => setDlg('attack')} data-testid="action-attack">
+              Attack…
+            </ActionButton>
+          )}
+          {isAir && (
+            <ActionButton className="btn primary" disabledReason={ro ? 'Read-only campaign' : airReason(s, ['landed', 'on_station'])} onClick={() => setDlg('patrol')} data-testid="action-patrol">
+              Patrol…
+            </ActionButton>
+          )}
+          {isAir && (
+            <ActionButton disabledReason={ro ? 'Read-only campaign' : airReason(s, ['landed'])} onClick={() => setDlg('rebase')} data-testid="action-rebase">
+              Rebase / ferry…
+            </ActionButton>
+          )}
+          <ActionButton disabledReason={ro ? 'Read-only campaign' : !order && !(isAir && s.air?.state === 'on_station') ? 'No active order to stop.' : null} onClick={() => exec({ type: 'stop', stack: s.id }, `${s.name}: orders cancelled.`)} data-testid="action-stop">
+            {isAir && s.air?.state === 'on_station' ? 'Return to base' : 'Stop'}
           </ActionButton>
-          <ActionButton disabledReason={ro ? 'Read-only campaign' : !order ? 'No active order to stop.' : null} onClick={() => exec({ type: 'stop', stack: s.id }, `${s.name}: orders cancelled.`)} data-testid="action-stop">
-            Stop
-          </ActionButton>
+          {!isAir && (
+            <ActionButton disabledReason={ro ? 'Read-only campaign' : !order ? 'No active order to delay.' : null} onClick={() => setDlg('delay')} data-testid="action-delay">
+              Delay…
+            </ActionButton>
+          )}
+          {s.moveClass === 'ground' && (
+            <ActionButton disabledReason={ro ? 'Read-only campaign' : s.pos.kind !== 'node' ? 'Only from a province or sea zone.' : node !== null && NODES[node].kind === 'land' && !NODES[node].coastal ? 'Embarking requires a coastal province.' : null} onClick={() => setDlg('embark')} data-testid="action-embark">
+              {node !== null && NODES[node].kind === 'sea' ? 'Disembark…' : 'Embark…'}
+            </ActionButton>
+          )}
+          {!isAir && (
+            <ActionButton disabledReason={ro ? 'Read-only campaign' : s.pos.kind !== 'node' ? 'Retreat is possible only while engaged at a province.' : null} onClick={() => setDlg('retreat')} data-testid="action-retreat">
+              Retreat…
+            </ActionButton>
+          )}
           <ActionButton disabledReason={ro ? 'Read-only campaign' : s.units.length < 2 ? 'A single unit cannot be split.' : s.pos.kind !== 'node' ? 'Split only at a province or sea zone.' : null} onClick={() => setSplit(true)}>
             Split…
           </ActionButton>
@@ -288,7 +314,31 @@ export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame:
           <ActionButton disabledReason={ro ? 'Read-only campaign' : null} onClick={() => exec({ type: 'setRefit', stack: s.id, refit: !s.refit }, s.refit ? 'Refit ended.' : 'Refit started.')}>
             {s.refit ? 'End refit' : 'Refit'}
           </ActionButton>
+          {canLaunch && (
+            <ActionButton disabledReason={ro ? 'Read-only campaign' : null} onClick={() => setDlg('launch')} data-testid="action-launch">
+              Launch missile…
+            </ActionButton>
+          )}
         </div>
+        {deployables.length > 0 && (
+          <div className="card" data-testid="deployables">
+            <strong>Deployables</strong>
+            {deployables.map((u) => {
+              const ut = unitById.get(u.type)!;
+              const cd = u.cooldownUntil && u.cooldownUntil > v.tick ? u.cooldownUntil : null;
+              return (
+                <div key={u.id} className="row wrap" style={{ marginTop: 4 }}>
+                  <span className="grow">
+                    {ut.name} · {u.uses ?? 0} use(s) left{cd ? ` · cooldown until ${gameTime(cd)}` : ' · ready'}
+                  </span>
+                  <ActionButton className="btn small" disabledReason={ro ? 'Read-only campaign' : (u.uses ?? 0) <= 0 ? 'No uses remaining.' : cd ? `On cooldown until ${gameTime(cd)}.` : null} onClick={() => setDeploy(u.id)}>
+                    Use…
+                  </ActionButton>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <label className="row" style={{ gap: 6, fontSize: 13 }}>
           Fire control
           <select value={s.firePolicy} disabled={ro} onChange={(e) => exec({ type: 'setFirePolicy', stack: s.id, policy: e.target.value as 'hold' | 'return_fire' | 'engage' })}>
@@ -327,6 +377,14 @@ export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame:
         </table>
       </div>
       {split && <SplitDialog s={s} onClose={() => setSplit(false)} />}
+      {dlg === 'attack' && <AttackDialog s={s} onClose={() => setDlg(null)} />}
+      {dlg === 'patrol' && <PatrolDialog s={s} onClose={() => setDlg(null)} />}
+      {dlg === 'rebase' && <RebaseDialog s={s} onClose={() => setDlg(null)} />}
+      {dlg === 'delay' && <DelayDialog s={s} onClose={() => setDlg(null)} />}
+      {dlg === 'embark' && <EmbarkDialog s={s} onClose={() => setDlg(null)} />}
+      {dlg === 'retreat' && <RetreatDialog s={s} onClose={() => setDlg(null)} />}
+      {dlg === 'launch' && <LaunchDialog onClose={() => setDlg(null)} />}
+      {deploy && <DeployableDialog s={s} unitId={deploy} onClose={() => setDeploy(null)} />}
     </>
   );
 }

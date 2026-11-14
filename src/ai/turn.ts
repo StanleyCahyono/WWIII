@@ -77,15 +77,23 @@ export class Turn {
     return this.view.tick;
   }
 
-  /** Can we pay `cost` (milli) while keeping the upkeep reserve? */
-  affordable(cost: Partial<ResM>, useReserve = false): boolean {
+  /** Resources (milli shortfall) that blocked a desired investment this turn — the market covers them. */
+  readonly blocked: Partial<ResM> = {};
+
+  /** Can we pay `cost` (milli) while keeping the upkeep reserve? Records what blocked us. */
+  affordable(cost: Partial<ResM>, useReserve = false, record = true): boolean {
+    let ok = true;
     for (const r of RESOURCES) {
       const c = cost[r] ?? 0;
       if (c <= 0) continue;
       const floor = useReserve ? 0 : this.reserve[r];
-      if (this.budget[r] - c < floor) return false;
+      const gap = floor + c - this.budget[r];
+      if (gap > 0) {
+        ok = false;
+        if (record) this.blocked[r] = Math.max(this.blocked[r] ?? 0, gap);
+      }
     }
-    return true;
+    return ok;
   }
 
   /**
@@ -105,7 +113,7 @@ export class Turn {
       return null;
     }
     const cost = costOf(c, v.preview);
-    if (cost && !this.affordable(cost, opts.useReserve)) return null;
+    if (cost && !this.affordable(cost, opts.useReserve, false)) return null;
     if (cost) for (const r of RESOURCES) this.budget[r] -= cost[r] ?? 0;
     this.out.push(c);
     this.mem.counters[c.type] = (this.mem.counters[c.type] ?? 0) + 1;

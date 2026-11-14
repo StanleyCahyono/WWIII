@@ -44,6 +44,8 @@ export interface MapInput {
   observedNodes: Set<number>;
   previewMarker: { lonlat: [number, number]; label: string } | null;
   alertIds: Set<string>;
+  launches?: { id: string; from: [number, number] | null; to: [number, number]; progress: number; label: string }[];
+  patrols?: { center: [number, number]; km: number; label: string }[];
 }
 
 export interface Hit {
@@ -477,6 +479,7 @@ export class MapRenderer {
       this.drawPlaces(input);
       if (this.prefs.symbols) this.drawObjects(input);
       else this.drawObjects({ ...input, objects: input.objects.filter((o) => input.selected.has(o.id)) });
+      this.drawStrategic(input);
       this.drawLocator(input);
       if (input.previewMarker) this.drawPreviewMarker(input.previewMarker);
     }
@@ -1052,6 +1055,62 @@ export class MapRenderer {
       this.text(o.label.slice(0, 22), ex - Math.cos(ang) * 22, ey - Math.sin(ang) * 22 + 4, { size: 11, color: this.theme.select });
       this.hits.push({ x: ex - 12, y: ey - 12, w: 24, h: 24, kind: 'object', ids: [o.id], label: `Locate ${o.label}` });
     }
+  }
+
+  /** Patrol footprints and abstract missile origin→sector lines (illustration only, no steering). */
+  private drawStrategic(input: MapInput) {
+    const ctx = this.ctx;
+    ctx.save();
+    for (const p of input.patrols ?? []) {
+      const r = p.km / kmPerPx(this.cam, p.center[1]);
+      const ry = (p.km / 111.32) * this.cam.z;
+      const y = this.sy(p.center[1]);
+      for (const x of this.sx(p.center[0])) {
+        ctx.strokeStyle = 'rgba(120,200,255,0.8)';
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(x, y, Math.max(4, r), Math.max(4, ry), 0, 0, Math.PI * 2);
+        ctx.stroke();
+        if (this.zoomState !== 'world') this.text(p.label, x, y - ry - 4, { size: 10.5, color: 'rgba(160,215,255,1)' });
+      }
+    }
+    ctx.setLineDash([]);
+    for (const l of input.launches ?? []) {
+      const ty = this.sy(l.to[1]);
+      for (const tx of this.sx(l.to[0])) {
+        if (l.from) {
+          const fx = tx - dLon(l.to[0], l.from[0]) * this.cam.z;
+          const fy = this.sy(l.from[1]);
+          ctx.strokeStyle = 'rgba(255,140,90,0.85)';
+          ctx.setLineDash([2, 5]);
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(fx, fy);
+          ctx.lineTo(tx, ty);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          const px = fx + (tx - fx) * l.progress, py = fy + (ty - fy) * l.progress;
+          ctx.fillStyle = '#ff8c5a';
+          ctx.strokeStyle = '#000';
+          ctx.beginPath();
+          ctx.arc(px, py, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+        // target sector marker
+        ctx.strokeStyle = '#ff8c5a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(tx - 7, ty - 7);
+        ctx.lineTo(tx + 7, ty + 7);
+        ctx.moveTo(tx + 7, ty - 7);
+        ctx.lineTo(tx - 7, ty + 7);
+        ctx.stroke();
+        this.text(l.label, tx + 10, ty + 4, { size: 11, align: 'left', color: '#ffb08a' });
+      }
+    }
+    ctx.restore();
   }
 
   private drawPreviewMarker(m: { lonlat: [number, number]; label: string }) {

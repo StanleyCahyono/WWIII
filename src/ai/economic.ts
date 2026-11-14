@@ -359,7 +359,36 @@ function market(t: Turn): void {
   }
   if (t.marketOpen >= 4) return;
   const openRes = new Set(mine.map((o) => o.resource));
-  // deficits first (cover shortages), then surpluses (supply liquidity)
+  // 1. buy inputs that blocked a planned investment this review (creates real demand/liquidity)
+  for (const r of RESOURCES) {
+    const gap = t.blocked[r] ?? 0;
+    if (r === 'money' || gap <= 0 || openRes.has(r) || t.full) continue;
+    if ((t.mem.cooldown[`mkt:buy:${r}`] ?? 0) > t.now) continue;
+    const ref = Math.round((t.ix.price[r] ?? 1) * 1000);
+    const bestAsk = v.market.books[r]?.asks?.[0]?.price ?? null;
+    const price = bestAsk !== null && bestAsk <= ref * 1.3 ? bestAsk : Math.round(ref * 1.1);
+    const maxMoney = Math.max(0, t.budget.money - t.reserve.money) * 0.4;
+    const qty = Math.min(Math.ceil(gap / 1000), Math.floor(maxMoney / price));
+    if (qty < 1) continue;
+    if (t.add({ type: 'marketOrder', country: t.me, side: 'buy', resource: r, qty, price }, 'economic', 'market_buy', `buy ${r} for a planned investment (short ${Math.ceil(gap / 1000)})`)) { t.marketOpen++; return; }
+  }
+  // 2. cash-starved: sell the largest surplus competitively, even into a crowded book
+  if ((t.blocked.money ?? 0) > 0) {
+    const sur = (RESOURCES.filter((r) => r !== 'money' && !openRes.has(r) && !t.mem.plan.shortages.includes(r)) as Resource[])
+      .map((r) => ({ r, ex: (t.res[r]?.stock ?? 0) - Math.max(t.reserve[r] * 3, (t.res[r]?.consumptionPerDay ?? 0) * 8) }))
+      .filter((x) => x.ex > 20_000 && (t.res[x.r]?.netPerDay ?? 0) >= 0)
+      .sort((a, b) => b.ex * (t.ix.price[b.r] ?? 1) - a.ex * (t.ix.price[a.r] ?? 1) || (a.r < b.r ? -1 : 1))[0];
+    if (sur && (t.mem.cooldown[`mkt:sell:${sur.r}`] ?? 0) <= t.now) {
+      const ref = Math.round((t.ix.price[sur.r] ?? 1) * 1000);
+      const book = v.market.books[sur.r];
+      const bestBid = book?.bids?.[0]?.price ?? null;
+      const bestAsk = book?.asks?.[0]?.price ?? null;
+      const price = bestBid !== null && bestBid >= ref * 0.7 ? bestBid : Math.max(Math.round(ref * 0.6), bestAsk !== null ? Math.round(bestAsk * 0.98) : Math.round(ref * 0.95));
+      const qty = Math.floor((sur.ex * 0.3) / 1000);
+      if (qty >= 5 && t.add({ type: 'marketOrder', country: t.me, side: 'sell', resource: sur.r, qty, price }, 'economic', 'market_sell', `raise money: sell ${sur.r} surplus competitively`)) { t.marketOpen++; return; }
+    }
+  }
+  // 3. deficits first (cover shortages), then surpluses (supply liquidity)
   const order = [...RESOURCES].sort((x, y) => Number(t.mem.plan.shortages.includes(y)) - Number(t.mem.plan.shortages.includes(x)));
   for (const r of order) {
     if (r === 'money' || t.full) continue;

@@ -269,6 +269,7 @@ export function CampaignPanel() {
           <li>Unknown contacts reveal only what the observation justifies; reports are frozen snapshots with an expiry.</li>
         </ul>
       </div>
+      <CareerLedger />
       <div className="row">
         <button type="button" className="btn" onClick={() => ui.patch({ panel: 'score' })}>
           Standings
@@ -277,6 +278,40 @@ export function CampaignPanel() {
           Save and return to campaigns
         </button>
       </div>
+    </div>
+  );
+}
+
+function CareerLedger() {
+  const q = useQuery<{ xp: number; entries: { event: string; kind: string; xp: number; at: number }[] }>('career');
+  return (
+    <div className="card" data-testid="career">
+      <h4>Career ledger (local, separate from campaign VP)</h4>
+      <p style={{ margin: '4px 0' }}>
+        <strong>{q.data?.xp ?? 0} XP</strong> <span className="muted">— earned once per recorded event (captures, unit defeats, completed jobs); replaying a save never re-awards it and it never counts toward victory points.</span>
+      </p>
+      {q.data && q.data.entries.length > 0 ? (
+        <table className="data">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Kind</th>
+              <th className="num">XP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {q.data.entries.slice(0, 30).map((e) => (
+              <tr key={e.event + e.kind}>
+                <td>{gameTime(e.at)}</td>
+                <td>{cap(e.kind)}</td>
+                <td className="num">+{e.xp}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="muted" style={{ margin: 0 }}>No career entries yet.</p>
+      )}
     </div>
   );
 }

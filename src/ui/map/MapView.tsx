@@ -104,6 +104,10 @@ function buildInput(frame: Frame, objects: MapObject[], extra: { routes: RouteLi
   let selectedNode: number | null = null;
   if (sel?.kind === 'city') selectedNode = sel.node;
   else if (sel?.kind === 'province') selectedNode = sel.node;
+  const launches = (v.launches as unknown as { id: string; from: [number, number] | null; to: [number, number] | null; launchedAt: number; arriveAt: number; knowledge: string; mine: boolean; missile: string }[])
+    .filter((l) => l.to && (l.knowledge === 'in_flight' || l.knowledge === 'incoming'))
+    .map((l) => ({ id: l.id, from: l.from, to: l.to as [number, number], progress: Math.max(0, Math.min(1, (v.tick - l.launchedAt) / Math.max(1, l.arriveAt - l.launchedAt))), label: l.mine ? `Strike in flight · ${l.arriveAt - v.tick} min` : 'Incoming strike' }));
+  const patrols = v.stacks.filter((s) => s.air?.patrol).map((s) => ({ center: s.air!.patrol!.center, km: s.air!.patrol!.radiusKm, label: `${s.name} patrol` }));
   const alertIds = new Set<string>();
   for (const o of objects) if (o.kind === 'contact' && o.affiliation === 'hostile' && o.node !== null && v.owners[o.node] === v.viewer) alertIds.add(o.id);
   return {
@@ -125,6 +129,8 @@ function buildInput(frame: Frame, objects: MapObject[], extra: { routes: RouteLi
     observedNodes: observed,
     previewMarker: extra.preview,
     alertIds,
+    launches,
+    patrols,
   };
 }
 

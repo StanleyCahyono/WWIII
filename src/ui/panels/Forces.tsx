@@ -4,7 +4,7 @@ import { useObjects } from '../map/MapView';
 import { select, centerOn, openPanel, backPanel, ui } from '../state/ui';
 import { unitById, placeName, missileById, techById, TERRAIN_LABEL, buildingById } from '../data/static';
 import { num, resM, duration, cap, gameTime } from '../format';
-import { exec } from '../sim/exec';
+import { MissileProgramTable } from '../components/Orders';
 import { TARGET_CLASSES, TERRAINS } from '../../engine/data-types';
 
 interface Force { fielded: number; ready: number; committed: number; inRefit: number; units: number; stacks: number; maintenanceUsed: number; maintenanceCapacity: number; byDomain: Record<string, { units: number; fielded: number; ready: number }> }
@@ -100,44 +100,7 @@ export function ForcesPanel() {
         </table>
       )}
       <h3>Strategic inventory</h3>
-      {missiles.length === 0 ? (
-        <p className="muted">No missile programs. Research a missile blueprint (strategic/hypersonic branches) to start one; only completed production creates inventory.</p>
-      ) : (
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Program</th>
-              <th>Maturity</th>
-              <th className="num">Ready</th>
-              <th className="num">Produced</th>
-              <th className="num">Expended</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {missiles.map(([id, inv]) => {
-              const mt = missileById.get(id);
-              return (
-                <tr key={id}>
-                  <td>
-                    {mt?.name ?? id}
-                    <div className="muted" style={{ fontSize: 11.5 }}>{mt?.flightFamily} · {mt?.speedClass} · batch {mt?.batchSize} · ceiling {mt?.inventoryCeiling}</div>
-                  </td>
-                  <td>{cap(inv.maturity)}</td>
-                  <td className="num">{inv.ready}</td>
-                  <td className="num">{inv.produced}</td>
-                  <td className="num">{inv.expended}</td>
-                  <td>
-                    <ActionButton className="btn small" disabledReason={ro ? 'Read-only campaign' : inv.maturity === 'prototype' ? 'Prototype — complete qualification research first.' : null} onClick={() => exec({ type: 'produceMissile', missile: id, batches: 1 }, `Production queued: ${mt?.name}.`)}>
-                      Produce batch
-                    </ActionButton>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
+      <MissileProgramTable />
     </div>
   );
 }
