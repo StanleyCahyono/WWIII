@@ -13,7 +13,7 @@ the code wins. All numbers are fictional game-balance values._
 | `src/data/profiles/relations.ts` | Fictional blocs and bilateral pairs → symmetric initial relations and trust |
 | `americas.ts`, `europe.ts`, `africa.ts`, `west-central-asia.ts`, `asia.ts`, `oceania.ts` | The 120 authored specs (22 + 34 + 18 + 22 + 21 + 3) |
 | `scripts/opening-power-report.ts` | `npm run report:power` → `docs/reports/opening-power.md` / `.json` |
-| `tests/profiles/*.test.ts` | Data integrity (26 tests) and opening-save checks W03/W04/W08 (14 tests) |
+| `tests/profiles/*.test.ts` | Data integrity (26 tests) and opening-save checks W03/W04/W08 (15 tests) |
 
 ## How a profile is built
 
@@ -32,7 +32,7 @@ maintenance slots, trade needs, 2–3 opening decisions and personality. `buildP
    removed from landlocked seats and non-port cities.
 3. **Technologies.** Template seeds (naval seeds dropped when landlocked) + authored seeds + the unlock/level tech of
    every fielded unit, **closed over prerequisites**. Licensed techs keep the `licensed` lineage.
-4. **Balance — quantities only.** Conservative daily production (opening morale, no building production multipliers)
+4. **Balance — quantities only.** Conservative daily production (opening morale, no building or tech output multipliers, √population yields as in the engine)
    must cover the authored unit + building upkeep by ≥ 15 % for every resource except declared trade needs. A shortfall
    is added to the base output of cities whose functions produce that resource. Trade needs are held at ≤ 85 % of
    upkeep even under the engine's (larger) multiplier reading, so the deficit is visible in the opening forecast.
@@ -84,9 +84,9 @@ Every contrast is carried by city and inventory records, not by multipliers.
 
 | Seat | Contrast | Records that express it |
 | --- | --- | --- |
-| CHN | Deep industrial opening | Arms Industry 3 at Shanghai, Guangzhou, Chongqing; Arms Industry 2 at Tianjin, Wuhan, Chengdu, Shenyang, Shenzhen; Electronics Plant 4 at Shenzhen; Refinery 3 at Daqing; Local Industry on 3 rare and 4 component deposits. Leads the industrial dimension (216,135). The Qingdao **Training Carrier Group** sails without carrier aviation (decision: research Carrier Aviation). |
+| CHN | Deep industrial opening | Arms Industry 3 at Shanghai, Guangzhou, Chongqing; Arms Industry 2 at Tianjin, Wuhan, Chengdu, Shenyang, Shenzhen; Electronics Plant 4 at Shenzhen; Refinery 3 at Daqing; Local Industry on 3 rare and 4 component deposits; logistics hubs at Shanghai, Guangzhou, Wuhan, Hong Kong, six maintenance depots, Sealift I–II, a strategic airlift division. Leads industry (143,672) and mobility (463,498) among all seats, including the U.S. The Qingdao **Training Carrier Group** sails without carrier aviation (decision: research Carrier Aviation). |
 | RUS | Strong land forces | 1st Guards Tank Army and 4th Guards Tank Division (Moscow), tank divisions at Rostov, Volgograd, Yekaterinburg, Khabarovsk, St Petersburg, Kaliningrad (24 battle tanks), 24 mechanized battalions, 6 air-assault battalions, 8 self-propelled + 6 rocket artillery, 10 SAM + theatre defence, 6 heavy bombers. Leads ready formations among peers (300,872). Four separate fleets (Murmansk Naval Base 4, Vladivostok, Sevastopol, Kaliningrad). Tyumen Refinery 3, Norilsk/Yakutsk mining. |
-| IND | Scale and competing infrastructure | Largest manpower base (≈24,000/day from population); Mumbai Naval Base 5 (carrier, no air wing), Bengaluru Research Lab 2 + Electronics Plant 2, two frontier corps (14th Mountain Corps at Leh, 11th Corps at Amritsar); a declared **fuel** trade need. Decisions trade Mumbai naval base vs Bengaluru lab vs northern logistics. |
+| IND | Scale and competing infrastructure | Large manpower base (≈7,000/day, second only to China); Mumbai Naval Base 5 (carrier, no air wing), Bengaluru Research Lab 2 + Electronics Plant 2, two frontier corps (14th Mountain Corps at Leh, 11th Corps at Amritsar); a declared **fuel** trade need. Decisions trade Mumbai naval base vs Bengaluru lab vs northern logistics. |
 | JPN | Technologically capable maritime start | Tokyo Research Lab 3 + Kyoto Research Lab 2, Electronics Plants at Tokyo/Fukuoka, Yokohama Naval Base 4 + Maintenance Depot 2, Hiroshima Naval Base 3, destroyers/submarines/ASW helicopters, theatre defence at Tokyo, Amphibious Rapid Deployment Brigade at Naha. **Fuel** trade need. |
 | FRA / GBR | Advanced but smaller rosters | ≈35 units each (vs 152–172 for CHN/RUS/USA) but 32–35 starting techs, Research Lab 3 in the capital, one carrier each: FRA at Toulon (Naval Base 5) with a domestic carrier air group; GBR at Portsmouth (Naval Base 5) with **licensed** carrier aviation (`licensed: ['nav_carrier_aviation']`). Strategic airlift (Lift II) and commando units. |
 | TUR | Balanced regional industry | Arms Industry at Istanbul (2), Izmir, Bursa, Ankara; Bursa Electronics Plant; Ankara Research Lab; Istanbul Naval Base 3 on the Straits; combat drones (`rec_uav`), marines, submarines; 42 units. |
@@ -101,11 +101,11 @@ Every contrast is carried by city and inventory records, not by multipliers.
 
 | SPEC family | Data in the U.S. profile / opening save | Decision in the save |
 | --- | --- | --- |
-| Air mobility and support | Techs `mob_lift_1`, `mob_strategic_airlift_2` (2nd-tier transport node), `mob_refuel_support`; profile lift 80 + 12 from techs = **92** (highest; next is 22); 60th and 62nd Airlift Wings (7 airlifters), 6th and 168th Air Refueling Wings (5 tankers). | "Allocate strategic lift" (forces): lift to a partner delays the Detroit/Chicago reinforcement. |
+| Air mobility and support | Techs `mob_lift_1`, `mob_strategic_airlift_2` (2nd-tier transport node), `mob_refuel_support`; profile lift 40 + 12 from techs + 8 from logistics hubs + 21 from fielded airlifters = **81 effective lift** (highest; China 64, France/UK 28); 60th and 62nd Airlift Wings (7 airlifters), 6th and 168th Air Refueling Wings (5 tankers). | "Allocate strategic lift" (forces): lift to a partner delays the Detroit/Chicago reinforcement. |
 | Naval aviation | Techs `nav_carrier`, `nav_carrier_aviation` (+ `nav_destroyer`, `avi_strike_fighter` prereqs), `nav_cruiser`, `nav_fleet_logistics`. **4 carriers** (Carrier Strike Groups 2 and 8 at Norfolk, 3 and 9 at San Diego, both Naval Base 5), Carrier Air Wings 1 and 2 (6 carrier fighters + 6 carrier strikers), ASW helicopter wings, 4 cruisers, 10 destroyers, 4 frigates, 8 attack submarines. Ships (naval bases), air wings (air bases) and refits (maintenance depots) are separate facilities and queues. | "Fund fleet readiness or close the electronics gap" (economy). |
 | Research and systems integration | `ind_systems_integration_1/2` and `ind_advanced_electronics_1/2` — **one node ahead** (no other seat holds a level-2 node of either branch). Paid throughput: Research Labs San Francisco 4, Boston 4, Austin 3, Washington 2 (electronics + money upkeep); 9 research slots. | "Choose the research priority" (research): SI III / AE III / glide blueprint; labs compete for imported electronics. |
 | Observation and coordination | `rec_broad_area_recon` (+ `rec_awacs`, `rec_uav`, `rec_mobile_radar`), `rec_track_comparison`, `rec_report_processing`; 9th Broad-Area Reconnaissance Wing (2 aircraft) at San Francisco, 552nd Early Warning Wing, Northern Radar Group. | — (sensors still need valid observation). |
-| Industrial sustainment | Broad production (30 cities, the largest authored output); maintenance capacity **56** slots (profile 12 + base 2 + `ind_sustainment_1` 2 + Maintenance Depots 40 at Norfolk 5, San Diego 4, Seattle 4, Dallas 3, Houston 3, Los Angeles 3, Philadelphia 3, and level 2 at Washington, New York, Chicago, Detroit, Tampa, Anchorage, Honolulu) with their component and money upkeep; total unit + building upkeep ≈ 5,000 money and 1,200 fuel per day. **Import pressure: electronics** (`tradeNeeds: ['electronics']`, opening net ≈ −37/day, reserve > 100 days). | Electronics deficit forces a choice between research, fleet readiness and trade. |
+| Industrial sustainment | Broad production across 30 cities (second only to China in net industrial value); maintenance capacity **50** slots, the highest (profile 6 + base 2 + `ind_sustainment_1` 2 + Maintenance Depots 40 at Norfolk 5, San Diego 4, Seattle 4, Dallas 3, Houston 3, Los Angeles 3, Philadelphia 3, and level 2 at Washington, New York, Chicago, Detroit, Tampa, Anchorage, Honolulu) with their component and money upkeep; total unit + building upkeep ≈ 5,000 money and 1,200 fuel per day. **Import pressure: electronics** (`tradeNeeds: ['electronics']`, opening net ≈ −37/day, reserve > 100 days). | Electronics deficit forces a choice between research, fleet readiness and trade. |
 | Hypersonic research | `hyp_advanced_materials` (common prerequisite, with `ind_advanced_electronics_1` and `ind_systems_integration_1`). **No** `hyp_glide_*` or `hyp_cruise_*` node for any seat; no missile inventory exists anywhere at start (tested on the save). | Glide blueprint is a visible next unlock in the research decision. |
 
 No U.S.-only field, multiplier or bonus exists in the data: the tests reject any profile key outside the contract and
@@ -114,52 +114,54 @@ bot holds the seat, at every difficulty (tested: identical composite for human/h
 
 ## Opening power result
 
-From `docs/reports/opening-power.md` (engine `computeOpeningPower`, seed 120, observer seat):
+From `docs/reports/opening-power.md` (engine `computeOpeningPower` after the engine fixes listed below; seed 120,
+observer seat):
 
-**United States 118.34; nearest rival China 100.00; U.S. lead 18.34 %** (targets: 118, band 115–121, lead 15–21 %).
+**United States 117.98; nearest rival China 100.00; U.S. lead 17.98 %** (targets: 118, band 115–121, lead 15–21 %).
 
 | # | Seat | Composite | Industrial | Formations | Research | Mobility | Resilience |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | USA | 118.34 | 197,726 | 478,523 | 832,310 | 537,976 | 1.00 |
-| 2 | CHN | 100.00 | **216,135** | 276,717 | **558,260** | **796,023** | 1.00 |
-| 3 | IND | 62.76 | 134,365 | 101,705 | 247,260 | 742,157 | 1.00 |
-| 4 | RUS | 57.23 | 62,637 | **300,872** | 294,540 | 130,594 | 1.00 |
-| 5 | JPN | 37.06 | 48,480 | 91,388 | 289,630 | 109,087 | 1.00 |
-| 6 | FRA | 35.97 | 35,043 | 81,941 | 329,830 | 102,409 | 1.00 |
-| 7 | GBR | 34.97 | 31,376 | 81,099 | 318,770 | 98,658 | 1.00 |
-| 8 | DEU | 32.21 | 48,822 | 61,839 | 231,520 | 99,005 | 1.00 |
-| 9 | KOR | 30.19 | 32,460 | 72,108 | 228,840 | 65,244 | 1.00 |
-| 10 | BRA | 28.94 | 47,035 | 55,888 | 129,280 | 144,963 | 1.00 |
+| 1 | USA | 117.98 | 128,285 | 472,697 | 419,683 | 431,335 | 1.00 |
+| 2 | CHN | 100.00 | **143,672** | 287,659 | **317,030** | **463,498** | 1.00 |
+| 3 | RUS | 61.10 | 49,961 | **300,872** | 177,990 | 127,724 | 1.00 |
+| 4 | IND | 48.83 | 58,664 | 101,705 | 154,140 | 229,707 | 1.00 |
+| 5 | FRA | 41.20 | 32,211 | 81,941 | 213,280 | 112,964 | 1.00 |
+| 6 | JPN | 40.32 | 41,257 | 91,388 | 173,380 | 96,667 | 1.00 |
+| 7 | GBR | 39.76 | 29,532 | 81,099 | 202,220 | 108,754 | 1.00 |
+| 8 | DEU | 34.45 | 34,750 | 61,839 | 138,400 | 96,323 | 1.00 |
+| 9 | BRA | 32.89 | 39,476 | 55,888 | 93,280 | 118,824 | 1.00 |
+| 10 | KOR | 31.57 | 23,025 | 72,108 | 135,480 | 62,044 | 1.00 |
 
 Bold = normalization constant (highest non-U.S. raw). Peers lead individual dimensions: China leads industry,
-research and mobility among peers and out-produces the U.S.; Russia leads ready formations among peers. The U.S. lead
-comes from formations (1.59× Russia), research (1.49× China) and lift/maintenance; its mobility is 0.68× China because
-population-derived manpower dominates that dimension.
+research and mobility among peers and **out-produces and out-moves the U.S.** (industrial 0.89×, mobility 0.93× China);
+Russia leads ready formations among peers. The U.S. lead comes from ready formations (1.57× Russia: four carriers and
+their air wings) and paid research (1.32× China). U.S. effective lift 81 = profile/tech 52 + logistics hubs 8 + fielded
+airlifters 21 (China 64, France/UK 28).
 
-The report also contains a clearly labelled **independent cross-check calculator** (not used by the game). With the
-engine's semantics it reproduces the engine to < 0.001 %. Under the **catalog's documented multiplier semantics** (see
-below) the U.S. would score **116.73** (still in band), China 100, India 68.5, Russia 59.0.
+**Cross-check.** The report contains an independent *aggregation* cross-check (normalization constants, weights,
+rescale and ranking re-derived from the engine's raw values; maximum composite difference 0.00). The earlier
+independent re-implementation of the raw dimensions was dropped once the engine started applying national tech
+modifiers (`industrial_output_mult`, `electronics_output_mult`, `research_speed_mult`, `unit_electronics_cost_mult`,
+`fuel_upkeep_mult`, `rural_output_mult`) and derived lift in many places: a second raw implementation would drift.
+Raw values are therefore the engine's only.
 
-## Engine notes (found while tuning; engine files were not edited)
+## Engine notes
 
-1. **Building multipliers are read additively.** `cityAdjustedOutput` uses `1 + Σ productionMult`, so Arms Industry 1
-   (`productionMult: 1.1`) doubles a city's base output (×2.1) instead of ×1.1; `researchSpeed` is `1 + Σ researchSpeedMult`,
-   so a level-1 lab (`researchSpeedMult: 1`, i.e. "no change") doubles speed and research throughput grows with the
-   *square* of lab count; `provinceAdjustedOutput` adds `deposit × productionMult` for Local Industry (×2.5 at level 1
-   instead of ×1.5). Likely intent: `1 + Σ(mult − 1)`. Profiles are balanced so viability does not depend on these
-   multipliers (the balancer ignores them), and the U.S. stays in band under either reading (118.34 / 116.73).
-2. **Tech modifier key mismatch.** `ind_systems_integration_*` grant modifier `research_speed_mult` (value 1.05), but
-   `researchSpeed` reads `modifiers['research_speed']`; grantTech also *adds* the value (a 1.05 multiplier would add
-   +1.05 if the keys matched). Other catalog modifiers (`industrial_output_mult`, …) are not consumed by the economy.
-3. **Lift from buildings and units is not counted.** `logistics_hub.liftCapacity`, `military_logistics.liftCapacity` and
-   `UnitType.liftCapacity` (strategic airlifter = 3) never reach `CountryState.lift`, so the mobility dimension sees only
-   profile lift + tech lift. Profiles do not pre-add them (that would double count once the engine adds them).
-4. **Population manpower dominates.** `MANPOWER_PER_KPOP = 0.02` gives China/India ≈ 25,000–28,000 manpower per day,
-   which is ≈ 75 % of their mobility raw and ≈ 45 % of their industrial raw (manpower is valued at 4). This is why the
-   U.S. needs a large formations/research lead to reach 118.
-5. **Default profile synthesis** (`scenario/defaults.ts`) picked starter units with `requires.length === 0`; every
-   catalog unit requires a building, so synthesized seats had no forces and `computeOpeningPower` threw a zero
-   formations denominator when no authored profiles existed. (Moot now that all 120 are authored.)
+Reported during the first tuning pass and since **fixed by the engine agent** (profiles were retuned afterwards):
+
+1. Building `*Mult` effects are now combined as `1 + Σ(mult − 1) × condition` (Arms Industry 1 = ×1.1, a level-1 lab
+   adds no speed, Local Industry 1 = ×1.5 deposit).
+2. Tech `_mult` modifiers are multiplicative and consumed (`research_speed_mult` etc.).
+3. Lift = profile/tech lift + `liftCapacity` of buildings + fielded airlift units (`liftBreakdown`). Profiles do not
+   pre-add building or unit lift.
+4. Population yields are sublinear: manpower = 1.5 × √pop(k), money = 4 × √pop(k) per city (rural manpower × 0.5).
+   The profile balancer uses the same formula; the old linear constants are not used anywhere in profiles or scripts.
+5. Default profile synthesis now fields starter units (irrelevant here: all 120 profiles are authored).
+
+Balance consequence: with sublinear population yields, China's and India's index no longer rests on raw manpower, so
+China's industrial lead is carried by city records (intensity 1.6 on 62 cities, Arms Industry 3 at Shanghai,
+Guangzhou, Chongqing, Electronics Plant 4 at Shenzhen) and its mobility lead by logistics hubs (Shanghai, Guangzhou,
+Wuhan, Hong Kong), six maintenance depots, Sealift I–II, Lift I and the 1st Strategic Airlift Division at Xi'an.
 
 ## Landlocked and island viability
 
@@ -182,7 +184,7 @@ engine's `validateCommand`).
 ## Regenerating
 
 - `npm run report:power` — rebuilds the opening save and rewrites `docs/reports/opening-power.md` and `.json`.
-- `npx vitest run tests/profiles` — 40 tests (roster, referential integrity, prerequisite closure, geography, economy,
+- `npx vitest run tests/profiles` — 41 tests (roster, referential integrity, prerequisite closure, geography, economy,
   decisions, relations, U.S. package, no multipliers, W03/W04/W08 on the save).
 - After a map rebuild, `PROFILE_ISSUES` lists any authored city slug that no longer exists (the game still loads).
 

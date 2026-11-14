@@ -11,7 +11,7 @@
  *  3. Technologies: template seeds + authored seeds + unlock/level techs of fielded units, closed
  *     over prerequisites. Licensed techs keep the 'licensed' lineage.
  *  4. Balance (QUANTITIES ONLY — reference prices are never read): conservative daily production
- *     (no building production multipliers, opening morale) must cover authored upkeep by ≥ 15 %
+ *     (no building or tech output multipliers, opening morale, √population yields) must cover authored upkeep by ≥ 15 %
  *     for every resource except the declared trade needs, which are held at a visible deficit.
  *     Any shortfall is added to the base output of cities whose functions produce that resource.
  *  5. Reserve: `stockDays` of consumption (deficits of trade needs covered for ≥ 45 days).
@@ -30,7 +30,7 @@ import {
   type ResVec,
   type TechId,
 } from '../../engine/data-types';
-import { MANPOWER_PER_KPOP, MONEY_PER_KPOP, MORALE, RURAL_DEPOSIT_OUTPUT } from '../../engine/rules';
+import { MANPOWER_PER_SQRT_KPOP, MONEY_PER_SQRT_KPOP, MORALE, RURAL_DEPOSIT_OUTPUT, RURAL_POP_FACTOR } from '../../engine/rules';
 import { buildingById, techById, unitById } from '../catalog/index';
 import { loadMapData } from '../map-index';
 import { manifestById } from '../countries';
@@ -371,27 +371,37 @@ export function buildProfile(spec: CountrySpec): BuildResult {
       addInto(floors, e?.produces, CITY_F);
       if (e?.manpowerPerDay) floors.manpower += e.manpowerPerDay * CITY_F;
     }
-    floors.manpower += c.def.population * MANPOWER_PER_KPOP * CITY_F;
-    floors.money += c.def.population * MONEY_PER_KPOP * CITY_F;
+    floors.manpower += MANPOWER_PER_SQRT_KPOP * Math.sqrt(c.def.population) * CITY_F;
+    floors.money += MONEY_PER_SQRT_KPOP * Math.sqrt(c.def.population) * CITY_F;
   }
   for (const id of mc?.provinces ?? []) {
     const n = MAP.nodes[id];
     if (!n || n.outside) continue;
     if (n.deposit) floors[n.deposit] += RURAL_DEPOSIT_OUTPUT * RURAL_F;
-    floors.manpower += n.population * MANPOWER_PER_KPOP * RURAL_F;
+    floors.manpower += MANPOWER_PER_SQRT_KPOP * Math.sqrt(n.population) * RURAL_POP_FACTOR * RURAL_F;
   }
+  // Upper bound of the output multipliers (used only to keep trade needs a visible deficit):
+  // building productionMult combined as 1 + Σ(mult − 1), times the national tech modifiers.
+  const techMod = (key: string) => {
+    let m = 1;
+    for (const t of [...common, ...licensedClosure]) for (const mo of techById.get(t)?.effects.modifiers ?? []) if (mo.key === key) m *= mo.value;
+    return m;
+  };
+  const industrialMod = techMod('industrial_output_mult');
+  const electronicsMod = techMod('electronics_output_mult');
   const multOf = (c: CityWork) => {
     let m = 1;
-    for (const [k, v] of c.b) m += levelEffects(k, v)?.effects.productionMult ?? 0;
-    return m;
+    for (const [k, v] of c.b) m += (levelEffects(k, v)?.effects.productionMult ?? 1) - 1;
+    return m * industrialMod;
   };
   const tradeNeeds = [...new Set(spec.tradeNeeds ?? [])];
   for (const r of RESOURCES) {
     const baseSum = cities.reduce((a, c) => a + c.out[r], 0);
     if (tradeNeeds.includes(r)) {
       // Upper bound of production (any additive building multiplier) must stay below TRADE_NEED_SHARE × upkeep.
-      const upperBase = cities.reduce((a, c) => a + c.out[r] * multOf(c) * CITY_F, 0);
-      const target = TRADE_NEED_SHARE * cons[r] - floors[r];
+      const em = r === 'electronics' ? electronicsMod : 1;
+      const upperBase = cities.reduce((a, c) => a + c.out[r] * multOf(c) * em * CITY_F, 0);
+      const target = TRADE_NEED_SHARE * cons[r] - floors[r] * em;
       if (cons[r] <= 0 || target < 0) {
         issues.push(`${spec.id}: trade need "${r}" is not a visible deficit (upkeep ${Math.round(cons[r])}, fixed output ${Math.round(floors[r])})`);
         continue;

@@ -6,18 +6,18 @@ Source: the actual opening save built by `createCampaign` (seed 120, observer se
 
 ## Result
 
-- **United States composite: 144.45** (target 118, acceptance band 115–121).
-- Nearest rival: **China (CHN) 100.00** — U.S. lead **44.45 %** (required 15–21 %).
-- Leader: USA. Rescale factor (100 ÷ highest non-U.S. weighted sum): 102.0481.
+- **United States composite: 117.98** (target 118, acceptance band 115–121).
+- Nearest rival: **China (CHN) 100.00** — U.S. lead **17.98 %** (required 15–21 %).
+- Leader: USA. Rescale factor (100 ÷ highest non-U.S. weighted sum): 101.1101.
 
 ## Method and constants
 
 | Dimension | Weight | Raw value from the opening save | Normalization constant (highest non-U.S. raw) | Holder |
 | --- | ---: | --- | ---: | --- |
-| industrial | 25 % | one day's net production (production − ordinary upkeep) at reference prices, clamped ≥ 0 | 115,078 | CHN |
+| industrial | 25 % | one day's net production (production − ordinary upkeep) at reference prices, clamped ≥ 0 | 143,672 | CHN |
 | formations | 25 % | Σ unit replacement value (catalog cost × doctrine cost factor × reference prices) × readiness × health | 300,872 | RUS |
-| research | 20 % | Σ reference value of completed techs + research slots × speed × 30 days × 400 | 277,700 | CHN |
-| mobility | 20 % | lift × 1500 + maintenance capacity × 2500 + manpower/day × 30 days × 1 | 345,337 | CHN |
+| research | 20 % | Σ reference value of completed techs + research slots × speed × 30 days × 400 | 317,030 | CHN |
+| mobility | 20 % | lift × 1500 + maintenance capacity × 2500 + manpower/day × 30 days × 1 | 463,498 | CHN |
 | resilience | 10 % | mean coverage of essential inputs (supplies, fuel, components) over 30 days, capped at 1 | 1.00 | 119 seats tied at the cap |
 
 Reference basket (money per unit): supplies 3, components 6, electronics 12, fuel 5, rare 20, manpower 4, money 1.
@@ -28,129 +28,130 @@ Engine constants: researchHorizonDays = 30, researchSlotValuePerDay = 400, mobil
 
 | # | Seat | Country | Composite | Industrial | Formations | Research | Mobility | Resilience | Template | Difficulty |
 | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| 1 | USA | United States | 144.45 | 147,814 | 472,697 | 419,683 | 516,889 | 1.00 | superpower | easy |
-| 2 | CHN | China | 100.00 | 115,078 | 276,717 | 277,700 | 345,337 | 1.00 | major_industrial | easy |
-| 3 | RUS | Russia | 67.42 | 49,961 | 300,872 | 177,990 | 127,724 | 1.00 | major_land_power | easy |
-| 4 | IND | India | 56.69 | 58,458 | 101,705 | 154,140 | 229,707 | 1.00 | continental_scale | easy |
-| 5 | FRA | France | 46.65 | 32,211 | 81,941 | 213,280 | 112,964 | 1.00 | expeditionary_power | moderate |
-| 6 | JPN | Japan | 45.52 | 41,108 | 91,388 | 173,380 | 96,667 | 1.00 | maritime_tech | moderate |
-| 7 | GBR | United Kingdom | 44.92 | 29,532 | 81,099 | 202,220 | 108,754 | 1.00 | expeditionary_power | moderate |
-| 8 | DEU | Germany | 38.96 | 34,500 | 61,839 | 138,400 | 96,323 | 1.00 | major_industrial | moderate |
-| 9 | BRA | Brazil | 37.57 | 39,476 | 55,888 | 93,280 | 118,824 | 1.00 | continental_scale | moderate |
-| 10 | KOR | South Korea | 34.99 | 22,755 | 72,108 | 135,480 | 62,044 | 1.00 | major_industrial | moderate |
-| 11 | IDN | Indonesia | 33.36 | 37,043 | 42,029 | 57,300 | 121,229 | 1.00 | archipelago | moderate |
-| 12 | TUR | Türkiye | 31.82 | 21,931 | 71,360 | 91,860 | 66,801 | 1.00 | regional_industrial | easy |
-| 13 | AUS | Australia | 31.64 | 29,728 | 54,380 | 93,540 | 56,888 | 1.00 | regional_industrial | moderate |
-| 14 | CAN | Canada | 30.97 | 32,228 | 40,273 | 88,600 | 62,533 | 1.00 | regional_industrial | moderate |
-| 15 | ITA | Italy | 29.42 | 24,825 | 40,164 | 91,440 | 60,715 | 1.00 | regional_industrial | moderate |
-| 16 | IRN | Iran | 28.67 | 17,145 | 42,231 | 103,480 | 58,787 | 1.00 | regional_industrial | moderate |
-| 17 | ESP | Spain | 27.28 | 19,931 | 34,810 | 88,360 | 54,355 | 1.00 | regional_industrial | moderate |
-| 18 | MEX | Mexico | 26.78 | 23,541 | 31,490 | 63,420 | 68,101 | 1.00 | regional_industrial | moderate |
-| 19 | NLD | Netherlands | 26.25 | 12,363 | 27,855 | 113,030 | 44,650 | 1.00 | maritime_tech | moderate |
-| 20 | PAK | Pakistan | 26.03 | 14,903 | 34,134 | 74,480 | 70,351 | 1.00 | frontier_state | moderate |
-| 21 | TWN | Taiwan | 25.89 | 14,670 | 39,670 | 94,100 | 36,398 | 1.00 | frontier_state | moderate |
-| 22 | EGY | Egypt | 25.24 | 12,313 | 44,035 | 71,340 | 56,279 | 1.00 | regional_industrial | moderate |
-| 23 | POL | Poland | 25.10 | 15,422 | 34,604 | 81,760 | 42,794 | 1.00 | frontier_state | moderate |
-| 24 | ISR | Israel | 24.97 | 8,531 | 45,839 | 101,640 | 25,682 | 1.00 | frontier_state | moderate |
-| 25 | ZAF | South Africa | 23.91 | 14,146 | 28,434 | 70,060 | 50,905 | 1.00 | regional_industrial | moderate |
-| 26 | SAU | Saudi Arabia | 23.67 | 12,288 | 40,723 | 66,580 | 40,540 | 1.00 | petrostate | moderate |
-| 27 | NGA | Nigeria | 23.62 | 17,443 | 22,072 | 44,380 | 74,657 | 1.00 | petrostate | moderate |
-| 28 | UKR | Ukraine | 22.94 | 11,914 | 36,692 | 62,220 | 40,760 | 1.00 | frontier_state | hard |
-| 29 | GRC | Greece | 21.98 | 6,637 | 41,243 | 65,960 | 33,184 | 1.00 | frontier_state | moderate |
-| 30 | VNM | Vietnam | 21.85 | 13,344 | 27,738 | 48,300 | 47,077 | 1.00 | medium_balanced | moderate |
-| 31 | PHL | Philippines | 21.74 | 13,363 | 22,705 | 39,320 | 63,636 | 1.00 | archipelago | moderate |
-| 32 | SWE | Sweden | 21.71 | 10,641 | 18,340 | 78,500 | 30,766 | 1.00 | regional_industrial | moderate |
-| 33 | PRK | North Korea | 21.30 | 4,521 | 23,819 | 86,080 | 29,599 | 1.00 | frontier_state | hard |
-| 34 | ARG | Argentina | 20.44 | 15,136 | 20,521 | 36,780 | 41,246 | 1.00 | medium_balanced | moderate |
-| 35 | DZA | Algeria | 20.14 | 10,878 | 19,100 | 52,060 | 35,118 | 1.00 | petrostate | moderate |
-| 36 | MYS | Malaysia | 19.96 | 12,944 | 22,708 | 36,780 | 38,105 | 1.00 | medium_balanced | moderate |
-| 37 | COL | Colombia | 19.73 | 11,915 | 15,892 | 41,100 | 42,647 | 1.00 | medium_balanced | moderate |
-| 38 | CHL | Chile | 19.69 | 11,468 | 20,274 | 45,340 | 32,086 | 1.00 | medium_balanced | moderate |
-| 39 | NOR | Norway | 19.40 | 10,187 | 18,819 | 53,820 | 23,450 | 1.00 | petrostate | moderate |
-| 40 | FIN | Finland | 19.23 | 6,239 | 20,767 | 62,220 | 22,063 | 1.00 | frontier_state | moderate |
-| 41 | THA | Thailand | 19.17 | 9,009 | 21,353 | 39,660 | 37,973 | 1.00 | medium_balanced | moderate |
-| 42 | CHE | Switzerland | 19.07 | 10,374 | 15,056 | 56,900 | 18,699 | 1.00 | landlocked_highland | moderate |
-| 43 | BGD | Bangladesh | 18.88 | 9,966 | 9,808 | 36,780 | 49,569 | 1.00 | medium_balanced | moderate |
-| 44 | ARE | United Arab Emirates | 18.86 | 7,318 | 19,479 | 51,580 | 26,896 | 1.00 | petrostate | moderate |
-| 45 | IRQ | Iraq | 18.82 | 9,311 | 12,037 | 44,380 | 38,337 | 1.00 | petrostate | hard |
-| 46 | KAZ | Kazakhstan | 18.73 | 11,038 | 10,273 | 43,780 | 33,658 | 1.00 | landlocked_plains | moderate |
-| 47 | COD | Democratic Republic of the Congo | 18.59 | 13,741 | 6,447 | 25,500 | 49,424 | 1.00 | small_agrarian | hard |
-| 48 | SGP | Singapore | 18.51 | 3,588 | 24,878 | 59,260 | 17,728 | 1.00 | small_trade_hub | hard |
-| 49 | SYR | Syria | 18.27 | 4,319 | 12,454 | 58,620 | 29,415 | 1.00 | frontier_state | hard |
-| 50 | VEN | Venezuela | 18.27 | 8,918 | 8,543 | 44,380 | 35,488 | 1.00 | petrostate | moderate |
-| 51 | MAR | Morocco | 18.16 | 8,695 | 12,402 | 40,540 | 33,711 | 1.00 | medium_balanced | moderate |
-| 52 | PER | Peru | 18.01 | 9,235 | 13,463 | 36,780 | 32,401 | 1.00 | medium_balanced | moderate |
-| 53 | AGO | Angola | 17.84 | 7,138 | 9,582 | 44,380 | 33,516 | 1.00 | petrostate | moderate |
-| 54 | MMR | Myanmar | 17.78 | 8,579 | 11,468 | 36,780 | 33,735 | 1.00 | medium_balanced | hard |
-| 55 | KEN | Kenya | 17.66 | 7,120 | 13,631 | 36,780 | 34,101 | 1.00 | medium_balanced | moderate |
-| 56 | ETH | Ethiopia | 17.17 | 7,815 | 8,829 | 30,820 | 37,581 | 1.00 | landlocked_highland | hard |
-| 57 | PNG | Papua New Guinea | 16.99 | 5,745 | 9,354 | 39,320 | 30,923 | 1.00 | archipelago | hard |
-| 58 | LTU | Lithuania | 16.91 | 2,670 | 8,114 | 58,620 | 18,860 | 1.00 | frontier_state | hard |
-| 59 | PRT | Portugal | 16.88 | 4,636 | 13,036 | 39,320 | 27,876 | 1.00 | medium_balanced | moderate |
-| 60 | EST | Estonia | 16.86 | 2,793 | 8,114 | 58,620 | 17,606 | 1.00 | frontier_state | hard |
-| 61 | LBY | Libya | 16.76 | 5,267 | 9,582 | 44,380 | 22,161 | 1.00 | petrostate | hard |
-| 62 | DNK | Denmark | 16.73 | 7,196 | 13,036 | 36,780 | 18,919 | 1.00 | medium_balanced | moderate |
-| 63 | NZL | New Zealand | 16.71 | 7,557 | 8,635 | 33,320 | 27,861 | 1.00 | island_state | hard |
-| 64 | ROU | Romania | 16.71 | 7,061 | 8,605 | 36,780 | 25,572 | 1.00 | medium_balanced | moderate |
-| 65 | UZB | Uzbekistan | 16.71 | 6,777 | 8,512 | 33,300 | 30,941 | 1.00 | landlocked_plains | moderate |
-| 66 | OMN | Oman | 16.67 | 3,782 | 13,522 | 44,380 | 20,633 | 1.00 | petrostate | moderate |
-| 67 | GEO | Georgia | 16.64 | 2,056 | 7,287 | 58,620 | 17,851 | 1.00 | frontier_state | hard |
-| 68 | LVA | Latvia | 16.50 | 1,981 | 5,828 | 58,620 | 17,890 | 1.00 | frontier_state | hard |
-| 69 | AUT | Austria | 16.36 | 6,779 | 4,274 | 45,300 | 16,233 | 1.00 | landlocked_highland | moderate |
-| 70 | BEL | Belgium | 16.29 | 7,332 | 6,284 | 36,780 | 20,753 | 1.00 | medium_balanced | moderate |
-| 71 | CZE | Czechia | 16.28 | 5,964 | 8,025 | 38,520 | 20,943 | 1.00 | landlocked_plains | moderate |
-| 72 | BLR | Belarus | 16.23 | 4,630 | 8,450 | 40,020 | 22,663 | 1.00 | landlocked_plains | moderate |
-| 73 | TZA | Tanzania | 16.10 | 8,648 | 2,013 | 25,500 | 32,711 | 1.00 | small_agrarian | hard |
-| 74 | AZE | Azerbaijan | 16.04 | 3,937 | 7,117 | 43,120 | 20,083 | 1.00 | landlocked_plains | moderate |
-| 75 | QAT | Qatar | 16.03 | 4,370 | 7,228 | 44,380 | 16,549 | 1.00 | petrostate | hard |
-| 76 | IRL | Ireland | 16.00 | 5,787 | 8,974 | 36,780 | 17,679 | 1.00 | small_trade_hub | hard |
-| 77 | KWT | Kuwait | 15.84 | 3,172 | 7,228 | 44,380 | 17,949 | 1.00 | petrostate | hard |
-| 78 | TUN | Tunisia | 15.84 | 3,887 | 9,541 | 36,780 | 21,272 | 1.00 | medium_balanced | moderate |
-| 79 | SDN | Sudan | 15.82 | 7,534 | 4,179 | 25,500 | 28,997 | 1.00 | small_agrarian | hard |
-| 80 | HRV | Croatia | 15.64 | 3,489 | 11,289 | 36,780 | 16,988 | 1.00 | medium_balanced | moderate |
-| 81 | MOZ | Mozambique | 15.37 | 6,739 | 3,163 | 25,500 | 25,819 | 1.00 | small_agrarian | hard |
-| 82 | BGR | Bulgaria | 15.29 | 3,647 | 6,284 | 36,780 | 17,680 | 1.00 | medium_balanced | moderate |
-| 83 | PAN | Panama | 15.29 | 3,698 | 5,860 | 36,780 | 17,952 | 1.00 | small_trade_hub | hard |
-| 84 | JOR | Jordan | 15.28 | 3,347 | 4,855 | 36,780 | 20,613 | 1.00 | medium_balanced | moderate |
-| 85 | HUN | Hungary | 15.25 | 4,887 | 4,145 | 33,300 | 19,697 | 1.00 | landlocked_plains | moderate |
-| 86 | AFG | Afghanistan | 15.23 | 5,445 | 3,684 | 27,300 | 25,295 | 1.00 | landlocked_highland | hard |
-| 87 | SRB | Serbia | 15.17 | 4,123 | 4,113 | 33,300 | 21,246 | 1.00 | landlocked_plains | moderate |
-| 88 | YEM | Yemen | 15.17 | 6,015 | 3,533 | 25,500 | 24,600 | 1.00 | small_agrarian | hard |
-| 89 | MNG | Mongolia | 15.10 | 5,068 | 2,627 | 33,300 | 18,685 | 1.00 | landlocked_plains | hard |
-| 90 | LKA | Sri Lanka | 15.08 | 3,860 | 2,500 | 28,040 | 29,488 | 1.00 | island_state | hard |
-| 91 | ECU | Ecuador | 14.98 | 5,820 | 2,013 | 28,980 | 19,964 | 1.00 | small_agrarian | hard |
-| 92 | CMR | Cameroon | 14.97 | 5,928 | 1,883 | 25,500 | 23,961 | 1.00 | small_agrarian | hard |
-| 93 | BOL | Bolivia | 14.87 | 5,870 | 2,099 | 27,300 | 20,004 | 1.00 | landlocked_highland | hard |
-| 94 | TKM | Turkmenistan | 14.87 | 3,361 | 3,841 | 33,300 | 19,374 | 1.00 | landlocked_plains | moderate |
-| 95 | CUB | Cuba | 14.83 | 2,831 | 2,224 | 31,560 | 25,215 | 1.00 | island_state | hard |
-| 96 | LBN | Lebanon | 14.80 | 2,413 | 3,883 | 36,780 | 17,324 | 1.00 | small_trade_hub | hard |
-| 97 | PRY | Paraguay | 14.76 | 3,219 | 2,806 | 33,300 | 19,609 | 1.00 | landlocked_plains | moderate |
-| 98 | SVN | Slovenia | 14.64 | 2,589 | 3,883 | 36,780 | 13,990 | 1.00 | small_trade_hub | hard |
-| 99 | DOM | Dominican Republic | 14.57 | 3,451 | 787 | 28,040 | 24,903 | 1.00 | island_state | hard |
-| 100 | GHA | Ghana | 14.56 | 4,963 | 754 | 25,500 | 22,335 | 1.00 | small_agrarian | hard |
-| 101 | SVK | Slovakia | 14.55 | 2,734 | 2,937 | 33,300 | 17,703 | 1.00 | landlocked_plains | moderate |
-| 102 | CRI | Costa Rica | 14.52 | 1,979 | 3,528 | 36,780 | 14,784 | 1.00 | small_trade_hub | hard |
-| 103 | SEN | Senegal | 14.51 | 5,398 | 718 | 25,500 | 19,790 | 1.00 | small_agrarian | hard |
-| 104 | CIV | Côte d’Ivoire | 14.49 | 4,855 | 718 | 25,500 | 21,581 | 1.00 | small_agrarian | hard |
-| 105 | URY | Uruguay | 14.47 | 2,363 | 1,571 | 36,780 | 15,279 | 1.00 | small_trade_hub | hard |
-| 106 | BHR | Bahrain | 14.46 | 1,423 | 5,860 | 36,780 | 12,498 | 1.00 | small_trade_hub | hard |
-| 107 | NPL | Nepal | 14.29 | 3,482 | 2,099 | 27,300 | 19,070 | 1.00 | landlocked_highland | hard |
-| 108 | MDA | Moldova | 14.09 | 1,471 | 1,853 | 33,300 | 16,074 | 1.00 | landlocked_plains | hard |
-| 109 | ARM | Armenia | 13.92 | 2,331 | 3,538 | 30,820 | 10,682 | 1.00 | landlocked_highland | hard |
-| 110 | LAO | Laos | 13.91 | 3,404 | 1,752 | 27,300 | 13,443 | 1.00 | landlocked_highland | hard |
-| 111 | KHM | Cambodia | 13.83 | 3,423 | 646 | 25,500 | 15,791 | 1.00 | small_agrarian | hard |
-| 112 | GTM | Guatemala | 13.69 | 2,930 | 754 | 25,500 | 15,220 | 1.00 | small_agrarian | hard |
-| 113 | TJK | Tajikistan | 13.68 | 2,807 | 675 | 27,300 | 13,368 | 1.00 | landlocked_highland | hard |
-| 114 | HND | Honduras | 13.63 | 2,751 | 754 | 25,500 | 14,894 | 1.00 | small_agrarian | hard |
-| 115 | ALB | Albania | 13.54 | 2,234 | 718 | 28,980 | 10,906 | 1.00 | small_agrarian | hard |
-| 116 | KGZ | Kyrgyzstan | 13.54 | 2,251 | 675 | 27,300 | 13,150 | 1.00 | landlocked_highland | hard |
-| 117 | BIH | Bosnia and Herzegovina | 13.30 | 2,283 | 718 | 25,500 | 11,054 | 1.00 | small_agrarian | hard |
-| 118 | NIC | Nicaragua | 13.22 | 1,696 | 646 | 25,500 | 12,013 | 1.00 | small_agrarian | hard |
-| 119 | SLV | El Salvador | 13.20 | 1,880 | 754 | 25,500 | 10,882 | 1.00 | small_agrarian | hard |
-| 120 | GUY | Guyana | 13.08 | 1,505 | 754 | 25,500 | 10,195 | 1.00 | small_agrarian | hard |
+| 1 | USA | United States | 117.98 | 128,285 | 472,697 | 419,683 | 431,335 | 1.00 | superpower | easy |
+| 2 | CHN | China | 100.00 | 143,672 | 287,659 | 317,030 | 463,498 | 1.00 | major_industrial | easy |
+| 3 | RUS | Russia | 61.10 | 49,961 | 300,872 | 177,990 | 127,724 | 1.00 | major_land_power | easy |
+| 4 | IND | India | 48.83 | 58,664 | 101,705 | 154,140 | 229,707 | 1.00 | continental_scale | easy |
+| 5 | FRA | France | 41.20 | 32,211 | 81,941 | 213,280 | 112,964 | 1.00 | expeditionary_power | moderate |
+| 6 | JPN | Japan | 40.32 | 41,257 | 91,388 | 173,380 | 96,667 | 1.00 | maritime_tech | moderate |
+| 7 | GBR | United Kingdom | 39.76 | 29,532 | 81,099 | 202,220 | 108,754 | 1.00 | expeditionary_power | moderate |
+| 8 | DEU | Germany | 34.45 | 34,750 | 61,839 | 138,400 | 96,323 | 1.00 | major_industrial | moderate |
+| 9 | BRA | Brazil | 32.89 | 39,476 | 55,888 | 93,280 | 118,824 | 1.00 | continental_scale | moderate |
+| 10 | KOR | South Korea | 31.57 | 23,025 | 72,108 | 135,480 | 62,044 | 1.00 | major_industrial | moderate |
+| 11 | IDN | Indonesia | 29.10 | 37,043 | 42,029 | 57,300 | 121,229 | 1.00 | archipelago | moderate |
+| 12 | TUR | Türkiye | 28.74 | 21,931 | 71,360 | 91,860 | 66,801 | 1.00 | regional_industrial | easy |
+| 13 | AUS | Australia | 28.36 | 29,728 | 54,380 | 93,540 | 56,888 | 1.00 | regional_industrial | moderate |
+| 14 | CAN | Canada | 27.54 | 32,228 | 40,273 | 88,600 | 62,533 | 1.00 | regional_industrial | moderate |
+| 15 | ITA | Italy | 26.34 | 24,867 | 40,164 | 91,440 | 60,715 | 1.00 | regional_industrial | moderate |
+| 16 | IRN | Iran | 25.84 | 17,145 | 42,231 | 103,480 | 58,787 | 1.00 | regional_industrial | moderate |
+| 17 | ESP | Spain | 24.55 | 19,931 | 34,810 | 88,360 | 54,355 | 1.00 | regional_industrial | moderate |
+| 18 | MEX | Mexico | 23.91 | 23,541 | 31,490 | 63,420 | 68,101 | 1.00 | regional_industrial | moderate |
+| 19 | NLD | Netherlands | 23.78 | 12,363 | 27,855 | 113,030 | 44,650 | 1.00 | maritime_tech | moderate |
+| 20 | TWN | Taiwan | 23.62 | 14,707 | 39,670 | 94,100 | 36,398 | 1.00 | frontier_state | moderate |
+| 21 | PAK | Pakistan | 23.42 | 14,922 | 34,134 | 74,480 | 70,351 | 1.00 | frontier_state | moderate |
+| 22 | ISR | Israel | 23.07 | 8,531 | 45,839 | 101,640 | 25,682 | 1.00 | frontier_state | moderate |
+| 23 | EGY | Egypt | 22.99 | 12,346 | 44,035 | 71,340 | 56,279 | 1.00 | regional_industrial | moderate |
+| 24 | POL | Poland | 22.81 | 15,422 | 34,604 | 81,760 | 42,794 | 1.00 | frontier_state | moderate |
+| 25 | SAU | Saudi Arabia | 21.71 | 12,288 | 40,723 | 66,580 | 40,540 | 1.00 | petrostate | moderate |
+| 26 | ZAF | South Africa | 21.68 | 14,146 | 28,434 | 70,060 | 50,905 | 1.00 | regional_industrial | moderate |
+| 27 | NGA | Nigeria | 21.12 | 17,443 | 22,072 | 44,380 | 74,657 | 1.00 | petrostate | moderate |
+| 28 | UKR | Ukraine | 21.04 | 11,914 | 36,692 | 62,220 | 40,760 | 1.00 | frontier_state | hard |
+| 29 | GRC | Greece | 20.40 | 6,637 | 41,243 | 65,960 | 33,184 | 1.00 | frontier_state | moderate |
+| 30 | VNM | Vietnam | 19.92 | 13,344 | 27,738 | 48,300 | 47,077 | 1.00 | medium_balanced | moderate |
+| 31 | SWE | Sweden | 19.87 | 10,641 | 18,340 | 78,500 | 30,766 | 1.00 | regional_industrial | moderate |
+| 32 | PRK | North Korea | 19.69 | 4,521 | 23,819 | 86,080 | 29,599 | 1.00 | frontier_state | hard |
+| 33 | PHL | Philippines | 19.65 | 13,363 | 22,705 | 39,320 | 63,636 | 1.00 | archipelago | moderate |
+| 34 | ARG | Argentina | 18.64 | 15,136 | 20,521 | 36,780 | 41,246 | 1.00 | medium_balanced | moderate |
+| 35 | DZA | Algeria | 18.48 | 10,878 | 19,100 | 52,060 | 35,118 | 1.00 | petrostate | moderate |
+| 36 | MYS | Malaysia | 18.30 | 12,944 | 22,708 | 36,780 | 38,105 | 1.00 | medium_balanced | moderate |
+| 37 | CHL | Chile | 18.12 | 11,468 | 20,274 | 45,340 | 32,086 | 1.00 | medium_balanced | moderate |
+| 38 | COL | Colombia | 18.02 | 11,915 | 15,892 | 41,100 | 42,647 | 1.00 | medium_balanced | moderate |
+| 39 | NOR | Norway | 17.94 | 10,187 | 18,819 | 53,820 | 23,450 | 1.00 | petrostate | moderate |
+| 40 | FIN | Finland | 17.88 | 6,239 | 20,767 | 62,220 | 22,063 | 1.00 | frontier_state | moderate |
+| 41 | THA | Thailand | 17.68 | 9,009 | 21,353 | 39,660 | 37,973 | 1.00 | medium_balanced | moderate |
+| 42 | CHE | Switzerland | 17.65 | 10,374 | 15,056 | 56,900 | 18,699 | 1.00 | landlocked_highland | moderate |
+| 43 | ARE | United Arab Emirates | 17.50 | 7,318 | 19,479 | 51,580 | 26,896 | 1.00 | petrostate | moderate |
+| 44 | SGP | Singapore | 17.39 | 3,588 | 24,878 | 59,260 | 17,728 | 1.00 | small_trade_hub | hard |
+| 45 | IRQ | Iraq | 17.26 | 9,311 | 12,037 | 44,380 | 38,337 | 1.00 | petrostate | hard |
+| 46 | BGD | Bangladesh | 17.20 | 9,966 | 9,808 | 36,780 | 49,569 | 1.00 | medium_balanced | moderate |
+| 47 | KAZ | Kazakhstan | 17.18 | 11,038 | 10,273 | 43,780 | 33,658 | 1.00 | landlocked_plains | moderate |
+| 48 | SYR | Syria | 16.94 | 4,319 | 12,454 | 58,620 | 29,415 | 1.00 | frontier_state | hard |
+| 49 | COD | Democratic Republic of the Congo | 16.85 | 13,741 | 6,447 | 25,500 | 49,424 | 1.00 | small_agrarian | hard |
+| 50 | VEN | Venezuela | 16.78 | 8,918 | 8,543 | 44,380 | 35,488 | 1.00 | petrostate | moderate |
+| 51 | MAR | Morocco | 16.74 | 8,695 | 12,402 | 40,540 | 33,711 | 1.00 | medium_balanced | moderate |
+| 52 | PER | Peru | 16.63 | 9,235 | 13,463 | 36,780 | 32,401 | 1.00 | medium_balanced | moderate |
+| 53 | AGO | Angola | 16.46 | 7,138 | 9,582 | 44,380 | 33,516 | 1.00 | petrostate | moderate |
+| 54 | MMR | Myanmar | 16.40 | 8,579 | 11,468 | 36,780 | 33,735 | 1.00 | medium_balanced | hard |
+| 55 | KEN | Kenya | 16.34 | 7,120 | 13,631 | 36,780 | 34,101 | 1.00 | medium_balanced | moderate |
+| 56 | ETH | Ethiopia | 15.83 | 7,815 | 8,829 | 30,820 | 37,581 | 1.00 | landlocked_highland | hard |
+| 57 | LTU | Lithuania | 15.82 | 2,670 | 8,114 | 58,620 | 18,860 | 1.00 | frontier_state | hard |
+| 58 | EST | Estonia | 15.79 | 2,793 | 8,114 | 58,620 | 17,606 | 1.00 | frontier_state | hard |
+| 59 | PNG | Papua New Guinea | 15.76 | 5,745 | 9,354 | 39,320 | 30,923 | 1.00 | archipelago | hard |
+| 60 | PRT | Portugal | 15.75 | 4,636 | 13,036 | 39,320 | 27,876 | 1.00 | medium_balanced | moderate |
+| 61 | DNK | Denmark | 15.64 | 7,196 | 13,036 | 36,780 | 18,919 | 1.00 | medium_balanced | moderate |
+| 62 | LBY | Libya | 15.64 | 5,267 | 9,582 | 44,380 | 22,161 | 1.00 | petrostate | hard |
+| 63 | OMN | Oman | 15.64 | 3,782 | 13,522 | 44,380 | 20,633 | 1.00 | petrostate | moderate |
+| 64 | GEO | Georgia | 15.60 | 2,056 | 7,287 | 58,620 | 17,851 | 1.00 | frontier_state | hard |
+| 65 | ROU | Romania | 15.54 | 7,061 | 8,605 | 36,780 | 25,572 | 1.00 | medium_balanced | moderate |
+| 66 | NZL | New Zealand | 15.51 | 7,557 | 8,635 | 33,320 | 27,861 | 1.00 | island_state | hard |
+| 67 | UZB | Uzbekistan | 15.49 | 6,777 | 8,512 | 33,300 | 30,941 | 1.00 | landlocked_plains | moderate |
+| 68 | LVA | Latvia | 15.47 | 1,981 | 5,828 | 58,620 | 17,890 | 1.00 | frontier_state | hard |
+| 69 | AUT | Austria | 15.26 | 6,779 | 4,274 | 45,300 | 16,233 | 1.00 | landlocked_highland | moderate |
+| 70 | CZE | Czechia | 15.21 | 5,964 | 8,025 | 38,520 | 20,943 | 1.00 | landlocked_plains | moderate |
+| 71 | BEL | Belgium | 15.18 | 7,332 | 6,284 | 36,780 | 20,753 | 1.00 | medium_balanced | moderate |
+| 72 | BLR | Belarus | 15.18 | 4,630 | 8,450 | 40,020 | 22,663 | 1.00 | landlocked_plains | moderate |
+| 73 | QAT | Qatar | 15.04 | 4,370 | 7,228 | 44,380 | 16,549 | 1.00 | petrostate | hard |
+| 74 | AZE | Azerbaijan | 15.03 | 3,937 | 7,117 | 43,120 | 20,083 | 1.00 | landlocked_plains | moderate |
+| 75 | IRL | Ireland | 15.00 | 5,787 | 8,974 | 36,780 | 17,679 | 1.00 | small_trade_hub | hard |
+| 76 | KWT | Kuwait | 14.89 | 3,172 | 7,228 | 44,380 | 17,949 | 1.00 | petrostate | hard |
+| 77 | TUN | Tunisia | 14.87 | 3,887 | 9,541 | 36,780 | 21,272 | 1.00 | medium_balanced | moderate |
+| 78 | TZA | Tanzania | 14.86 | 8,648 | 2,013 | 25,500 | 32,711 | 1.00 | small_agrarian | hard |
+| 79 | HRV | Croatia | 14.76 | 3,489 | 11,289 | 36,780 | 16,988 | 1.00 | medium_balanced | moderate |
+| 80 | SDN | Sudan | 14.68 | 7,534 | 4,179 | 25,500 | 28,997 | 1.00 | small_agrarian | hard |
+| 81 | BGR | Bulgaria | 14.40 | 3,647 | 6,284 | 36,780 | 17,680 | 1.00 | medium_balanced | moderate |
+| 82 | PAN | Panama | 14.38 | 3,698 | 5,860 | 36,780 | 17,952 | 1.00 | small_trade_hub | hard |
+| 83 | JOR | Jordan | 14.35 | 3,347 | 4,855 | 36,780 | 20,613 | 1.00 | medium_balanced | moderate |
+| 84 | MOZ | Mozambique | 14.32 | 6,739 | 3,163 | 25,500 | 25,819 | 1.00 | small_agrarian | hard |
+| 85 | HUN | Hungary | 14.30 | 4,887 | 4,145 | 33,300 | 19,697 | 1.00 | landlocked_plains | moderate |
+| 86 | SRB | Serbia | 14.23 | 4,123 | 4,113 | 33,300 | 21,246 | 1.00 | landlocked_plains | moderate |
+| 87 | AFG | Afghanistan | 14.22 | 5,445 | 3,684 | 27,300 | 25,295 | 1.00 | landlocked_highland | hard |
+| 88 | YEM | Yemen | 14.17 | 6,015 | 3,533 | 25,500 | 24,600 | 1.00 | small_agrarian | hard |
+| 89 | MNG | Mongolia | 14.16 | 5,068 | 2,627 | 33,300 | 18,685 | 1.00 | landlocked_plains | hard |
+| 90 | LKA | Sri Lanka | 14.08 | 3,860 | 2,500 | 28,040 | 29,488 | 1.00 | island_state | hard |
+| 91 | ECU | Ecuador | 14.02 | 5,820 | 2,013 | 28,980 | 19,964 | 1.00 | small_agrarian | hard |
+| 92 | TKM | Turkmenistan | 13.99 | 3,361 | 3,841 | 33,300 | 19,374 | 1.00 | landlocked_plains | moderate |
+| 93 | CMR | Cameroon | 13.98 | 5,928 | 1,883 | 25,500 | 23,961 | 1.00 | small_agrarian | hard |
+| 94 | LBN | Lebanon | 13.96 | 2,413 | 3,883 | 36,780 | 17,324 | 1.00 | small_trade_hub | hard |
+| 95 | BOL | Bolivia | 13.93 | 5,870 | 2,099 | 27,300 | 20,004 | 1.00 | landlocked_highland | hard |
+| 96 | CUB | Cuba | 13.91 | 2,831 | 2,224 | 31,560 | 25,215 | 1.00 | island_state | hard |
+| 97 | PRY | Paraguay | 13.89 | 3,219 | 2,806 | 33,300 | 19,609 | 1.00 | landlocked_plains | moderate |
+| 98 | SVN | Slovenia | 13.85 | 2,589 | 3,883 | 36,780 | 13,990 | 1.00 | small_trade_hub | hard |
+| 99 | CRI | Costa Rica | 13.75 | 1,979 | 3,528 | 36,780 | 14,784 | 1.00 | small_trade_hub | hard |
+| 100 | BHR | Bahrain | 13.74 | 1,423 | 5,860 | 36,780 | 12,498 | 1.00 | small_trade_hub | hard |
+| 101 | SVK | Slovakia | 13.74 | 2,734 | 2,937 | 33,300 | 17,703 | 1.00 | landlocked_plains | moderate |
+| 102 | URY | Uruguay | 13.67 | 2,363 | 1,571 | 36,780 | 15,279 | 1.00 | small_trade_hub | hard |
+| 103 | DOM | Dominican Republic | 13.66 | 3,451 | 787 | 28,040 | 24,903 | 1.00 | island_state | hard |
+| 104 | GHA | Ghana | 13.65 | 4,963 | 754 | 25,500 | 22,335 | 1.00 | small_agrarian | hard |
+| 105 | SEN | Senegal | 13.61 | 5,398 | 718 | 25,500 | 19,790 | 1.00 | small_agrarian | hard |
+| 106 | CIV | Côte d’Ivoire | 13.59 | 4,855 | 718 | 25,500 | 21,581 | 1.00 | small_agrarian | hard |
+| 107 | NPL | Nepal | 13.47 | 3,482 | 2,099 | 27,300 | 19,070 | 1.00 | landlocked_highland | hard |
+| 108 | MDA | Moldova | 13.35 | 1,471 | 1,853 | 33,300 | 16,074 | 1.00 | landlocked_plains | hard |
+| 109 | ARM | Armenia | 13.25 | 2,331 | 3,538 | 30,820 | 10,682 | 1.00 | landlocked_highland | hard |
+| 110 | LAO | Laos | 13.18 | 3,404 | 1,752 | 27,300 | 13,443 | 1.00 | landlocked_highland | hard |
+| 111 | KHM | Cambodia | 13.08 | 3,423 | 646 | 25,500 | 15,791 | 1.00 | small_agrarian | hard |
+| 112 | TJK | Tajikistan | 12.99 | 2,807 | 675 | 27,300 | 13,368 | 1.00 | landlocked_highland | hard |
+| 113 | GTM | Guatemala | 12.98 | 2,930 | 754 | 25,500 | 15,220 | 1.00 | small_agrarian | hard |
+| 114 | HND | Honduras | 12.93 | 2,751 | 754 | 25,500 | 14,894 | 1.00 | small_agrarian | hard |
+| 115 | ALB | Albania | 12.89 | 2,234 | 718 | 28,980 | 10,906 | 1.00 | small_agrarian | hard |
+| 116 | KGZ | Kyrgyzstan | 12.88 | 2,251 | 675 | 27,300 | 13,150 | 1.00 | landlocked_highland | hard |
+| 117 | BIH | Bosnia and Herzegovina | 12.68 | 2,283 | 718 | 25,500 | 11,054 | 1.00 | small_agrarian | hard |
+| 118 | NIC | Nicaragua | 12.61 | 1,696 | 646 | 25,500 | 12,013 | 1.00 | small_agrarian | hard |
+| 119 | SLV | El Salvador | 12.61 | 1,880 | 754 | 25,500 | 10,882 | 1.00 | small_agrarian | hard |
+| 120 | GUY | Guyana | 12.51 | 1,505 | 754 | 25,500 | 10,195 | 1.00 | small_agrarian | hard |
 
-## Cross-check (independent calculator, not used by the game)
+## Cross-check (independent aggregation, not used by the game)
 
-- **Engine semantics**: U.S. 118.34, nearest rival CHN 100.00 (lead 18.34 %). Top 10: USA 118.34, CHN 100.00, IND 62.76, RUS 57.23, JPN 37.06, FRA 35.97, GBR 34.97, DEU 32.21, KOR 30.19, BRA 28.94. Max relative deviation from the engine's raw values: 223.088 %.
-- **Catalog multiplier semantics**: U.S. 116.73, nearest rival CHN 100.00 (lead 16.73 %). Top 10: USA 116.73, CHN 100.00, IND 68.52, RUS 59.04, FRA 40.06, JPN 39.71, GBR 38.74, DEU 32.98, BRA 31.97, KOR 31.21.
+Normalization, weights, rescale and ranking re-derived from the engine's raw values: U.S. 117.98, nearest rival CHN 100.00; maximum composite difference from the engine across all 120 seats: 0.00. Raw values are the engine's own (no second raw implementation is kept — see docs/PROFILES.md).
+
+U.S. effective lift 81 = profile/tech 52 + buildings 8 + fielded airlift units 21.
 

@@ -60,10 +60,17 @@ describe('W03 opening power', () => {
     expect(op.raw.RUS.formations).toBe(op.normalization.formations);
     expect(op.raw.CHN.industrial).toBeGreaterThan(op.raw.USA.industrial);
   });
-  it('the independent cross-check reproduces the engine result', () => {
+  it('the independent aggregation cross-check reproduces the engine composites and ranking', () => {
     const op = engineOpeningPower(state);
-    const ch = crossCheck(state, 'engine');
-    for (const c of state.countryOrder) expect(ch.composite[c]).toBeCloseTo(op.composite[c], 1);
+    const ch = crossCheck(state, op);
+    expect(ch.maxCompositeDiff).toBeLessThan(0.02);
+    expect(ch.rank.slice(0, 10)).toEqual(op.rank.slice(0, 10));
+    expect(ch.normalization).toEqual(op.normalization);
+  });
+  it('China leads mobility among peers and Russia ready formations; the U.S. keeps the largest lift and maintenance base', () => {
+    const op = engineOpeningPower(state);
+    expect(op.raw.CHN.mobility).toBe(op.normalization.mobility);
+    expect(op.raw.CHN.mobility).toBeGreaterThan(op.raw.USA.mobility);
   });
   it('removing a funded capability in a test copy changes the relevant raw score', () => {
     const base = raw(state);

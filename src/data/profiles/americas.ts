@@ -11,9 +11,9 @@ export const AMERICAS: CountrySpec[] = [
     difficulty: 'easy',
     summary:
       'Broad continental production, a paid research lead (one node ahead in Systems Integration and Advanced Electronics), carrier-qualified naval aviation, strategic airlift with air refuelling and a heavy maintenance and upkeep load. Imports microelectronics: the opening forecast shows an electronics deficit.',
-    intensity: 2.8,
-    lift: 80,
-    maint: 12,
+    intensity: 2.4,
+    lift: 40,
+    maint: 6,
     tradeNeeds: ['electronics'],
     techs: [
       // Air mobility and support
