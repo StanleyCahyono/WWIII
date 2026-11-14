@@ -82,8 +82,8 @@ export const MIGRATIONS: Record<number, Migration> = {
   },
   1: (s) => {
     // v1 → v2 (engine features pass): port blockades are saved state (`blockades`, empty until the
-    // next whole hour re-derives them from stack positions). New optional fields (offer `round` /
-    // `counterOf`, MoveOrder `airmobile`, OfferTerm `territory`) need no conversion.
+    // next whole hour re-derives them from stack positions). New optional fields (offer `territory` /
+    // `round` / `counterOf`, MoveOrder `airmobile`) need no conversion.
     const o = JSON.parse(JSON.stringify(s));
     o.blockades ??= {};
     o.schemaVersion = 2;
@@ -157,7 +157,7 @@ export function validateState(s: GameState): string[] {
     if (!s.cities[k]) errs.push(`Blockade of unknown city ${k}`);
     else if (!Array.isArray(b.by) || !b.by.every((c) => !!s.countries[c])) errs.push(`Blockade of ${k} names an unknown country`);
   }
-  for (const o of Object.values(s.offers ?? {})) for (const t of [...o.give, ...o.receive]) if (t.kind === 'territory' && !(Number.isInteger(t.node) && t.node >= 0 && t.node < nNodes && s.provinces[t.node])) errs.push(`Offer ${o.id} cedes an unknown province`);
+  for (const o of Object.values(s.offers ?? {})) for (const n of [...(o.territory?.give ?? []), ...(o.territory?.receive ?? [])]) if (!(Number.isInteger(n) && n >= 0 && n < nNodes && s.provinces[n])) errs.push(`Offer ${o.id} cedes an unknown province`);
   // market escrow reconciles with open orders
   const esc: Record<string, Record<string, number>> = {};
   for (const o of Object.values(s.market.orders)) {

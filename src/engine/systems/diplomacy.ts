@@ -10,7 +10,8 @@
  * Trust: private per ordered pair, with history entries and daily decay toward 0.
  *
  * PEACE SETTLEMENTS (v2): an offer that includes `peace` may also cede provinces/cities
- * (`{ kind: 'territory', node }` — the side that lists it gives that control node; the giver must
+ * (`offer.territory = { give, receive }` control nodes — `give` = `from` cedes, `receive` = `to`
+ * cedes; the giver must
  * own it, it must not be the giver's capital city and the giver keeps at least one province; at most
  * PEACE.maxTerritoryTerms) and resource payments (`resource` terms, moved at acceptance as before).
  * Territory changes hands at the effective time AFTER peace (treaty transfer: status `annexed`, or
@@ -22,7 +23,7 @@
  */
 import { invalidateDerived } from '../derived';
 import type { CountryId, NodeId } from '../data-types';
-import type { DiploLevel, GameState, Message, Offer, OfferTerm, TrustState } from '../state';
+import type { DiploLevel, GameState, Message, Offer, OfferTerm, TerritoryClauses, TrustState } from '../state';
 import { MAX_PENDING_OFFERS_PER_PAIR, OFFER_DEFAULT_EXPIRY_MIN, OFFER_EFFECT_DELAY_MIN, TRUST, AGREEMENT_FULFILLED_AFTER_MIN, PEACE } from '../rules';
 import { dirKey, nextId, pairKey } from '../ids';
 import { schedule } from './queue';
@@ -226,26 +227,30 @@ export function cessionError(state: GameState, giver: CountryId, node: NodeId): 
   return null;
 }
 
-export function validateTerms(state: GameState, from: CountryId, to: CountryId, give: OfferTerm[], receive: OfferTerm[]): string | null {
+/** Normalize territory clauses (null when empty). */
+export function territoryOf(t: { give?: NodeId[]; receive?: NodeId[] } | null | undefined): TerritoryClauses | null {
+  const give = Array.isArray(t?.give) ? [...t!.give] : [];
+  const receive = Array.isArray(t?.receive) ? [...t!.receive] : [];
+  return give.length || receive.length ? { give, receive } : null;
+}
+
+export function validateTerms(state: GameState, from: CountryId, to: CountryId, give: OfferTerm[], receive: OfferTerm[], territory?: { give?: NodeId[]; receive?: NodeId[] } | null): string | null {
   const all = [...give, ...receive];
-  if (!all.length) return 'An offer needs at least one term.';
+  const terr = territoryOf(territory);
+  if (!all.length && !terr) return 'An offer needs at least one term.';
   const war = atWar(state, from, to);
-  const terr = all.filter((t) => t.kind === 'territory');
-  if (terr.length) {
+  if (terr) {
     if (!all.some((t) => t.kind === 'peace')) return 'Territory can only change hands as part of a peace settlement — include peace.';
-    if (terr.length > PEACE.maxTerritoryTerms) return `At most ${PEACE.maxTerritoryTerms} territory clauses per offer.`;
+    if (terr.give.length + terr.receive.length > PEACE.maxTerritoryTerms) return `At most ${PEACE.maxTerritoryTerms} territory clauses per offer.`;
     const seen = new Set<number>();
-    for (const [giver, terms] of [[from, give], [to, receive]] as const) {
-      let n = 0;
-      for (const t of terms) {
-        if (t.kind !== 'territory') continue;
-        const err = cessionError(state, giver, t.node);
+    for (const [giver, nodes] of [[from, terr.give], [to, terr.receive]] as const) {
+      for (const n of nodes) {
+        const err = cessionError(state, giver, n);
         if (err) return err;
-        if (seen.has(t.node)) return 'The same province is listed twice.';
-        seen.add(t.node);
-        n++;
+        if (seen.has(n)) return 'The same province is listed twice.';
+        seen.add(n);
       }
-      if (n && n >= ownedProvinceCount(state, giver)) return `${giver} cannot cede every province it holds.`;
+      if (nodes.length && nodes.length >= ownedProvinceCount(state, giver)) return `${giver} cannot cede every province it holds.`;
     }
   }
   for (const t of all) {
@@ -268,7 +273,8 @@ export function validateTerms(state: GameState, from: CountryId, to: CountryId, 
   return null;
 }
 
-export function proposeOfferInternal(state: GameState, from: CountryId, to: CountryId, give: OfferTerm[], receive: OfferTerm[], expiresInMin: number | undefined, reason: string | null, text?: string, haggle?: { counterOf: string; round: number }): Offer {
+export function proposeOfferInternal(state: GameState, from: CountryId, to: CountryId, give: OfferTerm[], receive: OfferTerm[], expiresInMin: number | undefined, reason: string | null, text?: string, haggle?: { counterOf: string; round: number }, territory?: { give?: NodeId[]; receive?: NodeId[] } | null): Offer {
+  const terr = territoryOf(territory);
   const id = nextId(state, 'offer');
   const now = state.clock.tick;
   const o: Offer = {
@@ -287,6 +293,7 @@ export function proposeOfferInternal(state: GameState, from: CountryId, to: Coun
     applied: false,
     reason,
     responseReason: null,
+    ...(terr ? { territory: terr } : {}),
     ...(haggle ? { counterOf: haggle.counterOf, round: haggle.round } : {}),
   };
   state.offers[id] = o;
@@ -304,13 +311,13 @@ export function offerRound(o: Pick<Offer, 'round'>): number {
 }
 
 /** Haggling: decline `orig` as countered and send the counter-offer back to its sender. */
-export function counterOfferInternal(state: GameState, orig: Offer, give: OfferTerm[], receive: OfferTerm[], expiresInMin: number | undefined, reason: string | null, text?: string): Offer {
+export function counterOfferInternal(state: GameState, orig: Offer, give: OfferTerm[], receive: OfferTerm[], expiresInMin: number | undefined, reason: string | null, text?: string, territory?: { give?: NodeId[]; receive?: NodeId[] } | null): Offer {
   const round = offerRound(orig) + 1;
   orig.status = 'declined';
   orig.resolvedAt = state.clock.tick;
   orig.responseReason = `countered (round ${round}/${PEACE.maxRounds})${reason ? `: ${reason}` : ''}`;
   emit(state, { kind: 'offer_countered', category: 'diplomacy', routine: true, private: toAll([orig.from, orig.to], `Offer ${orig.id} was answered with a counter-offer.`, { offer: orig.id }) });
-  return proposeOfferInternal(state, orig.to, orig.from, give, receive, expiresInMin, reason, text, { counterOf: orig.id, round });
+  return proposeOfferInternal(state, orig.to, orig.from, give, receive, expiresInMin, reason, text, { counterOf: orig.id, round }, territory);
 }
 
 export function pendingOffersBetween(state: GameState, a: CountryId, b: CountryId): Offer[] {
@@ -337,21 +344,20 @@ function withNames<T>(state: GameState, f: () => T): T {
   }
 }
 /** describeTerms with place names resolved from the scenario map. */
-export function describeTermsIn(state: GameState, o: Pick<Offer, 'from' | 'to' | 'give' | 'receive'>): string {
+export function describeTermsIn(state: GameState, o: Pick<Offer, 'from' | 'to' | 'give' | 'receive' | 'territory'>): string {
   return withNames(state, () => describeTerms(o));
 }
 function termText(t: OfferTerm): string {
   if (t.kind === 'status') return t.level.replace('_', ' ');
   if (t.kind === 'peace') return 'peace';
   if (t.kind === 'coalition_invite') return `coalition membership (${t.coalition})`;
-  if (t.kind === 'territory') return `cession of ${territoryName(t.node)}`;
   const v = zero();
   v[t.resource] = t.amount;
   return fmtVec(v);
 }
-export function describeTerms(o: Pick<Offer, 'from' | 'to' | 'give' | 'receive'>): string {
-  const g = o.give.map(termText).join(', ');
-  const r = o.receive.map(termText).join(', ');
+export function describeTerms(o: Pick<Offer, 'from' | 'to' | 'give' | 'receive' | 'territory'>): string {
+  const g = [...o.give.map(termText), ...(o.territory?.give ?? []).map((n) => `cession of ${territoryName(n)}`)].join(', ');
+  const r = [...o.receive.map(termText), ...(o.territory?.receive ?? []).map((n) => `cession of ${territoryName(n)}`)].join(', ');
   return `${o.from} gives [${g || '—'}] for [${r || '—'}]`;
 }
 
@@ -360,7 +366,7 @@ export function acceptability(state: GameState, o: Offer): string | null {
   if (o.status !== 'pending') return `Offer is already ${o.status}.`;
   if (state.clock.tick >= o.expiresAt) return 'Offer has expired.';
   if (rel(state, o.from, o.to).version !== o.relationVersion) return 'Offer is stale: relations changed since it was made.';
-  const err = withNames(state, () => validateTerms(state, o.from, o.to, o.give, o.receive));
+  const err = withNames(state, () => validateTerms(state, o.from, o.to, o.give, o.receive, o.territory));
   if (err) return err;
   for (const [payer, terms] of [[o.from, o.give], [o.to, o.receive]] as const) {
     const need = zero();
@@ -424,12 +430,11 @@ export function applyOfferEffect(state: GameState, id: string, hooks: DiploHooks
   apply(o.to, o.from, o.receive);
   // cessions after peace (and only while the giver still holds the province and peace holds)
   const skipped: string[] = [];
-  for (const [giver, receiver, terms] of [[o.from, o.to, o.give], [o.to, o.from, o.receive]] as const) {
-    for (const t of terms) {
-      if (t.kind !== 'territory') continue;
-      const err = atWar(state, giver, receiver) ? 'war resumed' : cessionError(state, giver, t.node);
-      if (err) skipped.push(`${withNames(state, () => territoryName(t.node))} (${err})`);
-      else hooks.cede(state, t.node, giver, receiver);
+  for (const [giver, receiver, nodes] of [[o.from, o.to, o.territory?.give ?? []], [o.to, o.from, o.territory?.receive ?? []]] as const) {
+    for (const n of nodes) {
+      const err = atWar(state, giver, receiver) ? 'war resumed' : cessionError(state, giver, n);
+      if (err) skipped.push(`${withNames(state, () => territoryName(n))} (${err})`);
+      else hooks.cede(state, n, giver, receiver);
     }
   }
   if (skipped.length) emit(state, { kind: 'cession_skipped', category: 'diplomacy', private: toAll([o.from, o.to], `Agreement ${o.id}: cession not carried out for ${skipped.join(', ')}.`, { offer: o.id }) });

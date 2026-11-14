@@ -40,8 +40,12 @@ export type Command =
   | (Base & { type: 'marketOrder'; side: 'buy' | 'sell'; resource: Resource; qty: number; price: number })
   | (Base & { type: 'cancelMarketOrder'; order: string })
   | (Base & { type: 'airmobile'; stack: string; dest: NodeId; confirmActOfWar?: CountryId[] | boolean })
-  /** `counterTo`: answer a pending offer addressed to the issuer with a counter-offer (haggling; the countered offer is declined). */
-  | (Base & { type: 'proposeOffer'; to: CountryId; give: OfferTerm[]; receive: OfferTerm[]; expiresInMin?: number; text?: string; counterTo?: string })
+  /**
+   * `territory`: provinces (control nodes) the issuer cedes (`give`) / asks `to` to cede (`receive`) —
+   * peace settlements only. `counterTo`: answer a pending offer addressed to the issuer with a
+   * counter-offer back to its sender (haggling; the countered offer is declined).
+   */
+  | (Base & { type: 'proposeOffer'; to: CountryId; give: OfferTerm[]; receive: OfferTerm[]; territory?: { give?: NodeId[]; receive?: NodeId[] }; expiresInMin?: number; text?: string; counterTo?: string })
   | (Base & { type: 'respondOffer'; offer: string; accept: boolean })
   | (Base & { type: 'withdrawOffer'; offer: string })
   | (Base & { type: 'revokeGrant'; to: CountryId; level: DiploLevel })

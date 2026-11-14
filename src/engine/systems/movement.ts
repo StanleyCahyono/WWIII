@@ -424,7 +424,7 @@ export function moveStep(state: GameState, stacks: readonly Stack[], hooks: Move
     return atNode;
   };
   for (const s of stacks) {
-    if (s.moveClass === 'air' || s.aboard || s.pos.kind === 'air') continue;
+    if (s.moveClass === 'air' || s.aboard) continue; // air-mobile lifts in flight have an empty route (skipped below)
     const o = s.order;
     if (!o || o.kind !== 'move' || !o.route.length) continue;
     if (s.delayUntil !== null && s.delayUntil > state.clock.tick) continue;

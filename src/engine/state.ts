@@ -22,7 +22,7 @@ import type {
 } from './data-types';
 import type { ResM } from './fixed';
 
-/** v2: `blockades` section, optional offer haggling fields, optional air-mobile order marker. */
+/** v2: `blockades` section, optional offer territory/haggling fields, optional air-mobile order marker. */
 export const SCHEMA_VERSION = 2;
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -332,9 +332,17 @@ export type OfferTerm =
   | { kind: 'status'; level: DiploLevel }
   | { kind: 'peace' }
   | { kind: 'coalition_invite'; coalition: string }
-  | { kind: 'resource'; resource: Resource; amount: number /* milli */ }
-  /** (additive, v2) Cession of a province (and the city at its control node) by the giver — peace settlements only. */
-  | { kind: 'territory'; node: NodeId };
+  | { kind: 'resource'; resource: Resource; amount: number /* milli */ };
+
+/**
+ * (additive, v2) Territory clauses of a peace settlement: control nodes of provinces (and the city
+ * there) that `from` cedes to `to` (`give`) and that `from` asks `to` to cede (`receive`). Kept
+ * beside the term lists (not an OfferTerm kind) so existing term renderers stay exhaustive.
+ */
+export interface TerritoryClauses {
+  give: NodeId[];
+  receive: NodeId[];
+}
 
 export interface Offer {
   id: string;
@@ -354,6 +362,8 @@ export interface Offer {
   applied: boolean;
   reason: string | null;
   responseReason: string | null;
+  /** (additive, v2) Provinces ceded under this offer (peace settlements only). */
+  territory?: TerritoryClauses;
   /** (additive, v2) Haggling: the offer this one counters (the countered offer is declined). */
   counterOf?: string | null;
   /** (additive, v2) Negotiation round (1 = opening offer; a counter is previous round + 1). */

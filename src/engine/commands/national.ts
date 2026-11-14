@@ -285,7 +285,8 @@ export const proposeOffer: Handler<CommandOf<'proposeOffer'>, { expiresAt: numbe
   validate(state, cmd) {
     if (!aliveCountry(state, cmd.to) || cmd.to === cmd.country) return fail('unknown_target', 'Unknown or eliminated recipient.');
     if (!Array.isArray(cmd.give) || !Array.isArray(cmd.receive)) return fail('invalid_argument', 'Terms must be lists.');
-    const err = validateTerms(state, cmd.country, cmd.to, cmd.give, cmd.receive);
+    if (cmd.territory !== undefined && (typeof cmd.territory !== 'object' || cmd.territory === null || (cmd.territory.give !== undefined && !Array.isArray(cmd.territory.give)) || (cmd.territory.receive !== undefined && !Array.isArray(cmd.territory.receive)))) return fail('invalid_argument', 'Territory clauses must be lists of provinces.');
+    const err = validateTerms(state, cmd.country, cmd.to, cmd.give, cmd.receive, cmd.territory);
     if (err) return fail('invalid_argument', err);
     let countering = 0;
     let round = 1;
@@ -308,8 +309,8 @@ export const proposeOffer: Handler<CommandOf<'proposeOffer'>, { expiresAt: numbe
   },
   apply(state, cmd) {
     const o = cmd.counterTo !== undefined
-      ? counterOfferInternal(state, state.offers[cmd.counterTo], cmd.give, cmd.receive, cmd.expiresInMin, cmd.reason ?? null, cmd.text)
-      : proposeOfferInternal(state, cmd.country, cmd.to, cmd.give, cmd.receive, cmd.expiresInMin, cmd.reason ?? null, cmd.text);
+      ? counterOfferInternal(state, state.offers[cmd.counterTo], cmd.give, cmd.receive, cmd.expiresInMin, cmd.reason ?? null, cmd.text, cmd.territory)
+      : proposeOfferInternal(state, cmd.country, cmd.to, cmd.give, cmd.receive, cmd.expiresInMin, cmd.reason ?? null, cmd.text, undefined, cmd.territory);
     return { offer: o.id, round: o.round ?? 1 };
   },
 };

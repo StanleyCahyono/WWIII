@@ -77,7 +77,8 @@ function flies(state: GameState, u: Unit): boolean {
 /** Lift arithmetic of a formation (pure). */
 export function liftInfo(state: GameState, s: Stack): LiftInfo {
   let lift = 0, passengers = 0, flyers = 0, readyAt = 0;
-  let range = Infinity, speed = AIRMOBILE.maxSpeedKmh;
+  let range = Infinity;
+  let speed: number = AIRMOBILE.maxSpeedKmh;
   const unsuitable: string[] = [];
   for (const u of s.units) {
     if (u.hp <= 0) continue;
