@@ -34,8 +34,9 @@ export function decideOnce(state: GameState, c: string, reviews: ReviewKind[], o
     },
     rng: streamRng(state.seed, 'ai', `${c}:${state.clock.tick}`),
   };
-  const view = getCountryView(state, c, { journalLimit: 15, journalScan: 400 });
-  const cmds = (opts.controller ?? UtilityController).decide(view, ctx);
+  const ctl = opts.controller ?? UtilityController;
+  const view = getCountryView(state, c, { journalLimit: 15, journalScan: 400, lite: ctl.liteView === true });
+  const cmds = ctl.decide(view, ctx);
   const results = opts.submit === false ? [] : cmds.map((cmd) => submitCommand(state, cmd));
   return { cmds, results, view };
 }
@@ -55,7 +56,10 @@ export interface Recorded {
 /** Wrap a controller and record every command it returns (with the view it saw). */
 export function recording(inner: CountryController = UtilityController) {
   const log: Recorded[] = [];
+  // forward the scheduler hooks (pre-check, lite planner view) so recorded runs cost what real ones do
   const ctl: CountryController = {
+    ...(inner.wants ? { wants: (info: Parameters<NonNullable<CountryController['wants']>>[0]) => inner.wants!(info) } : {}),
+    ...(inner.liteView ? { liteView: true } : {}),
     decide(view, ctx) {
       const out = inner.decide(view, ctx);
       for (const cmd of out) {
