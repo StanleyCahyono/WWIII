@@ -7,7 +7,7 @@ _Last updated by: Claude (orchestrator)._ Keep this file current; it is how a ne
 
 | # | Milestone | Status |
 | --- | --- | --- |
-| 1 | Scaffold, contracts, handoff | in progress |
+| 1 | Scaffold, contracts, handoff | done |
 | 2 | Deterministic engine + test fixture, end-to-end slice | in progress |
 | 3 | Global map, nation selection, scoring, economy, travel graph | in progress |
 | 4 | Management screens, research, domains, combat, visibility, diplomacy, market, intel, missiles | pending |
@@ -28,4 +28,5 @@ _Last updated by: Claude (orchestrator)._ Keep this file current; it is how a ne
 
 ## Contract change log
 
-- (none yet)
+- catalog agent: `UnitType.carrierCapable?: boolean`, `UnitType.liftCapacity?: number` (additive).
+- Level-tech IDs follow `<unitId>_l<N>` (exceptions: transport L2/L3 = `mob_strategic_airlift_2/3`, cruise launcher L2 = `str_cruise_missile_2`). Building level effects are totals, not increments.

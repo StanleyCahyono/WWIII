@@ -301,6 +301,10 @@ export interface UnitType {
   officerBonus?: { appliesTo: UnitFamily[]; attackMult?: number; defenseMult?: number; speedMult?: number; hpRegenMult?: number };
   /** Carrier/transport capacity. */
   carries?: { families: UnitFamily[]; slots: number };
+  /** (additive, catalog) Aircraft that may embark on a carrier's `carries` slots. Only these units use carrier slots. */
+  carrierCapable?: boolean;
+  /** (additive, catalog) Abstract lift units this unit adds to national lift while fielded and ready (transports). */
+  liftCapacity?: number;
   /** Limited-use deployable (consumed on use). */
   deployable?: { uses: number; effect: string; cooldownMin: number };
   /** Symbology entity key → crosswalk (see catalog/sidc.ts). */

@@ -1,0 +1,3317 @@
+{
+  "edition": "NATO APP-6 Edition E / MIL-STD-2525E (numeric SIDC version 13)",
+  "crosswalkVersion": "2026-11-14.1",
+  "renderer": {
+    "name": "milsymbol",
+    "version": "3.0.5",
+    "license": "MIT"
+  },
+  "standardFlag": "APP6",
+  "size": 36,
+  "samples": [
+    {
+      "id": "air.deployable.swarm_uav#friend",
+      "key": "air.deployable.swarm_uav",
+      "variant": "friend",
+      "sidc": "13030100001103000103",
+      "meaning": "Friendly unmanned aerial vehicle, attack, light (drone swarm)",
+      "svgSha256": "58bf0ae231b85442984daf97837f41e599b951bb8d65209627f69a20bf0d7cce"
+    },
+    {
+      "id": "air.deployable.swarm_uav#hostile",
+      "key": "air.deployable.swarm_uav",
+      "variant": "hostile",
+      "sidc": "13060100001103000103",
+      "meaning": "Hostile unmanned aerial vehicle, attack, light (drone swarm)",
+      "svgSha256": "c9f1a533e22070d2b31a0f838901ca85180315a4cd3007bbab260fc0250259c8"
+    },
+    {
+      "id": "air.deployable.swarm_uav#neutral",
+      "key": "air.deployable.swarm_uav",
+      "variant": "neutral",
+      "sidc": "13040100001103000103",
+      "meaning": "Neutral unmanned aerial vehicle, attack, light (drone swarm)",
+      "svgSha256": "e367f08a389f06a93bd9af286dc09fdb03861fe7e81eddbbfbaf0eaff93e939e"
+    },
+    {
+      "id": "air.deployable.swarm_uav#unknown",
+      "key": "air.deployable.swarm_uav",
+      "variant": "unknown",
+      "sidc": "13010100001103000103",
+      "meaning": "Unknown-affiliation unmanned aerial vehicle, attack, light (drone swarm)",
+      "svgSha256": "6c329ff8d6426df0eda45e096fc1ca33035a835d789670c5ade98b65e28f0d88"
+    },
+    {
+      "id": "air.fighter.air_superiority#damaged",
+      "key": "air.fighter.air_superiority",
+      "variant": "damaged",
+      "sidc": "13030130001101040000",
+      "meaning": "Friendly fixed wing, fighter, damaged (operational-condition bar)",
+      "svgSha256": "4c5dae3cee39c4f197934ed15bbe78ad0e27350b21efaa250339a3b2bd0a74ca"
+    },
+    {
+      "id": "air.fighter.air_superiority#friend",
+      "key": "air.fighter.air_superiority",
+      "variant": "friend",
+      "sidc": "13030100001101040000",
+      "meaning": "Friendly fixed wing, fighter",
+      "svgSha256": "09cd00668e7a5d560c0558ac90abb5b3410dc474dc9fd2b835f57187dd7dccee"
+    },
+    {
+      "id": "air.fighter.air_superiority#hostile",
+      "key": "air.fighter.air_superiority",
+      "variant": "hostile",
+      "sidc": "13060100001101040000",
+      "meaning": "Hostile fixed wing, fighter",
+      "svgSha256": "4594df759d699ea8ab8b3aa1bb44b81fa921c5bccb9b6fafa08c7144513847c6"
+    },
+    {
+      "id": "air.fighter.air_superiority#mono-unknown",
+      "key": "air.fighter.air_superiority",
+      "variant": "mono-unknown",
+      "sidc": "13010100001101040000",
+      "meaning": "Unknown-affiliation fixed wing, fighter, monochrome",
+      "svgSha256": "29fabe9b3395c80a3121ad14aae0daa17ec16074b53ffa29345f5758971114ea"
+    },
+    {
+      "id": "air.fighter.air_superiority#neutral",
+      "key": "air.fighter.air_superiority",
+      "variant": "neutral",
+      "sidc": "13040100001101040000",
+      "meaning": "Neutral fixed wing, fighter",
+      "svgSha256": "c6974c749e34f47ea190dede7b1f7776f07be6e68d01918bb5432c70a2123d39"
+    },
+    {
+      "id": "air.fighter.air_superiority#planned",
+      "key": "air.fighter.air_superiority",
+      "variant": "planned",
+      "sidc": "13030110001101040000",
+      "meaning": "Friendly fixed wing, fighter, planned/anticipated (dashed frame)",
+      "svgSha256": "c7ff7da542fc21975d6a2567d8aeac7cf78b2041092bc203a5eb6e43a39d2d53"
+    },
+    {
+      "id": "air.fighter.air_superiority#selected",
+      "key": "air.fighter.air_superiority",
+      "variant": "selected",
+      "sidc": "13060100001101040000",
+      "meaning": "Hostile fixed wing, fighter, currently selected (game ring overlay)",
+      "svgSha256": "4b6cf20939cc9b808f2163f3e794bfb237c4a74134f30fd23577fbb1689c3f4b"
+    },
+    {
+      "id": "air.fighter.air_superiority#stale",
+      "key": "air.fighter.air_superiority",
+      "variant": "stale",
+      "sidc": "13060100001101040000",
+      "meaning": "Hostile fixed wing, fighter, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "8028fb2a5d69f3e0f4b86954e5cca7ff984babdfb6bbafb519098b140f12efe3"
+    },
+    {
+      "id": "air.fighter.air_superiority#unknown",
+      "key": "air.fighter.air_superiority",
+      "variant": "unknown",
+      "sidc": "13010100001101040000",
+      "meaning": "Unknown-affiliation fixed wing, fighter",
+      "svgSha256": "f55dcf1d33e5b62481aed3eb73707143c93aba3616990d06b663ae705f560fa8"
+    },
+    {
+      "id": "air.fighter.naval_air_superiority#friend",
+      "key": "air.fighter.naval_air_superiority",
+      "variant": "friend",
+      "sidc": "13030100001101041500",
+      "meaning": "Friendly fixed wing, fighter, escort (carrier fighter)",
+      "svgSha256": "7bcc57c2a1c515a5e7a2bbf54f234f10d9b3159a0ce41702d6b1c0ee085f306c"
+    },
+    {
+      "id": "air.fighter.naval_air_superiority#hostile",
+      "key": "air.fighter.naval_air_superiority",
+      "variant": "hostile",
+      "sidc": "13060100001101041500",
+      "meaning": "Hostile fixed wing, fighter, escort (carrier fighter)",
+      "svgSha256": "01d6eb4c2e9bf3130b70ea3a1138455de460183bdfb8f77870c1226ff154605f"
+    },
+    {
+      "id": "air.fighter.naval_air_superiority#neutral",
+      "key": "air.fighter.naval_air_superiority",
+      "variant": "neutral",
+      "sidc": "13040100001101041500",
+      "meaning": "Neutral fixed wing, fighter, escort (carrier fighter)",
+      "svgSha256": "f6dea3e8ed9f66f4c180102c9c90dc91a17b38b473f7143b2d96b0d622033b42"
+    },
+    {
+      "id": "air.fighter.naval_air_superiority#unknown",
+      "key": "air.fighter.naval_air_superiority",
+      "variant": "unknown",
+      "sidc": "13010100001101041500",
+      "meaning": "Unknown-affiliation fixed wing, fighter, escort (carrier fighter)",
+      "svgSha256": "7ad29e836bd89d0777d6ec1a37b51d96b1dd8a42c8b07c57ea3fd2e1a7dc3df7"
+    },
+    {
+      "id": "air.fighter.naval_strike#friend",
+      "key": "air.fighter.naval_strike",
+      "variant": "friend",
+      "sidc": "13030100001101053200",
+      "meaning": "Friendly fixed wing, fighter/bomber, antisurface warfare (carrier striker)",
+      "svgSha256": "39be1ddf3d82c13d6f7fa8ee965f07066e3ccb70aa729ef41b61fc781b7af58d"
+    },
+    {
+      "id": "air.fighter.naval_strike#hostile",
+      "key": "air.fighter.naval_strike",
+      "variant": "hostile",
+      "sidc": "13060100001101053200",
+      "meaning": "Hostile fixed wing, fighter/bomber, antisurface warfare (carrier striker)",
+      "svgSha256": "b9cec365d32f5b0a34e2434b9ea3e443149af3c358d1ef5d38e19e26d835056d"
+    },
+    {
+      "id": "air.fighter.naval_strike#neutral",
+      "key": "air.fighter.naval_strike",
+      "variant": "neutral",
+      "sidc": "13040100001101053200",
+      "meaning": "Neutral fixed wing, fighter/bomber, antisurface warfare (carrier striker)",
+      "svgSha256": "c72621e6a18fe6bb6ab5c4dd76d245efdc54fc3b8a925829bc53f9e42b797561"
+    },
+    {
+      "id": "air.fighter.naval_strike#unknown",
+      "key": "air.fighter.naval_strike",
+      "variant": "unknown",
+      "sidc": "13010100001101053200",
+      "meaning": "Unknown-affiliation fixed wing, fighter/bomber, antisurface warfare (carrier striker)",
+      "svgSha256": "b6b3887b421b4de75ca66b385d4c6bcf428ea79331b92712e755e2da58d2d688"
+    },
+    {
+      "id": "air.fighter.stealth_air_superiority#friend",
+      "key": "air.fighter.stealth_air_superiority",
+      "variant": "friend",
+      "sidc": "13030100001101040500",
+      "meaning": "Friendly fixed wing, fighter, interceptor (stealth fighter)",
+      "svgSha256": "f89c46d8589c027c13d553b5b106f8f94adfc613666553ceadcca916aefdad8f"
+    },
+    {
+      "id": "air.fighter.stealth_air_superiority#hostile",
+      "key": "air.fighter.stealth_air_superiority",
+      "variant": "hostile",
+      "sidc": "13060100001101040500",
+      "meaning": "Hostile fixed wing, fighter, interceptor (stealth fighter)",
+      "svgSha256": "9e81b9bbf1492da492458aa58ded879c473be7b757ff33339432579ea9296186"
+    },
+    {
+      "id": "air.fighter.stealth_air_superiority#neutral",
+      "key": "air.fighter.stealth_air_superiority",
+      "variant": "neutral",
+      "sidc": "13040100001101040500",
+      "meaning": "Neutral fixed wing, fighter, interceptor (stealth fighter)",
+      "svgSha256": "0e28ee1670bafd2fdc3828623677926d5fa482aa04c6c7bde377cb3745e3aaee"
+    },
+    {
+      "id": "air.fighter.stealth_air_superiority#unknown",
+      "key": "air.fighter.stealth_air_superiority",
+      "variant": "unknown",
+      "sidc": "13010100001101040500",
+      "meaning": "Unknown-affiliation fixed wing, fighter, interceptor (stealth fighter)",
+      "svgSha256": "fed1a0e46d0f28e2829e21216ffda923cda316b9a74cbdbc6fad17bae9cac828"
+    },
+    {
+      "id": "air.fighter.stealth_strike#friend",
+      "key": "air.fighter.stealth_strike",
+      "variant": "friend",
+      "sidc": "13030100001101020000",
+      "meaning": "Friendly fixed wing, attack/strike (stealth striker)",
+      "svgSha256": "1a3889bbbcba88546669efc42e2fb15fa4839a59477ceb3ae37ab04b383bceee"
+    },
+    {
+      "id": "air.fighter.stealth_strike#hostile",
+      "key": "air.fighter.stealth_strike",
+      "variant": "hostile",
+      "sidc": "13060100001101020000",
+      "meaning": "Hostile fixed wing, attack/strike (stealth striker)",
+      "svgSha256": "8fa6a52af79fa85f66315a6f11769554be2b1afc1b9620246af24c0f1b389a21"
+    },
+    {
+      "id": "air.fighter.stealth_strike#neutral",
+      "key": "air.fighter.stealth_strike",
+      "variant": "neutral",
+      "sidc": "13040100001101020000",
+      "meaning": "Neutral fixed wing, attack/strike (stealth striker)",
+      "svgSha256": "52375cfb8ee40bfbaebb40ab00a791a943ca968c120a28030ce35c6ce1b7dd59"
+    },
+    {
+      "id": "air.fighter.stealth_strike#unknown",
+      "key": "air.fighter.stealth_strike",
+      "variant": "unknown",
+      "sidc": "13010100001101020000",
+      "meaning": "Unknown-affiliation fixed wing, attack/strike (stealth striker)",
+      "svgSha256": "9de41987f1763814ac788a319f13b8428bdbc79ed1480d9cf183223c18c5e6d6"
+    },
+    {
+      "id": "air.fighter.strike#friend",
+      "key": "air.fighter.strike",
+      "variant": "friend",
+      "sidc": "13030100001101050000",
+      "meaning": "Friendly fixed wing, fighter/bomber (strike fighter)",
+      "svgSha256": "109849c8244755429bd97ee7c11f553d9d1e31d762ddad42f4d9f5226ffdc20e"
+    },
+    {
+      "id": "air.fighter.strike#hostile",
+      "key": "air.fighter.strike",
+      "variant": "hostile",
+      "sidc": "13060100001101050000",
+      "meaning": "Hostile fixed wing, fighter/bomber (strike fighter)",
+      "svgSha256": "5b7295df5cbd0445d5d75672a2c2334835746d19d45294837421d47b86d0c736"
+    },
+    {
+      "id": "air.fighter.strike#mono-friend",
+      "key": "air.fighter.strike",
+      "variant": "mono-friend",
+      "sidc": "13030100001101050000",
+      "meaning": "Friendly fixed wing, fighter/bomber (strike fighter), monochrome (rectangle/rounded frame)",
+      "svgSha256": "ab88df9297ab768550dbc701ddb1b8639ca30057550bd76f767fe7b481abc587"
+    },
+    {
+      "id": "air.fighter.strike#mono-hostile",
+      "key": "air.fighter.strike",
+      "variant": "mono-hostile",
+      "sidc": "13060100001101050000",
+      "meaning": "Hostile fixed wing, fighter/bomber (strike fighter), monochrome (diamond/pointed frame)",
+      "svgSha256": "fdea00445e22e360e51c89524afc3892ad9eec4e8fdcffe8c4b410e86009e9dc"
+    },
+    {
+      "id": "air.fighter.strike#mono-neutral",
+      "key": "air.fighter.strike",
+      "variant": "mono-neutral",
+      "sidc": "13040100001101050000",
+      "meaning": "Neutral fixed wing, fighter/bomber (strike fighter), monochrome (square frame)",
+      "svgSha256": "fbe907977022827a1fa8a30abb46600dfa78e75bbf535b44f66479670ddd0f25"
+    },
+    {
+      "id": "air.fighter.strike#mono-unknown",
+      "key": "air.fighter.strike",
+      "variant": "mono-unknown",
+      "sidc": "13010100001101050000",
+      "meaning": "Unknown-affiliation fixed wing, fighter/bomber (strike fighter), monochrome (quatrefoil/cloverleaf frame)",
+      "svgSha256": "83b9ba8b4832929a37ef325bff0fc7ae19a6b8af263be7c452349e16e7d1b589"
+    },
+    {
+      "id": "air.fighter.strike#neutral",
+      "key": "air.fighter.strike",
+      "variant": "neutral",
+      "sidc": "13040100001101050000",
+      "meaning": "Neutral fixed wing, fighter/bomber (strike fighter)",
+      "svgSha256": "b8a9a3b8263eacea764145a5d709b51416ceb79d05833dd52ed667894790ca30"
+    },
+    {
+      "id": "air.fighter.strike#unknown",
+      "key": "air.fighter.strike",
+      "variant": "unknown",
+      "sidc": "13010100001101050000",
+      "meaning": "Unknown-affiliation fixed wing, fighter/bomber (strike fighter)",
+      "svgSha256": "d906d8af6ee65863da74807f7bcdcda4d5b8184606fb06f2a370404e3ba697de"
+    },
+    {
+      "id": "air.fighter.uav#friend",
+      "key": "air.fighter.uav",
+      "variant": "friend",
+      "sidc": "13030100001103000100",
+      "meaning": "Friendly unmanned aerial vehicle, attack",
+      "svgSha256": "1ee486c28eff99626d6d10e048ae0d960bf1e3dde925ca562e5c28f62a8d3737"
+    },
+    {
+      "id": "air.fighter.uav#hostile",
+      "key": "air.fighter.uav",
+      "variant": "hostile",
+      "sidc": "13060100001103000100",
+      "meaning": "Hostile unmanned aerial vehicle, attack",
+      "svgSha256": "bbdfd2bd2dd79add2e9ad8311178009f2d21b9977039ea35ccc8e2d3c4160941"
+    },
+    {
+      "id": "air.fighter.uav#neutral",
+      "key": "air.fighter.uav",
+      "variant": "neutral",
+      "sidc": "13040100001103000100",
+      "meaning": "Neutral unmanned aerial vehicle, attack",
+      "svgSha256": "a6c4957f29586a89fdb9ac2c907789fe4c20846a8359abac13843516baab6e59"
+    },
+    {
+      "id": "air.fighter.uav#unknown",
+      "key": "air.fighter.uav",
+      "variant": "unknown",
+      "sidc": "13010100001103000100",
+      "meaning": "Unknown-affiliation unmanned aerial vehicle, attack",
+      "svgSha256": "4d79d0caac16c9441542afda033e9b3a01193a22031ec9b527eb605500bacb21"
+    },
+    {
+      "id": "air.heavy.awacs#damaged",
+      "key": "air.heavy.awacs",
+      "variant": "damaged",
+      "sidc": "13030130001101160000",
+      "meaning": "Friendly fixed wing, airborne early warning, damaged (operational-condition bar)",
+      "svgSha256": "68887c06484c136d0a96118f4e07fd47eff32513beb188cf42f2c80e23b8d3f9"
+    },
+    {
+      "id": "air.heavy.awacs#friend",
+      "key": "air.heavy.awacs",
+      "variant": "friend",
+      "sidc": "13030100001101160000",
+      "meaning": "Friendly fixed wing, airborne early warning",
+      "svgSha256": "b3d7061e95612faf784f5f9cf5965baf1b08cdb9937c37c5abce8ec45700b081"
+    },
+    {
+      "id": "air.heavy.awacs#hostile",
+      "key": "air.heavy.awacs",
+      "variant": "hostile",
+      "sidc": "13060100001101160000",
+      "meaning": "Hostile fixed wing, airborne early warning",
+      "svgSha256": "8660bca92d64d0eaf43727564e61c968279621e0648c8495c9794824e188373a"
+    },
+    {
+      "id": "air.heavy.awacs#mono-unknown",
+      "key": "air.heavy.awacs",
+      "variant": "mono-unknown",
+      "sidc": "13010100001101160000",
+      "meaning": "Unknown-affiliation fixed wing, airborne early warning, monochrome",
+      "svgSha256": "3a423a83325dc99277d825bbec20785c3d1ffc0ece5407bfe36e8bbf2b160b6f"
+    },
+    {
+      "id": "air.heavy.awacs#neutral",
+      "key": "air.heavy.awacs",
+      "variant": "neutral",
+      "sidc": "13040100001101160000",
+      "meaning": "Neutral fixed wing, airborne early warning",
+      "svgSha256": "461f927f876694a24b17a94fdaf046693ed5fe217eec1e8867162cd8ad3a623a"
+    },
+    {
+      "id": "air.heavy.awacs#planned",
+      "key": "air.heavy.awacs",
+      "variant": "planned",
+      "sidc": "13030110001101160000",
+      "meaning": "Friendly fixed wing, airborne early warning, planned/anticipated (dashed frame)",
+      "svgSha256": "661ae82a7ab751755604d9d8f31a85b2c751429f6b05db7c768118ca12b056a3"
+    },
+    {
+      "id": "air.heavy.awacs#selected",
+      "key": "air.heavy.awacs",
+      "variant": "selected",
+      "sidc": "13060100001101160000",
+      "meaning": "Hostile fixed wing, airborne early warning, currently selected (game ring overlay)",
+      "svgSha256": "9f982c754e31894f86fef1bad9087a7fac4d564898edf2d8e3ab0d081dbeaf47"
+    },
+    {
+      "id": "air.heavy.awacs#stale",
+      "key": "air.heavy.awacs",
+      "variant": "stale",
+      "sidc": "13060100001101160000",
+      "meaning": "Hostile fixed wing, airborne early warning, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "fc38bf47c553e1419793670eff3fae369a2c0dd8aa9c4b343568b68705734a4a"
+    },
+    {
+      "id": "air.heavy.awacs#unknown",
+      "key": "air.heavy.awacs",
+      "variant": "unknown",
+      "sidc": "13010100001101160000",
+      "meaning": "Unknown-affiliation fixed wing, airborne early warning",
+      "svgSha256": "3334146fd3fc57606a86093ff7c0c55829075066ec2c1a2a65ca9a982faeaae4"
+    },
+    {
+      "id": "air.heavy.bomber#friend",
+      "key": "air.heavy.bomber",
+      "variant": "friend",
+      "sidc": "13030100001101030001",
+      "meaning": "Friendly fixed wing, bomber, heavy",
+      "svgSha256": "f7243601882369087b6424b7a3da922ace2ec0d4c6094ebadc11f7087a2e9c25"
+    },
+    {
+      "id": "air.heavy.bomber#hostile",
+      "key": "air.heavy.bomber",
+      "variant": "hostile",
+      "sidc": "13060100001101030001",
+      "meaning": "Hostile fixed wing, bomber, heavy",
+      "svgSha256": "871762e890dab2039121a58c02d27e27e24db159978fd06422d5264f02d24b33"
+    },
+    {
+      "id": "air.heavy.bomber#neutral",
+      "key": "air.heavy.bomber",
+      "variant": "neutral",
+      "sidc": "13040100001101030001",
+      "meaning": "Neutral fixed wing, bomber, heavy",
+      "svgSha256": "3f8b58b037285148c2a8657146634536767c08036e01bfdefe0696bee9826d0d"
+    },
+    {
+      "id": "air.heavy.bomber#unknown",
+      "key": "air.heavy.bomber",
+      "variant": "unknown",
+      "sidc": "13010100001101030001",
+      "meaning": "Unknown-affiliation fixed wing, bomber, heavy",
+      "svgSha256": "8ca0673cf40a659d847c42ec7eb33281aa89143111d9ee1cf8b41001435c8b13"
+    },
+    {
+      "id": "air.heavy.maritime_patrol#friend",
+      "key": "air.heavy.maritime_patrol",
+      "variant": "friend",
+      "sidc": "13030100001101102200",
+      "meaning": "Friendly fixed wing, patrol, antisubmarine warfare",
+      "svgSha256": "edbcdd535e96921bcee59a599218a7f1c9bb3539e7a9e9725e2a36b465d88791"
+    },
+    {
+      "id": "air.heavy.maritime_patrol#hostile",
+      "key": "air.heavy.maritime_patrol",
+      "variant": "hostile",
+      "sidc": "13060100001101102200",
+      "meaning": "Hostile fixed wing, patrol, antisubmarine warfare",
+      "svgSha256": "6ac14a05189f5b8fb4fa95ea878e3efa8ef4870949a47e2b5fad2cd72d79f340"
+    },
+    {
+      "id": "air.heavy.maritime_patrol#neutral",
+      "key": "air.heavy.maritime_patrol",
+      "variant": "neutral",
+      "sidc": "13040100001101102200",
+      "meaning": "Neutral fixed wing, patrol, antisubmarine warfare",
+      "svgSha256": "969d15eacc21f080dd658343442aa8b90244fcab9833709aca3e414b0671d221"
+    },
+    {
+      "id": "air.heavy.maritime_patrol#unknown",
+      "key": "air.heavy.maritime_patrol",
+      "variant": "unknown",
+      "sidc": "13010100001101102200",
+      "meaning": "Unknown-affiliation fixed wing, patrol, antisubmarine warfare",
+      "svgSha256": "a33e02e75e40508cfd37f5218889f7048cb52399ac0e850e0818e6154ec0b848"
+    },
+    {
+      "id": "air.heavy.naval_aew#friend",
+      "key": "air.heavy.naval_aew",
+      "variant": "friend",
+      "sidc": "13030100001101160003",
+      "meaning": "Friendly fixed wing, airborne early warning, light (carrier AEW)",
+      "svgSha256": "d6ab6ef0067a9ca4ca5fcfd30763cbd86dd2b91d046876e2136f1767bdec551f"
+    },
+    {
+      "id": "air.heavy.naval_aew#hostile",
+      "key": "air.heavy.naval_aew",
+      "variant": "hostile",
+      "sidc": "13060100001101160003",
+      "meaning": "Hostile fixed wing, airborne early warning, light (carrier AEW)",
+      "svgSha256": "7f7c657301cb0a0f202bd5c9058fd7880ca7977d8decad5656bcdf71b2036639"
+    },
+    {
+      "id": "air.heavy.naval_aew#neutral",
+      "key": "air.heavy.naval_aew",
+      "variant": "neutral",
+      "sidc": "13040100001101160003",
+      "meaning": "Neutral fixed wing, airborne early warning, light (carrier AEW)",
+      "svgSha256": "14f859d82641fbe53fc2c96acce4a20d220c3325dc52c664efda64268b6aa616"
+    },
+    {
+      "id": "air.heavy.naval_aew#unknown",
+      "key": "air.heavy.naval_aew",
+      "variant": "unknown",
+      "sidc": "13010100001101160003",
+      "meaning": "Unknown-affiliation fixed wing, airborne early warning, light (carrier AEW)",
+      "svgSha256": "62fa26e1ed4cf24f7acf7c72a7586a777546713dc37e4b603bd870adc2461d23"
+    },
+    {
+      "id": "air.heavy.stealth_bomber#friend",
+      "key": "air.heavy.stealth_bomber",
+      "variant": "friend",
+      "sidc": "13030100001101030010",
+      "meaning": "Friendly fixed wing, bomber, long range (stealth bomber)",
+      "svgSha256": "49420c191ecad8fe4180d815f446532ed9e78ae7da52f6c27d9b78bceed60a78"
+    },
+    {
+      "id": "air.heavy.stealth_bomber#hostile",
+      "key": "air.heavy.stealth_bomber",
+      "variant": "hostile",
+      "sidc": "13060100001101030010",
+      "meaning": "Hostile fixed wing, bomber, long range (stealth bomber)",
+      "svgSha256": "82003e896927ca2aa273aef85ef90deab63ba4968059890e7a05c524d206b768"
+    },
+    {
+      "id": "air.heavy.stealth_bomber#neutral",
+      "key": "air.heavy.stealth_bomber",
+      "variant": "neutral",
+      "sidc": "13040100001101030010",
+      "meaning": "Neutral fixed wing, bomber, long range (stealth bomber)",
+      "svgSha256": "358967b1769d3d784113f1cfc1669935084a0b1d9757b3908bfa3b0acb82cd73"
+    },
+    {
+      "id": "air.heavy.stealth_bomber#unknown",
+      "key": "air.heavy.stealth_bomber",
+      "variant": "unknown",
+      "sidc": "13010100001101030010",
+      "meaning": "Unknown-affiliation fixed wing, bomber, long range (stealth bomber)",
+      "svgSha256": "bf10c555c72de89847d939fdc3bb5289524107ba3c31243f9473f88d9e37ce33"
+    },
+    {
+      "id": "air.heavy.tanker#friend",
+      "key": "air.heavy.tanker",
+      "variant": "friend",
+      "sidc": "13030100001101090000",
+      "meaning": "Friendly fixed wing, tanker",
+      "svgSha256": "70b6e8afc43e727e36296cf3af538b58740322f96450b9ef331cee82e6629b7c"
+    },
+    {
+      "id": "air.heavy.tanker#hostile",
+      "key": "air.heavy.tanker",
+      "variant": "hostile",
+      "sidc": "13060100001101090000",
+      "meaning": "Hostile fixed wing, tanker",
+      "svgSha256": "26e03db03a6fafe75cffb2ee24d69c9952c5beb3c55c62ca601179b0786c7ff0"
+    },
+    {
+      "id": "air.heavy.tanker#neutral",
+      "key": "air.heavy.tanker",
+      "variant": "neutral",
+      "sidc": "13040100001101090000",
+      "meaning": "Neutral fixed wing, tanker",
+      "svgSha256": "7c906c47bc3a586c9c2a6c50c911b09ed61fa4bdfd75db4fa6916b7dc94070a9"
+    },
+    {
+      "id": "air.heavy.tanker#unknown",
+      "key": "air.heavy.tanker",
+      "variant": "unknown",
+      "sidc": "13010100001101090000",
+      "meaning": "Unknown-affiliation fixed wing, tanker",
+      "svgSha256": "140a5c0f42a368989e4f1c29110a2b0a595de4fa052d7da16f8413b994c4168b"
+    },
+    {
+      "id": "air.heavy.transport#friend",
+      "key": "air.heavy.transport",
+      "variant": "friend",
+      "sidc": "13030100001101070001",
+      "meaning": "Friendly fixed wing, cargo, heavy (strategic airlifter)",
+      "svgSha256": "7320e1050fc3acb60cc391488b08812d53dd609c2af98242e9de08dc1be4a040"
+    },
+    {
+      "id": "air.heavy.transport#hostile",
+      "key": "air.heavy.transport",
+      "variant": "hostile",
+      "sidc": "13060100001101070001",
+      "meaning": "Hostile fixed wing, cargo, heavy (strategic airlifter)",
+      "svgSha256": "5b0d041267d017d8d72706e8c3abab26d5672fbb6353ac74ef03c0c989c3209b"
+    },
+    {
+      "id": "air.heavy.transport#neutral",
+      "key": "air.heavy.transport",
+      "variant": "neutral",
+      "sidc": "13040100001101070001",
+      "meaning": "Neutral fixed wing, cargo, heavy (strategic airlifter)",
+      "svgSha256": "dc5f928ed6b4a98dfac1780a13c38214607a691a84e51f5002ecbedff121bfee"
+    },
+    {
+      "id": "air.heavy.transport#unknown",
+      "key": "air.heavy.transport",
+      "variant": "unknown",
+      "sidc": "13010100001101070001",
+      "meaning": "Unknown-affiliation fixed wing, cargo, heavy (strategic airlifter)",
+      "svgSha256": "c5bcf850330cfc0acdddfad886a32cd9acb11d2b47fa4aecd05f376bfcc1c537"
+    },
+    {
+      "id": "air.helicopter.asw#friend",
+      "key": "air.helicopter.asw",
+      "variant": "friend",
+      "sidc": "13030100001102002200",
+      "meaning": "Friendly military rotary wing, antisubmarine warfare",
+      "svgSha256": "099784f5f438c2f4fc9d6d2aa70437eaff651ab79331d0ae97d89290dd434e53"
+    },
+    {
+      "id": "air.helicopter.asw#hostile",
+      "key": "air.helicopter.asw",
+      "variant": "hostile",
+      "sidc": "13060100001102002200",
+      "meaning": "Hostile military rotary wing, antisubmarine warfare",
+      "svgSha256": "a26be15febab0500eb76df639d6f4280831315af9bd239e71e1c4aedb4db4f2b"
+    },
+    {
+      "id": "air.helicopter.asw#neutral",
+      "key": "air.helicopter.asw",
+      "variant": "neutral",
+      "sidc": "13040100001102002200",
+      "meaning": "Neutral military rotary wing, antisubmarine warfare",
+      "svgSha256": "20015c96525fa9ab32bbb8c50f3e88e57a26298ea22729765277c88303b59db0"
+    },
+    {
+      "id": "air.helicopter.asw#unknown",
+      "key": "air.helicopter.asw",
+      "variant": "unknown",
+      "sidc": "13010100001102002200",
+      "meaning": "Unknown-affiliation military rotary wing, antisubmarine warfare",
+      "svgSha256": "9d7326bc63fc1f48cd9591992b756bc9251ed6dc195efde7a3d973d0d2921a8c"
+    },
+    {
+      "id": "air.helicopter.attack#damaged",
+      "key": "air.helicopter.attack",
+      "variant": "damaged",
+      "sidc": "13030130001102000100",
+      "meaning": "Friendly military rotary wing, attack, damaged (operational-condition bar)",
+      "svgSha256": "f3041eab2a2084acf28bcdaa5c4cadc71aaf709fd1987f0113dbe925c7f4ca9e"
+    },
+    {
+      "id": "air.helicopter.attack#friend",
+      "key": "air.helicopter.attack",
+      "variant": "friend",
+      "sidc": "13030100001102000100",
+      "meaning": "Friendly military rotary wing, attack",
+      "svgSha256": "777b55f284e697bd0844992f9f56d63968288671646deaf98140e4501c912e22"
+    },
+    {
+      "id": "air.helicopter.attack#hostile",
+      "key": "air.helicopter.attack",
+      "variant": "hostile",
+      "sidc": "13060100001102000100",
+      "meaning": "Hostile military rotary wing, attack",
+      "svgSha256": "956b24e3fc50d1082ab6b73d29b988ad1f0cbdf6cc56d3e05cd460ec13afd4d0"
+    },
+    {
+      "id": "air.helicopter.attack#mono-unknown",
+      "key": "air.helicopter.attack",
+      "variant": "mono-unknown",
+      "sidc": "13010100001102000100",
+      "meaning": "Unknown-affiliation military rotary wing, attack, monochrome",
+      "svgSha256": "9a7ef2b6e0301203e4cc73e18e7ae92ba4fc0745dacdcaf42e2afa5edc0206de"
+    },
+    {
+      "id": "air.helicopter.attack#neutral",
+      "key": "air.helicopter.attack",
+      "variant": "neutral",
+      "sidc": "13040100001102000100",
+      "meaning": "Neutral military rotary wing, attack",
+      "svgSha256": "ceb0481d5d01cb5930fa14efda8c4bfb5ab2596141458f13b996b50f88cc2978"
+    },
+    {
+      "id": "air.helicopter.attack#planned",
+      "key": "air.helicopter.attack",
+      "variant": "planned",
+      "sidc": "13030110001102000100",
+      "meaning": "Friendly military rotary wing, attack, planned/anticipated (dashed frame)",
+      "svgSha256": "803a02222099f3812f3add7323bb7e3ca3cacf16ecfd6b7c5307eb2e539e4855"
+    },
+    {
+      "id": "air.helicopter.attack#selected",
+      "key": "air.helicopter.attack",
+      "variant": "selected",
+      "sidc": "13060100001102000100",
+      "meaning": "Hostile military rotary wing, attack, currently selected (game ring overlay)",
+      "svgSha256": "b11f05f16cf7d04c75c08760c4b2d24ab26397daf545eb16ab9612ee569c32c1"
+    },
+    {
+      "id": "air.helicopter.attack#stale",
+      "key": "air.helicopter.attack",
+      "variant": "stale",
+      "sidc": "13060100001102000100",
+      "meaning": "Hostile military rotary wing, attack, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "4fec26c94c1a425a5856c340fad21f693d8a43165680aec4ef404c6725672bd1"
+    },
+    {
+      "id": "air.helicopter.attack#unknown",
+      "key": "air.helicopter.attack",
+      "variant": "unknown",
+      "sidc": "13010100001102000100",
+      "meaning": "Unknown-affiliation military rotary wing, attack",
+      "svgSha256": "4a676379a4b4e797cf8ad8de9c326a3257112b0b4fbbc61e4362bd31e42ac9b1"
+    },
+    {
+      "id": "air.helicopter.gunship#friend",
+      "key": "air.helicopter.gunship",
+      "variant": "friend",
+      "sidc": "13030100001102003600",
+      "meaning": "Friendly military rotary wing, multimission (gunship)",
+      "svgSha256": "23609e2486971b1133af23677c294806b18c028c4702c0bc05276a9dd88ed45b"
+    },
+    {
+      "id": "air.helicopter.gunship#hostile",
+      "key": "air.helicopter.gunship",
+      "variant": "hostile",
+      "sidc": "13060100001102003600",
+      "meaning": "Hostile military rotary wing, multimission (gunship)",
+      "svgSha256": "4841b7942f7ccc8d4f567fe8f2c9737a2141ae0eded8afd2ed272bd1d19cd2ca"
+    },
+    {
+      "id": "air.helicopter.gunship#neutral",
+      "key": "air.helicopter.gunship",
+      "variant": "neutral",
+      "sidc": "13040100001102003600",
+      "meaning": "Neutral military rotary wing, multimission (gunship)",
+      "svgSha256": "476d5ad75d40b2f66e61b1e09ea647623d62170cfbfd00de58405a36a9c75706"
+    },
+    {
+      "id": "air.helicopter.gunship#unknown",
+      "key": "air.helicopter.gunship",
+      "variant": "unknown",
+      "sidc": "13010100001102003600",
+      "meaning": "Unknown-affiliation military rotary wing, multimission (gunship)",
+      "svgSha256": "45b907b870e4a8a59c56f9c1485e83b6e36b42b7179c40ce98eb2a5e36db35ad"
+    },
+    {
+      "id": "air.officer.fighter#friend",
+      "key": "air.officer.fighter",
+      "variant": "friend",
+      "sidc": "13031002001208000000",
+      "meaning": "Friendly fixed-wing aviation headquarters (officer)",
+      "svgSha256": "6fe7e86e0ae56e6b9d5b233e26a39ba0f4231518671618dad46a2dc584e65869"
+    },
+    {
+      "id": "air.officer.fighter#hostile",
+      "key": "air.officer.fighter",
+      "variant": "hostile",
+      "sidc": "13061002001208000000",
+      "meaning": "Hostile fixed-wing aviation headquarters (officer)",
+      "svgSha256": "2c1601f5f58644afda12ee45290faa1cec8a07fd0dbe3959e1f6bb2064407853"
+    },
+    {
+      "id": "air.officer.fighter#neutral",
+      "key": "air.officer.fighter",
+      "variant": "neutral",
+      "sidc": "13041002001208000000",
+      "meaning": "Neutral fixed-wing aviation headquarters (officer)",
+      "svgSha256": "e95bf0b53e13a072463a92b76569a728687691dbe5fdd9294c142552a96d14c1"
+    },
+    {
+      "id": "air.officer.fighter#unknown",
+      "key": "air.officer.fighter",
+      "variant": "unknown",
+      "sidc": "13011002001208000000",
+      "meaning": "Unknown-affiliation fixed-wing aviation headquarters (officer)",
+      "svgSha256": "50056d4c989a9d1653ad5c9b22674e97c27193a98809bfaed0a8f3c8fb7df4a2"
+    },
+    {
+      "id": "air.officer.helicopter#friend",
+      "key": "air.officer.helicopter",
+      "variant": "friend",
+      "sidc": "13031002001206000000",
+      "meaning": "Friendly rotary-wing aviation headquarters (officer)",
+      "svgSha256": "d1d49ff959aa674eb210bfaa77603b9946e2fbeab083567e798326abab467007"
+    },
+    {
+      "id": "air.officer.helicopter#hostile",
+      "key": "air.officer.helicopter",
+      "variant": "hostile",
+      "sidc": "13061002001206000000",
+      "meaning": "Hostile rotary-wing aviation headquarters (officer)",
+      "svgSha256": "d7302a40c21e96ce46af2b6cf40bd472a64472f85c556fd8aa7d07693d0663cb"
+    },
+    {
+      "id": "air.officer.helicopter#neutral",
+      "key": "air.officer.helicopter",
+      "variant": "neutral",
+      "sidc": "13041002001206000000",
+      "meaning": "Neutral rotary-wing aviation headquarters (officer)",
+      "svgSha256": "b7c8612f04f3ba8ee4a8b0759a529d2f9c17fad2f1e82bc57d3eca2a42fb3938"
+    },
+    {
+      "id": "air.officer.helicopter#unknown",
+      "key": "air.officer.helicopter",
+      "variant": "unknown",
+      "sidc": "13011002001206000000",
+      "meaning": "Unknown-affiliation rotary-wing aviation headquarters (officer)",
+      "svgSha256": "9dce8ca7e2e3e34b004617053d9924c12897effc7c8c196edfc1a0d01762d2c9"
+    },
+    {
+      "id": "air.recon.broad_area#damaged",
+      "key": "air.recon.broad_area",
+      "variant": "damaged",
+      "sidc": "13030130001101110010",
+      "meaning": "Friendly fixed wing, reconnaissance, long range, damaged (operational-condition bar)",
+      "svgSha256": "bd8975175775fa445bd34992e71af409634d3d05b027afde6fd3f57ae6b0d8b3"
+    },
+    {
+      "id": "air.recon.broad_area#friend",
+      "key": "air.recon.broad_area",
+      "variant": "friend",
+      "sidc": "13030100001101110010",
+      "meaning": "Friendly fixed wing, reconnaissance, long range",
+      "svgSha256": "5efd8148efb681732b8a3a93e82c0cc5f5c2b33f98449017e4d1204319d0ac73"
+    },
+    {
+      "id": "air.recon.broad_area#hostile",
+      "key": "air.recon.broad_area",
+      "variant": "hostile",
+      "sidc": "13060100001101110010",
+      "meaning": "Hostile fixed wing, reconnaissance, long range",
+      "svgSha256": "146926f82565710a94dba40ef4cb78551582be93cb14c8f94338b1ce91484abf"
+    },
+    {
+      "id": "air.recon.broad_area#mono-unknown",
+      "key": "air.recon.broad_area",
+      "variant": "mono-unknown",
+      "sidc": "13010100001101110010",
+      "meaning": "Unknown-affiliation fixed wing, reconnaissance, long range, monochrome",
+      "svgSha256": "024212f514bb318b52a474d66a110ae3f9a830494d73abb0a1ed464ced40ce19"
+    },
+    {
+      "id": "air.recon.broad_area#neutral",
+      "key": "air.recon.broad_area",
+      "variant": "neutral",
+      "sidc": "13040100001101110010",
+      "meaning": "Neutral fixed wing, reconnaissance, long range",
+      "svgSha256": "6bb8865078e62af246b2a858de31da7b6f3d13e884af8ee4f3b5058a52d7613b"
+    },
+    {
+      "id": "air.recon.broad_area#planned",
+      "key": "air.recon.broad_area",
+      "variant": "planned",
+      "sidc": "13030110001101110010",
+      "meaning": "Friendly fixed wing, reconnaissance, long range, planned/anticipated (dashed frame)",
+      "svgSha256": "44e323c0285aa29f2ca7fbdba8eb237b5b78a4aa37d2733f35ef600942457f97"
+    },
+    {
+      "id": "air.recon.broad_area#selected",
+      "key": "air.recon.broad_area",
+      "variant": "selected",
+      "sidc": "13060100001101110010",
+      "meaning": "Hostile fixed wing, reconnaissance, long range, currently selected (game ring overlay)",
+      "svgSha256": "c62d68b49bbf945d7e9293abe48e7d7a2974d648749199145f0172ecd22b84af"
+    },
+    {
+      "id": "air.recon.broad_area#stale",
+      "key": "air.recon.broad_area",
+      "variant": "stale",
+      "sidc": "13060100001101110010",
+      "meaning": "Hostile fixed wing, reconnaissance, long range, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "da742908df57dacfe8a42ace43c75b5e7963c54bddbdd86bb1e4ef34f9765378"
+    },
+    {
+      "id": "air.recon.broad_area#unknown",
+      "key": "air.recon.broad_area",
+      "variant": "unknown",
+      "sidc": "13010100001101110010",
+      "meaning": "Unknown-affiliation fixed wing, reconnaissance, long range",
+      "svgSha256": "aa07aa656b2722e78cc7b90d5fca98127b70a49368531d57889ca421caa471d9"
+    },
+    {
+      "id": "contact.air#friend",
+      "key": "contact.air",
+      "variant": "friend",
+      "sidc": "13030100000000000000",
+      "meaning": "Friendly air contact, type unknown",
+      "svgSha256": "68df9d317a2b4f14048b542161f4f023dc0cd8b13bf1352a760307a671eae1f2"
+    },
+    {
+      "id": "contact.air#hostile",
+      "key": "contact.air",
+      "variant": "hostile",
+      "sidc": "13060100000000000000",
+      "meaning": "Hostile air contact, type unknown",
+      "svgSha256": "e544e893b5d776079205e3cd463066ee050d3d8df7d668fbf14160491d3fe840"
+    },
+    {
+      "id": "contact.air#mono-unknown",
+      "key": "contact.air",
+      "variant": "mono-unknown",
+      "sidc": "13010100000000000000",
+      "meaning": "Unknown-affiliation air contact, type unknown, monochrome",
+      "svgSha256": "f76b57554301b2b6720c52fe90fbd1066f1201cb211544e6b3d41e9f98846575"
+    },
+    {
+      "id": "contact.air#neutral",
+      "key": "contact.air",
+      "variant": "neutral",
+      "sidc": "13040100000000000000",
+      "meaning": "Neutral air contact, type unknown",
+      "svgSha256": "56af16283a3ffd0331ef619b1689a4f2ea737832f7332632a1f9beed796363cf"
+    },
+    {
+      "id": "contact.air#selected",
+      "key": "contact.air",
+      "variant": "selected",
+      "sidc": "13060100000000000000",
+      "meaning": "Hostile air contact, type unknown, currently selected (game ring overlay)",
+      "svgSha256": "574e767b21a83155953a03021ea349e468947bd12a95cacc6f82063d42ea05a5"
+    },
+    {
+      "id": "contact.air#stale",
+      "key": "contact.air",
+      "variant": "stale",
+      "sidc": "13060100000000000000",
+      "meaning": "Hostile air contact, type unknown, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "670a309e6a25a5431a12a4570a1863433f6da5b625c89b0b8c0de290f99e57ec"
+    },
+    {
+      "id": "contact.air#unknown",
+      "key": "contact.air",
+      "variant": "unknown",
+      "sidc": "13010100000000000000",
+      "meaning": "Unknown-affiliation air contact, type unknown",
+      "svgSha256": "e2287a936811207451f72bd2d53745d1150398cb3003dc386fd8d53412be2d02"
+    },
+    {
+      "id": "contact.land#friend",
+      "key": "contact.land",
+      "variant": "friend",
+      "sidc": "13031000000000000000",
+      "meaning": "Friendly land contact, type unknown",
+      "svgSha256": "edc1ee92c947b2eef713ade51c84850482e7cf6931d85a3e5e901767cc228def"
+    },
+    {
+      "id": "contact.land#hostile",
+      "key": "contact.land",
+      "variant": "hostile",
+      "sidc": "13061000000000000000",
+      "meaning": "Hostile land contact, type unknown",
+      "svgSha256": "12e4092b06f6c4e53c4f75d6483ec3353fc92963ff0be165d6c29d651b958ab6"
+    },
+    {
+      "id": "contact.land#mono-unknown",
+      "key": "contact.land",
+      "variant": "mono-unknown",
+      "sidc": "13011000000000000000",
+      "meaning": "Unknown-affiliation land contact, type unknown, monochrome",
+      "svgSha256": "48d8d5845b8563e6a6619a4357ab44d67cbb151717d6987cc20954d94a2f3264"
+    },
+    {
+      "id": "contact.land#neutral",
+      "key": "contact.land",
+      "variant": "neutral",
+      "sidc": "13041000000000000000",
+      "meaning": "Neutral land contact, type unknown",
+      "svgSha256": "edcd39f6dde24aa6c887ce21ae1ce9eac34f56efc4112f4ea15eddfda09e1330"
+    },
+    {
+      "id": "contact.land#selected",
+      "key": "contact.land",
+      "variant": "selected",
+      "sidc": "13061000000000000000",
+      "meaning": "Hostile land contact, type unknown, currently selected (game ring overlay)",
+      "svgSha256": "4856ee0ec0cda6cb6b66e49ac54d1a09c70c5a0e154571f62e64ed8a4bb74a7b"
+    },
+    {
+      "id": "contact.land#stale",
+      "key": "contact.land",
+      "variant": "stale",
+      "sidc": "13061000000000000000",
+      "meaning": "Hostile land contact, type unknown, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "978711a36b9aa6b3be6f7563ab6b3e5aeebe3c7d794419b9469c0b42a6f674f1"
+    },
+    {
+      "id": "contact.land#unknown",
+      "key": "contact.land",
+      "variant": "unknown",
+      "sidc": "13011000000000000000",
+      "meaning": "Unknown-affiliation land contact, type unknown",
+      "svgSha256": "7c0dfea7493400f8f41349f5322b1753654ac96b7c42938f6d976c99a96fa44e"
+    },
+    {
+      "id": "contact.sea#friend",
+      "key": "contact.sea",
+      "variant": "friend",
+      "sidc": "13033000000000000000",
+      "meaning": "Friendly surface contact, type unknown",
+      "svgSha256": "f617d32245c5ff19938baf0fd3d176312057cfe0e44bf3cab1097d46b5ba7c8d"
+    },
+    {
+      "id": "contact.sea#hostile",
+      "key": "contact.sea",
+      "variant": "hostile",
+      "sidc": "13063000000000000000",
+      "meaning": "Hostile surface contact, type unknown",
+      "svgSha256": "c49d4b1243f0e32dd8303215be007ad699ffedad178a29e530d5382c91486bf4"
+    },
+    {
+      "id": "contact.sea#mono-unknown",
+      "key": "contact.sea",
+      "variant": "mono-unknown",
+      "sidc": "13013000000000000000",
+      "meaning": "Unknown-affiliation surface contact, type unknown, monochrome",
+      "svgSha256": "09d5f6cd765e1cc9d2ae9453e6ea909a6fce054e9da8dc6f8abda537acc92359"
+    },
+    {
+      "id": "contact.sea#neutral",
+      "key": "contact.sea",
+      "variant": "neutral",
+      "sidc": "13043000000000000000",
+      "meaning": "Neutral surface contact, type unknown",
+      "svgSha256": "46758d650105c229f9588415433377f739621eadc4f699eb404d266606eccc3a"
+    },
+    {
+      "id": "contact.sea#selected",
+      "key": "contact.sea",
+      "variant": "selected",
+      "sidc": "13063000000000000000",
+      "meaning": "Hostile surface contact, type unknown, currently selected (game ring overlay)",
+      "svgSha256": "aa5e5b9a4c81a13a8a6c358027090d0a287f41a9fe81e76496c62fe718587e4c"
+    },
+    {
+      "id": "contact.sea#stale",
+      "key": "contact.sea",
+      "variant": "stale",
+      "sidc": "13063000000000000000",
+      "meaning": "Hostile surface contact, type unknown, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "830d0692deeacf8eec48146a724c3a803e201d260d1bf58b39a8910d8296c68c"
+    },
+    {
+      "id": "contact.sea#unknown",
+      "key": "contact.sea",
+      "variant": "unknown",
+      "sidc": "13013000000000000000",
+      "meaning": "Unknown-affiliation surface contact, type unknown",
+      "svgSha256": "b942ff8f09b926a4e341411069319ce29e83bbb05da44813b08972577f30a41f"
+    },
+    {
+      "id": "contact.subsurface#friend",
+      "key": "contact.subsurface",
+      "variant": "friend",
+      "sidc": "13033500000000000000",
+      "meaning": "Friendly subsurface contact, type unknown",
+      "svgSha256": "73f03351418b89bfbf0c18098743f6c4a363f520bdab903f5b0f048e3571ec3d"
+    },
+    {
+      "id": "contact.subsurface#hostile",
+      "key": "contact.subsurface",
+      "variant": "hostile",
+      "sidc": "13063500000000000000",
+      "meaning": "Hostile subsurface contact, type unknown",
+      "svgSha256": "74f692461a422457cf417eaf41072092eeef1c5c8d87ee9f413abca7248dbf66"
+    },
+    {
+      "id": "contact.subsurface#mono-unknown",
+      "key": "contact.subsurface",
+      "variant": "mono-unknown",
+      "sidc": "13013500000000000000",
+      "meaning": "Unknown-affiliation subsurface contact, type unknown, monochrome",
+      "svgSha256": "b78f0ffd8f475dabe251ba7bb35f530f496e01bdf3b8bd27ec03968b68d93b70"
+    },
+    {
+      "id": "contact.subsurface#neutral",
+      "key": "contact.subsurface",
+      "variant": "neutral",
+      "sidc": "13043500000000000000",
+      "meaning": "Neutral subsurface contact, type unknown",
+      "svgSha256": "581c4d48a5815d3ec33475365f449edbe8d631f6d5718c840bf3564342446d96"
+    },
+    {
+      "id": "contact.subsurface#selected",
+      "key": "contact.subsurface",
+      "variant": "selected",
+      "sidc": "13063500000000000000",
+      "meaning": "Hostile subsurface contact, type unknown, currently selected (game ring overlay)",
+      "svgSha256": "a1d80bab1d86026ebb0473b440dcaadb044360f2e7e97ac4bacd18d44733e1b4"
+    },
+    {
+      "id": "contact.subsurface#stale",
+      "key": "contact.subsurface",
+      "variant": "stale",
+      "sidc": "13063500000000000000",
+      "meaning": "Hostile subsurface contact, type unknown, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "72ce45872070a2c7f6c7bd887e3a11e7b001b1eca81506d9eea3a80a490e081a"
+    },
+    {
+      "id": "contact.subsurface#unknown",
+      "key": "contact.subsurface",
+      "variant": "unknown",
+      "sidc": "13013500000000000000",
+      "meaning": "Unknown-affiliation subsurface contact, type unknown",
+      "svgSha256": "a81e1c982642604d9a78e20c00de0fbc3e96f46c1db19e5ee5afa13419f33bd0"
+    },
+    {
+      "id": "event.missile.ballistic#friend",
+      "key": "event.missile.ballistic",
+      "variant": "friend",
+      "sidc": "13030200001100000600",
+      "meaning": "Friendly ballistic missile in flight",
+      "svgSha256": "6a29f964106d9691f426e3dded6bb79732c25b140ca79bf63fbd4b23cb2da54d"
+    },
+    {
+      "id": "event.missile.ballistic#hostile",
+      "key": "event.missile.ballistic",
+      "variant": "hostile",
+      "sidc": "13060200001100000600",
+      "meaning": "Hostile ballistic missile in flight",
+      "svgSha256": "0e1666cdb1e70bcf18b01811946632ccb00e0e47696c24d2f350ed5267e8a3d0"
+    },
+    {
+      "id": "event.missile.ballistic#neutral",
+      "key": "event.missile.ballistic",
+      "variant": "neutral",
+      "sidc": "13040200001100000600",
+      "meaning": "Neutral ballistic missile in flight",
+      "svgSha256": "b243660c68f692a785b84a254b5e68599dcd6ae07651220419caa90e4751ff88"
+    },
+    {
+      "id": "event.missile.ballistic#unknown",
+      "key": "event.missile.ballistic",
+      "variant": "unknown",
+      "sidc": "13010200001100000600",
+      "meaning": "Unknown-affiliation ballistic missile in flight",
+      "svgSha256": "dd388292253ff5e150f88a2666d47282e94dd1de16596ad71629ce14189e97ef"
+    },
+    {
+      "id": "event.missile.cruise#friend",
+      "key": "event.missile.cruise",
+      "variant": "friend",
+      "sidc": "13030200001100000700",
+      "meaning": "Friendly cruise missile in flight",
+      "svgSha256": "53ff654ff576c90652063276d314349f2f3e20f5ca8e03253a785e63cecab861"
+    },
+    {
+      "id": "event.missile.cruise#hostile",
+      "key": "event.missile.cruise",
+      "variant": "hostile",
+      "sidc": "13060200001100000700",
+      "meaning": "Hostile cruise missile in flight",
+      "svgSha256": "559300d4cde124d37070dc119015aa6a1756ff91718a31ac04b87a3dacafd659"
+    },
+    {
+      "id": "event.missile.cruise#mono-unknown",
+      "key": "event.missile.cruise",
+      "variant": "mono-unknown",
+      "sidc": "13010200001100000700",
+      "meaning": "Unknown-affiliation cruise missile in flight, monochrome",
+      "svgSha256": "999f2333b5ca84b03369d7566f1b473db69413592f2070ffa33b9b0eb2704ade"
+    },
+    {
+      "id": "event.missile.cruise#neutral",
+      "key": "event.missile.cruise",
+      "variant": "neutral",
+      "sidc": "13040200001100000700",
+      "meaning": "Neutral cruise missile in flight",
+      "svgSha256": "d3c7dbd9c36ad3459d12ab287704ca1e2a0136b9dce03bb54c48ffe370dca293"
+    },
+    {
+      "id": "event.missile.cruise#selected",
+      "key": "event.missile.cruise",
+      "variant": "selected",
+      "sidc": "13060200001100000700",
+      "meaning": "Hostile cruise missile in flight, currently selected (game ring overlay)",
+      "svgSha256": "12d66b700610df6667e6afb9c56ed9ac34cb9ec995b0ecfb4938b4d65d27226d"
+    },
+    {
+      "id": "event.missile.cruise#unknown",
+      "key": "event.missile.cruise",
+      "variant": "unknown",
+      "sidc": "13010200001100000700",
+      "meaning": "Unknown-affiliation cruise missile in flight",
+      "svgSha256": "f175caa825defaa785c55b23d606974fd4dc8440760512910f4b209ce4d6d376"
+    },
+    {
+      "id": "event.missile.hcm#friend",
+      "key": "event.missile.hcm",
+      "variant": "friend",
+      "sidc": "13030200001100000913",
+      "meaning": "Friendly hypersonic missile, medium range (hypersonic cruise)",
+      "svgSha256": "17b4085cdd05f6716899926cd198cda4c55eed19433393a9d21989536ccfcbe4"
+    },
+    {
+      "id": "event.missile.hcm#hostile",
+      "key": "event.missile.hcm",
+      "variant": "hostile",
+      "sidc": "13060200001100000913",
+      "meaning": "Hostile hypersonic missile, medium range (hypersonic cruise)",
+      "svgSha256": "8bc7e0ed46626d3a6c7fb98b7b5d17bd0df61709ffff970f69e9fdc037a05067"
+    },
+    {
+      "id": "event.missile.hcm#neutral",
+      "key": "event.missile.hcm",
+      "variant": "neutral",
+      "sidc": "13040200001100000913",
+      "meaning": "Neutral hypersonic missile, medium range (hypersonic cruise)",
+      "svgSha256": "6b41c15c183f85021f127dc192492b00cd2ed284696952f6a9c99b0cdf29bf50"
+    },
+    {
+      "id": "event.missile.hcm#unknown",
+      "key": "event.missile.hcm",
+      "variant": "unknown",
+      "sidc": "13010200001100000913",
+      "meaning": "Unknown-affiliation hypersonic missile, medium range (hypersonic cruise)",
+      "svgSha256": "6566603205dad7b814b383b34d915115265eb78a439a34cc4e2728ad4389ad15"
+    },
+    {
+      "id": "event.missile.hgv#friend",
+      "key": "event.missile.hgv",
+      "variant": "friend",
+      "sidc": "13030200001100000915",
+      "meaning": "Friendly hypersonic missile, long range (boost-glide system)",
+      "svgSha256": "ea68456b03e7975768f0be9f5f5dc4f54fcffe693ab2ba0b754a3763d44e7150"
+    },
+    {
+      "id": "event.missile.hgv#hostile",
+      "key": "event.missile.hgv",
+      "variant": "hostile",
+      "sidc": "13060200001100000915",
+      "meaning": "Hostile hypersonic missile, long range (boost-glide system)",
+      "svgSha256": "8a4345a0c65a81e376902f2e7a16a3105c0732b29d2a2c8e8290241f981adac7"
+    },
+    {
+      "id": "event.missile.hgv#mono-unknown",
+      "key": "event.missile.hgv",
+      "variant": "mono-unknown",
+      "sidc": "13010200001100000915",
+      "meaning": "Unknown-affiliation hypersonic missile, long range (boost-glide system), monochrome",
+      "svgSha256": "f001f2af49375c3b129431ea4527d76c7c6b78517bda402ede44dda019702bbe"
+    },
+    {
+      "id": "event.missile.hgv#neutral",
+      "key": "event.missile.hgv",
+      "variant": "neutral",
+      "sidc": "13040200001100000915",
+      "meaning": "Neutral hypersonic missile, long range (boost-glide system)",
+      "svgSha256": "8355235d7611e069351dc0d1f03b44e2a90b5353295fa90f1e5add063edee76f"
+    },
+    {
+      "id": "event.missile.hgv#selected",
+      "key": "event.missile.hgv",
+      "variant": "selected",
+      "sidc": "13060200001100000915",
+      "meaning": "Hostile hypersonic missile, long range (boost-glide system), currently selected (game ring overlay)",
+      "svgSha256": "6e2b94357082aff77a2021fee185cfb009d34651acfa851fc7ca99b931be65d1"
+    },
+    {
+      "id": "event.missile.hgv#unknown",
+      "key": "event.missile.hgv",
+      "variant": "unknown",
+      "sidc": "13010200001100000915",
+      "meaning": "Unknown-affiliation hypersonic missile, long range (boost-glide system)",
+      "svgSha256": "b377e8bb44b6fc247afac54fc2ab94540efbd30c7a32eca5272612003be7b604"
+    },
+    {
+      "id": "event.missile.unknown#friend",
+      "key": "event.missile.unknown",
+      "variant": "friend",
+      "sidc": "13030200001100000000",
+      "meaning": "Friendly missile in flight, family unknown",
+      "svgSha256": "56db0b2015342f947ef7e29b1269a5739d844555d209e4fb70789df0d8978b62"
+    },
+    {
+      "id": "event.missile.unknown#hostile",
+      "key": "event.missile.unknown",
+      "variant": "hostile",
+      "sidc": "13060200001100000000",
+      "meaning": "Hostile missile in flight, family unknown",
+      "svgSha256": "92bc38632d045265e76307310abdf77646b6933d84d7166f75c5bcf10c3b3deb"
+    },
+    {
+      "id": "event.missile.unknown#neutral",
+      "key": "event.missile.unknown",
+      "variant": "neutral",
+      "sidc": "13040200001100000000",
+      "meaning": "Neutral missile in flight, family unknown",
+      "svgSha256": "f2864ae324e4606c0f01644308d64a85a8576759bad5ad4faf3a392c6d73b7ec"
+    },
+    {
+      "id": "event.missile.unknown#unknown",
+      "key": "event.missile.unknown",
+      "variant": "unknown",
+      "sidc": "13010200001100000000",
+      "meaning": "Unknown-affiliation missile in flight, family unknown",
+      "svgSha256": "4fd19691aea186e001700e28904a84df457de718dc5de9933ef1d0df2f9a918b"
+    },
+    {
+      "id": "failsafe#unknown-key",
+      "key": "sea.naval.battleship (not in crosswalk)",
+      "variant": "failsafe",
+      "sidc": "13063000000000000000",
+      "meaning": "Unknown key → hostile generic SURFACE contact + asset-validation error (never infantry)",
+      "svgSha256": "c49d4b1243f0e32dd8303215be007ad699ffedad178a29e530d5382c91486bf4"
+    },
+    {
+      "id": "installation.air_base#damaged",
+      "key": "installation.air_base",
+      "variant": "damaged",
+      "sidc": "13032030001208030000",
+      "meaning": "Friendly military airport (air base), damaged (operational-condition bar)",
+      "svgSha256": "9e19b7e313fa6167bf119c67ec7c3252af163fb3d1e363e36edf7bdae0951e1b"
+    },
+    {
+      "id": "installation.air_base#friend",
+      "key": "installation.air_base",
+      "variant": "friend",
+      "sidc": "13032000001208030000",
+      "meaning": "Friendly military airport (air base)",
+      "svgSha256": "c4fc37effeedbcf71709c49367a3178c12258808e17880791b999537f81e47cc"
+    },
+    {
+      "id": "installation.air_base#hostile",
+      "key": "installation.air_base",
+      "variant": "hostile",
+      "sidc": "13062000001208030000",
+      "meaning": "Hostile military airport (air base)",
+      "svgSha256": "bfd630cb403718fa10a20ad1f05d896e43331ba85711da6acb3d0b71946f70ab"
+    },
+    {
+      "id": "installation.air_base#mono-unknown",
+      "key": "installation.air_base",
+      "variant": "mono-unknown",
+      "sidc": "13012000001208030000",
+      "meaning": "Unknown-affiliation military airport (air base), monochrome",
+      "svgSha256": "195c5c153651c8966e49905fb5b41da0601af66856a68769c839c4d661358746"
+    },
+    {
+      "id": "installation.air_base#neutral",
+      "key": "installation.air_base",
+      "variant": "neutral",
+      "sidc": "13042000001208030000",
+      "meaning": "Neutral military airport (air base)",
+      "svgSha256": "6655fecc5571531d32abe16dcc0f6d645a4bf401e1afd9458c88b6d2c72adf40"
+    },
+    {
+      "id": "installation.air_base#planned",
+      "key": "installation.air_base",
+      "variant": "planned",
+      "sidc": "13032010001208030000",
+      "meaning": "Friendly military airport (air base), planned/anticipated (dashed frame)",
+      "svgSha256": "ef8ede3bfc4ec7829c345cebfee5711ca50b538e104ebeea93bf8d4732853f77"
+    },
+    {
+      "id": "installation.air_base#selected",
+      "key": "installation.air_base",
+      "variant": "selected",
+      "sidc": "13062000001208030000",
+      "meaning": "Hostile military airport (air base), currently selected (game ring overlay)",
+      "svgSha256": "75eeed75844e504e0bb5f82224bd2f7113db8e1f1827f69f35f4f53826411b4a"
+    },
+    {
+      "id": "installation.air_base#stale",
+      "key": "installation.air_base",
+      "variant": "stale",
+      "sidc": "13062000001208030000",
+      "meaning": "Hostile military airport (air base), last observed 6 h ago (age badge, muted)",
+      "svgSha256": "dcffa6e3adb2e85418e67d661273c4aeb76eb82b8419647832a6acf5a1a9fff6"
+    },
+    {
+      "id": "installation.air_base#unknown",
+      "key": "installation.air_base",
+      "variant": "unknown",
+      "sidc": "13012000001208030000",
+      "meaning": "Unknown-affiliation military airport (air base)",
+      "svgSha256": "55110a79777742490550c60adf0156c6226f5348c50ff49698a63a57e1bb95f1"
+    },
+    {
+      "id": "installation.arms_industry#friend",
+      "key": "installation.arms_industry",
+      "variant": "friend",
+      "sidc": "13032000001108000000",
+      "meaning": "Friendly equipment manufacture (arms industry)",
+      "svgSha256": "d267fa103c529eed68ee0a2f0bc4ab5e3f48c3dd5be3757c9e6df125cc0f21c2"
+    },
+    {
+      "id": "installation.arms_industry#hostile",
+      "key": "installation.arms_industry",
+      "variant": "hostile",
+      "sidc": "13062000001108000000",
+      "meaning": "Hostile equipment manufacture (arms industry)",
+      "svgSha256": "4e284ee66eee582bd29a4e1a75c3bf302d39a70f33fbf656847753bf1dfd2013"
+    },
+    {
+      "id": "installation.arms_industry#neutral",
+      "key": "installation.arms_industry",
+      "variant": "neutral",
+      "sidc": "13042000001108000000",
+      "meaning": "Neutral equipment manufacture (arms industry)",
+      "svgSha256": "2e0da4b7d7b1ee34e4b5e9256c56df91c36387b6071e79830791fba42e8cad9e"
+    },
+    {
+      "id": "installation.arms_industry#unknown",
+      "key": "installation.arms_industry",
+      "variant": "unknown",
+      "sidc": "13012000001108000000",
+      "meaning": "Unknown-affiliation equipment manufacture (arms industry)",
+      "svgSha256": "90e080820649ca517342612de42847320ca19ee94be5256a8d1cb08a68328cf1"
+    },
+    {
+      "id": "installation.army_base#friend",
+      "key": "installation.army_base",
+      "variant": "friend",
+      "sidc": "13032000001208020000",
+      "meaning": "Friendly military base",
+      "svgSha256": "17f1d1a02a6216b4d8e21cb9c755eedb5dfee27266531f5332614e1ff0d5079c"
+    },
+    {
+      "id": "installation.army_base#hostile",
+      "key": "installation.army_base",
+      "variant": "hostile",
+      "sidc": "13062000001208020000",
+      "meaning": "Hostile military base",
+      "svgSha256": "7cf64c1f13fc298f44039e4620599256774a82e9d82d81f2246ed771c1f4934c"
+    },
+    {
+      "id": "installation.army_base#neutral",
+      "key": "installation.army_base",
+      "variant": "neutral",
+      "sidc": "13042000001208020000",
+      "meaning": "Neutral military base",
+      "svgSha256": "baf5480680130a02bdc205f34ab27c5ac23f62b410824c9767ba140989a08b0f"
+    },
+    {
+      "id": "installation.army_base#unknown",
+      "key": "installation.army_base",
+      "variant": "unknown",
+      "sidc": "13012000001208020000",
+      "meaning": "Unknown-affiliation military base",
+      "svgSha256": "1687f3f28812ddb2c147560f9653306d468a761b330a83971b2a50f265bee60d"
+    },
+    {
+      "id": "installation.capital#friend",
+      "key": "installation.capital",
+      "variant": "friend",
+      "sidc": "13032000001206000000",
+      "meaning": "Friendly government site (capital)",
+      "svgSha256": "f44f85d512c0290ad3dc77ec6ee03a07f37088624736ee994121f19d63e11d37"
+    },
+    {
+      "id": "installation.capital#hostile",
+      "key": "installation.capital",
+      "variant": "hostile",
+      "sidc": "13062000001206000000",
+      "meaning": "Hostile government site (capital)",
+      "svgSha256": "ea5e28cd5bf42b0e64363d1ee4536b3693c3c2f73dbb0b4d18467ff44ab4609b"
+    },
+    {
+      "id": "installation.capital#neutral",
+      "key": "installation.capital",
+      "variant": "neutral",
+      "sidc": "13042000001206000000",
+      "meaning": "Neutral government site (capital)",
+      "svgSha256": "43aeeff2200da8163b103c2a18df7c6b58e294bf940b98452ad28e74f448b999"
+    },
+    {
+      "id": "installation.capital#unknown",
+      "key": "installation.capital",
+      "variant": "unknown",
+      "sidc": "13012000001206000000",
+      "meaning": "Unknown-affiliation government site (capital)",
+      "svgSha256": "cd95dd95e19b8a174589ed8dcc8edc9268d1bb0c53c770c6613b038c52c0f3be"
+    },
+    {
+      "id": "installation.city#friend",
+      "key": "installation.city",
+      "variant": "friend",
+      "sidc": "13032000001200000000",
+      "meaning": "Friendly infrastructure installation (city)",
+      "svgSha256": "e93315ad744adfeae386b73062e4cc205e1ba7010b4702e38ce27061503e566c"
+    },
+    {
+      "id": "installation.city#hostile",
+      "key": "installation.city",
+      "variant": "hostile",
+      "sidc": "13062000001200000000",
+      "meaning": "Hostile infrastructure installation (city)",
+      "svgSha256": "340a61ac43518ee0763f854f8d2c1c6b20082a5924879b473046a7ee92daa40c"
+    },
+    {
+      "id": "installation.city#neutral",
+      "key": "installation.city",
+      "variant": "neutral",
+      "sidc": "13042000001200000000",
+      "meaning": "Neutral infrastructure installation (city)",
+      "svgSha256": "483c9d61e721a78900b9640a1abb4104abd5980097962388f50d9a02cf1e6317"
+    },
+    {
+      "id": "installation.city#unknown",
+      "key": "installation.city",
+      "variant": "unknown",
+      "sidc": "13012000001200000000",
+      "meaning": "Unknown-affiliation infrastructure installation (city)",
+      "svgSha256": "381c1b55415a09b6824b3518504edb1841e099a045509abd421a67b59b1b9c0d"
+    },
+    {
+      "id": "installation.missile_complex#friend",
+      "key": "installation.missile_complex",
+      "variant": "friend",
+      "sidc": "13032000001114000000",
+      "meaning": "Friendly missile launch site (missile complex)",
+      "svgSha256": "fdd29a0410bafea0ed43bdb6633d2bae04e291bee7a0180ae3e722417d5b75e5"
+    },
+    {
+      "id": "installation.missile_complex#hostile",
+      "key": "installation.missile_complex",
+      "variant": "hostile",
+      "sidc": "13062000001114000000",
+      "meaning": "Hostile missile launch site (missile complex)",
+      "svgSha256": "918c4a5fbd62f6e993dd5ac9d833e373c1a34ce587ef368e7f5e93645586b6ce"
+    },
+    {
+      "id": "installation.missile_complex#neutral",
+      "key": "installation.missile_complex",
+      "variant": "neutral",
+      "sidc": "13042000001114000000",
+      "meaning": "Neutral missile launch site (missile complex)",
+      "svgSha256": "0783c2a57c2831308cfefc3b3edfa0b0cb843046f1d519d8c57b37123eb3caee"
+    },
+    {
+      "id": "installation.missile_complex#unknown",
+      "key": "installation.missile_complex",
+      "variant": "unknown",
+      "sidc": "13012000001114000000",
+      "meaning": "Unknown-affiliation missile launch site (missile complex)",
+      "svgSha256": "563412d0bc9bf4bd18f275d8a785dfb463a1fb47ee78ba41a330ea7737823762"
+    },
+    {
+      "id": "installation.naval_base#damaged",
+      "key": "installation.naval_base",
+      "variant": "damaged",
+      "sidc": "13032030001213100000",
+      "meaning": "Friendly naval yard (naval base), damaged (operational-condition bar)",
+      "svgSha256": "4b8f64cf8ad2bafe726c242ab956fc9056802b6cb48ac72d0bba847df0f6c2d5"
+    },
+    {
+      "id": "installation.naval_base#friend",
+      "key": "installation.naval_base",
+      "variant": "friend",
+      "sidc": "13032000001213100000",
+      "meaning": "Friendly naval yard (naval base)",
+      "svgSha256": "59617dc65dc9d875a7d1a5f120a9dba47879c54d77fc16ee401d7cda42239937"
+    },
+    {
+      "id": "installation.naval_base#hostile",
+      "key": "installation.naval_base",
+      "variant": "hostile",
+      "sidc": "13062000001213100000",
+      "meaning": "Hostile naval yard (naval base)",
+      "svgSha256": "fbd7f71f40b32bf34f0a5f8e893b11e1897f7bfc86b0b8592d8c20c37f150c08"
+    },
+    {
+      "id": "installation.naval_base#mono-unknown",
+      "key": "installation.naval_base",
+      "variant": "mono-unknown",
+      "sidc": "13012000001213100000",
+      "meaning": "Unknown-affiliation naval yard (naval base), monochrome",
+      "svgSha256": "68f740a0d6d493bef1057774c768ee70845cd671ebc5cb0c0a25ef032ac3b093"
+    },
+    {
+      "id": "installation.naval_base#neutral",
+      "key": "installation.naval_base",
+      "variant": "neutral",
+      "sidc": "13042000001213100000",
+      "meaning": "Neutral naval yard (naval base)",
+      "svgSha256": "66f8857dccf4a8c04d55f425e6aa33df389b0cd39934b68d88fa806db1a2c010"
+    },
+    {
+      "id": "installation.naval_base#planned",
+      "key": "installation.naval_base",
+      "variant": "planned",
+      "sidc": "13032010001213100000",
+      "meaning": "Friendly naval yard (naval base), planned/anticipated (dashed frame)",
+      "svgSha256": "0947aef6e1e2ee7aeed68e4d36adf7b5041a2c615ccf17cdd8e33d7affc3dde8"
+    },
+    {
+      "id": "installation.naval_base#selected",
+      "key": "installation.naval_base",
+      "variant": "selected",
+      "sidc": "13062000001213100000",
+      "meaning": "Hostile naval yard (naval base), currently selected (game ring overlay)",
+      "svgSha256": "a324232065b5a9df62e3b914c3e00460e4bf74fe88c788bf4bc68b7fd47139e1"
+    },
+    {
+      "id": "installation.naval_base#stale",
+      "key": "installation.naval_base",
+      "variant": "stale",
+      "sidc": "13062000001213100000",
+      "meaning": "Hostile naval yard (naval base), last observed 6 h ago (age badge, muted)",
+      "svgSha256": "7e3850b049ee283b1b7cea5adfa3e3190ac1d188f32a48a21ea42add0fd4ba40"
+    },
+    {
+      "id": "installation.naval_base#unknown",
+      "key": "installation.naval_base",
+      "variant": "unknown",
+      "sidc": "13012000001213100000",
+      "meaning": "Unknown-affiliation naval yard (naval base)",
+      "svgSha256": "6dcca5e8d1054c81c4a8d1e7915b5535ed207dd14bfbe51d4a417ff0f33005b1"
+    },
+    {
+      "id": "installation.radar#friend",
+      "key": "installation.radar",
+      "variant": "friend",
+      "sidc": "13031500002203000300",
+      "meaning": "Friendly radar, early warning (radar station)",
+      "svgSha256": "5ff82904fc84d4680f68eaf3d5fe231db574518de0029618809e77d2e7a3962c"
+    },
+    {
+      "id": "installation.radar#hostile",
+      "key": "installation.radar",
+      "variant": "hostile",
+      "sidc": "13061500002203000300",
+      "meaning": "Hostile radar, early warning (radar station)",
+      "svgSha256": "7d66879ed4988f2628734ba98c3fc1e353d40d5e9d44041f336e26f796030659"
+    },
+    {
+      "id": "installation.radar#neutral",
+      "key": "installation.radar",
+      "variant": "neutral",
+      "sidc": "13041500002203000300",
+      "meaning": "Neutral radar, early warning (radar station)",
+      "svgSha256": "41e1abbd7328d534f6ad5127e69a686e320e97ea69522cd62c9a548054d6541b"
+    },
+    {
+      "id": "installation.radar#unknown",
+      "key": "installation.radar",
+      "variant": "unknown",
+      "sidc": "13011500002203000300",
+      "meaning": "Unknown-affiliation radar, early warning (radar station)",
+      "svgSha256": "f953d0d52e4dc396e1d5edfd894654cd3a4c2dbfaffe5fb7ed9158828d0965f1"
+    },
+    {
+      "id": "land.air_defense.gun#friend",
+      "key": "land.air_defense.gun",
+      "variant": "friend",
+      "sidc": "13031000001301010000",
+      "meaning": "Friendly air defence, gun system",
+      "svgSha256": "c0388fed2136474c7dd1df4fd11595e313fe8e2d579678d8da70aef896a3d19a"
+    },
+    {
+      "id": "land.air_defense.gun#hostile",
+      "key": "land.air_defense.gun",
+      "variant": "hostile",
+      "sidc": "13061000001301010000",
+      "meaning": "Hostile air defence, gun system",
+      "svgSha256": "7af0d1c6b1a3b9473c2f695c18c8e5a12f687c916893085a7ecec56396d5d472"
+    },
+    {
+      "id": "land.air_defense.gun#neutral",
+      "key": "land.air_defense.gun",
+      "variant": "neutral",
+      "sidc": "13041000001301010000",
+      "meaning": "Neutral air defence, gun system",
+      "svgSha256": "6a273c8aaa6fb1b92f5dd96df544ca5e7eb56a646cc638ab366b63a782c15e8a"
+    },
+    {
+      "id": "land.air_defense.gun#unknown",
+      "key": "land.air_defense.gun",
+      "variant": "unknown",
+      "sidc": "13011000001301010000",
+      "meaning": "Unknown-affiliation air defence, gun system",
+      "svgSha256": "00707cd51fdd5a8a352ab2ba66adb9e8b8ba9d58ba3419dca1312abc0e468ee6"
+    },
+    {
+      "id": "land.air_defense.sam#damaged",
+      "key": "land.air_defense.sam",
+      "variant": "damaged",
+      "sidc": "13031030001301020000",
+      "meaning": "Friendly air defence, missile, damaged (operational-condition bar)",
+      "svgSha256": "985267b07116ba54612261775619b46b9b750d9052e69f3f841ab2709cb41113"
+    },
+    {
+      "id": "land.air_defense.sam#friend",
+      "key": "land.air_defense.sam",
+      "variant": "friend",
+      "sidc": "13031000001301020000",
+      "meaning": "Friendly air defence, missile",
+      "svgSha256": "9acb29768fb9e9a29bd0ab21101f4d1e02a20314edc8589992a9ce0dc9d1e893"
+    },
+    {
+      "id": "land.air_defense.sam#hostile",
+      "key": "land.air_defense.sam",
+      "variant": "hostile",
+      "sidc": "13061000001301020000",
+      "meaning": "Hostile air defence, missile",
+      "svgSha256": "46a6f50fd07b22b2bd3e49f12e42ddfbdc10785b70e008254d4a941456deb06c"
+    },
+    {
+      "id": "land.air_defense.sam#mono-unknown",
+      "key": "land.air_defense.sam",
+      "variant": "mono-unknown",
+      "sidc": "13011000001301020000",
+      "meaning": "Unknown-affiliation air defence, missile, monochrome",
+      "svgSha256": "520bcfe7aff36918424d3d02d46aa0bd3c0e89158ddeaaa6fd4c4d08b391ac79"
+    },
+    {
+      "id": "land.air_defense.sam#neutral",
+      "key": "land.air_defense.sam",
+      "variant": "neutral",
+      "sidc": "13041000001301020000",
+      "meaning": "Neutral air defence, missile",
+      "svgSha256": "d3f483b175b583dc73830ed2eee2faf6a21365f9827fd6ebb3d3212d2c83896b"
+    },
+    {
+      "id": "land.air_defense.sam#planned",
+      "key": "land.air_defense.sam",
+      "variant": "planned",
+      "sidc": "13031010001301020000",
+      "meaning": "Friendly air defence, missile, planned/anticipated (dashed frame)",
+      "svgSha256": "809a36791bda27d125688b06fb48e69ac9e8de7e9ad64ebe604f5939d4b0dfdf"
+    },
+    {
+      "id": "land.air_defense.sam#selected",
+      "key": "land.air_defense.sam",
+      "variant": "selected",
+      "sidc": "13061000001301020000",
+      "meaning": "Hostile air defence, missile, currently selected (game ring overlay)",
+      "svgSha256": "a34b5e3241fece579e55aaef4e364cb01db726fcb6f59cf52766f6af0d8947c0"
+    },
+    {
+      "id": "land.air_defense.sam#stale",
+      "key": "land.air_defense.sam",
+      "variant": "stale",
+      "sidc": "13061000001301020000",
+      "meaning": "Hostile air defence, missile, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "be7e9ebe2afcda0edfbebbe291d6b9fe982b1d74ed9780d9d95f7d5430ebbe71"
+    },
+    {
+      "id": "land.air_defense.sam#unknown",
+      "key": "land.air_defense.sam",
+      "variant": "unknown",
+      "sidc": "13011000001301020000",
+      "meaning": "Unknown-affiliation air defence, missile",
+      "svgSha256": "d3b915eb6671b1a36c75c225ec2afa55dad248561d8075540850af5c98034178"
+    },
+    {
+      "id": "land.air_defense.theatre#friend",
+      "key": "land.air_defense.theatre",
+      "variant": "friend",
+      "sidc": "13031000001301030022",
+      "meaning": "Friendly air and missile defence, long range",
+      "svgSha256": "a56c9aa68be3ba2d809f62e0384379d4ead478c1bddb85420e27677eefc47b65"
+    },
+    {
+      "id": "land.air_defense.theatre#hostile",
+      "key": "land.air_defense.theatre",
+      "variant": "hostile",
+      "sidc": "13061000001301030022",
+      "meaning": "Hostile air and missile defence, long range",
+      "svgSha256": "0da79bf82d837024e9cbd37516a719451d5eb675377e37cbfb9470d061590b1b"
+    },
+    {
+      "id": "land.air_defense.theatre#neutral",
+      "key": "land.air_defense.theatre",
+      "variant": "neutral",
+      "sidc": "13041000001301030022",
+      "meaning": "Neutral air and missile defence, long range",
+      "svgSha256": "3d9e7907a60471f012a61bc47a65c6dc2457d4422f65987c0fda7a8fc0fc9cdc"
+    },
+    {
+      "id": "land.air_defense.theatre#unknown",
+      "key": "land.air_defense.theatre",
+      "variant": "unknown",
+      "sidc": "13011000001301030022",
+      "meaning": "Unknown-affiliation air and missile defence, long range",
+      "svgSha256": "abe381e1a153b5866210171aa05f799e282efcbf92aef5681feb29d94a9c140f"
+    },
+    {
+      "id": "land.armor.afv#friend",
+      "key": "land.armor.afv",
+      "variant": "friend",
+      "sidc": "13031000001205000019",
+      "meaning": "Friendly light armor (armored fighting vehicle)",
+      "svgSha256": "c70b0fa6b6d6515424cca3ed13b33bb365e3fa59bece222af8eddbbd81b23d77"
+    },
+    {
+      "id": "land.armor.afv#hostile",
+      "key": "land.armor.afv",
+      "variant": "hostile",
+      "sidc": "13061000001205000019",
+      "meaning": "Hostile light armor (armored fighting vehicle)",
+      "svgSha256": "385e34a60736f28cacfd8f1d6c7583568e5fd23143aa0b6f47999c801fa2300c"
+    },
+    {
+      "id": "land.armor.afv#neutral",
+      "key": "land.armor.afv",
+      "variant": "neutral",
+      "sidc": "13041000001205000019",
+      "meaning": "Neutral light armor (armored fighting vehicle)",
+      "svgSha256": "8ea5a2df53d54cdd40543076c6022c33dc4310226382c9c170e224859e2e1791"
+    },
+    {
+      "id": "land.armor.afv#unknown",
+      "key": "land.armor.afv",
+      "variant": "unknown",
+      "sidc": "13011000001205000019",
+      "meaning": "Unknown-affiliation light armor (armored fighting vehicle)",
+      "svgSha256": "3c4e6b68a883bb7d01e954c2e3dd801d1fcf9a6c7b8dcbe21cc4bad1eeccd266"
+    },
+    {
+      "id": "land.armor.amphibious#friend",
+      "key": "land.armor.amphibious",
+      "variant": "friend",
+      "sidc": "13031000001205020000",
+      "meaning": "Friendly amphibious armor",
+      "svgSha256": "7f2f1c6a28b581c55331eaf6da91cd392f024ef721d58ed2c69e44d0f805c71d"
+    },
+    {
+      "id": "land.armor.amphibious#hostile",
+      "key": "land.armor.amphibious",
+      "variant": "hostile",
+      "sidc": "13061000001205020000",
+      "meaning": "Hostile amphibious armor",
+      "svgSha256": "07072f51e660520fe1211101715ab344a876d0e2631bbd9c225f4ff86250bcf6"
+    },
+    {
+      "id": "land.armor.amphibious#neutral",
+      "key": "land.armor.amphibious",
+      "variant": "neutral",
+      "sidc": "13041000001205020000",
+      "meaning": "Neutral amphibious armor",
+      "svgSha256": "c4f897c9f8ed89065ef77265236e6343a8d2ec42b7f146ee83ab00642f549d8b"
+    },
+    {
+      "id": "land.armor.amphibious#unknown",
+      "key": "land.armor.amphibious",
+      "variant": "unknown",
+      "sidc": "13011000001205020000",
+      "meaning": "Unknown-affiliation amphibious armor",
+      "svgSha256": "d7444cbe1eed4bc68afcdb6df08a8f0da2be05afff8e7cc7f40d5dff52218d91"
+    },
+    {
+      "id": "land.armor.mbt#damaged",
+      "key": "land.armor.mbt",
+      "variant": "damaged",
+      "sidc": "13031030001205000000",
+      "meaning": "Friendly armor (main battle tanks), damaged (operational-condition bar)",
+      "svgSha256": "80e91b6bdff812330054ea8c2b99408c6d74afbd7b0237ea82433384522e5915"
+    },
+    {
+      "id": "land.armor.mbt#friend",
+      "key": "land.armor.mbt",
+      "variant": "friend",
+      "sidc": "13031000001205000000",
+      "meaning": "Friendly armor (main battle tanks)",
+      "svgSha256": "6eac8eea1400ee6be6d6134afc796babc70a3c48374785113da517052048d1fc"
+    },
+    {
+      "id": "land.armor.mbt#hostile",
+      "key": "land.armor.mbt",
+      "variant": "hostile",
+      "sidc": "13061000001205000000",
+      "meaning": "Hostile armor (main battle tanks)",
+      "svgSha256": "ebbc42d571ce02f265a687797d9771dde5c40422febfc8a591688995195b4607"
+    },
+    {
+      "id": "land.armor.mbt#legend",
+      "key": "land.armor.mbt",
+      "variant": "legend",
+      "sidc": "13031000001205000000",
+      "meaning": "Armor (friendly main battle tanks)",
+      "svgSha256": "6eac8eea1400ee6be6d6134afc796babc70a3c48374785113da517052048d1fc"
+    },
+    {
+      "id": "land.armor.mbt#mono-unknown",
+      "key": "land.armor.mbt",
+      "variant": "mono-unknown",
+      "sidc": "13011000001205000000",
+      "meaning": "Unknown-affiliation armor (main battle tanks), monochrome",
+      "svgSha256": "11506bae63efa2f6ae5487f68dd7802bb7dfa555c8b52b29f2856b942aaa8e7b"
+    },
+    {
+      "id": "land.armor.mbt#neutral",
+      "key": "land.armor.mbt",
+      "variant": "neutral",
+      "sidc": "13041000001205000000",
+      "meaning": "Neutral armor (main battle tanks)",
+      "svgSha256": "0cd34ea361e90696569506b03ba5f68b24fe1cd2eea784cd492d7bcb0a608d1a"
+    },
+    {
+      "id": "land.armor.mbt#planned",
+      "key": "land.armor.mbt",
+      "variant": "planned",
+      "sidc": "13031010001205000000",
+      "meaning": "Friendly armor (main battle tanks), planned/anticipated (dashed frame)",
+      "svgSha256": "9e0c01dc801f16eb0cf8f26562c01eb5b86766adec6f3be3619605accee9282c"
+    },
+    {
+      "id": "land.armor.mbt#selected",
+      "key": "land.armor.mbt",
+      "variant": "selected",
+      "sidc": "13061000001205000000",
+      "meaning": "Hostile armor (main battle tanks), currently selected (game ring overlay)",
+      "svgSha256": "58930db6258abd05cf443520340ae5e562b6d82260720b53b21f37eb14eb7823"
+    },
+    {
+      "id": "land.armor.mbt#stale",
+      "key": "land.armor.mbt",
+      "variant": "stale",
+      "sidc": "13061000001205000000",
+      "meaning": "Hostile armor (main battle tanks), last observed 6 h ago (age badge, muted)",
+      "svgSha256": "af1f9f34b3cef67e695c046c1b47076e77cbcb347ba0b2f32f96d1ffdc9394dc"
+    },
+    {
+      "id": "land.armor.mbt#unknown",
+      "key": "land.armor.mbt",
+      "variant": "unknown",
+      "sidc": "13011000001205000000",
+      "meaning": "Unknown-affiliation armor (main battle tanks)",
+      "svgSha256": "a684a7b5e0785dbcc9ae77dd5597b4dc43206640c1bfe2df6017cbbb8f3a68df"
+    },
+    {
+      "id": "land.armor.recon#friend",
+      "key": "land.armor.recon",
+      "variant": "friend",
+      "sidc": "13031000001205010000",
+      "meaning": "Friendly armored reconnaissance",
+      "svgSha256": "1eefc0b8bc04f6eef6c780b5d0bd33e6f16e3047a1fd0af0dd7740df9c8fc5d7"
+    },
+    {
+      "id": "land.armor.recon#hostile",
+      "key": "land.armor.recon",
+      "variant": "hostile",
+      "sidc": "13061000001205010000",
+      "meaning": "Hostile armored reconnaissance",
+      "svgSha256": "82a0f6dd18fb34db35158be8b97e2f1401e5f424d2a3fbcd8e4f876845c4b672"
+    },
+    {
+      "id": "land.armor.recon#neutral",
+      "key": "land.armor.recon",
+      "variant": "neutral",
+      "sidc": "13041000001205010000",
+      "meaning": "Neutral armored reconnaissance",
+      "svgSha256": "a983c1a2e3739f6ba8ac0178db235188abef303a8d1d1d3fe6c5e506c8da8aa7"
+    },
+    {
+      "id": "land.armor.recon#unknown",
+      "key": "land.armor.recon",
+      "variant": "unknown",
+      "sidc": "13011000001205010000",
+      "meaning": "Unknown-affiliation armored reconnaissance",
+      "svgSha256": "d014ad27e4faa91ece81d563d47cfd09a48c384ffcfa7cc57ddfed670319f734"
+    },
+    {
+      "id": "land.armor.tank_destroyer#friend",
+      "key": "land.armor.tank_destroyer",
+      "variant": "friend",
+      "sidc": "13031000001204010000",
+      "meaning": "Friendly armored anti-armor (tank destroyer)",
+      "svgSha256": "54e508e9a63b6e6f5c6e5afd34ca0e785af898d512f5c7ffc73d45538de20fa4"
+    },
+    {
+      "id": "land.armor.tank_destroyer#hostile",
+      "key": "land.armor.tank_destroyer",
+      "variant": "hostile",
+      "sidc": "13061000001204010000",
+      "meaning": "Hostile armored anti-armor (tank destroyer)",
+      "svgSha256": "45d236bc3deeb9e7b65c18a3105766832e06fa5cbc2d04e462fda18f484ccb01"
+    },
+    {
+      "id": "land.armor.tank_destroyer#neutral",
+      "key": "land.armor.tank_destroyer",
+      "variant": "neutral",
+      "sidc": "13041000001204010000",
+      "meaning": "Neutral armored anti-armor (tank destroyer)",
+      "svgSha256": "6f6bfdf6c1117c0d8894b1e081033d38502473dd936a311dcf6b04e4b2a5c9a3"
+    },
+    {
+      "id": "land.armor.tank_destroyer#unknown",
+      "key": "land.armor.tank_destroyer",
+      "variant": "unknown",
+      "sidc": "13011000001204010000",
+      "meaning": "Unknown-affiliation armored anti-armor (tank destroyer)",
+      "svgSha256": "1af95d5370e18dc186fd0951f88bf8218ab17b3ebecc8fee5337e05a14dc92d5"
+    },
+    {
+      "id": "land.deployable.ugv#damaged",
+      "key": "land.deployable.ugv",
+      "variant": "damaged",
+      "sidc": "13031030001219000000",
+      "meaning": "Friendly unmanned systems (unmanned ground vehicle), damaged (operational-condition bar)",
+      "svgSha256": "a5a5b80a47971d052ff4c429546b812fe4fdac995836af963710480fdcd477b3"
+    },
+    {
+      "id": "land.deployable.ugv#friend",
+      "key": "land.deployable.ugv",
+      "variant": "friend",
+      "sidc": "13031000001219000000",
+      "meaning": "Friendly unmanned systems (unmanned ground vehicle)",
+      "svgSha256": "60ba03bb9358e7d5b2872874cfd620a3f855515417a9b29b185d161faf4f9356"
+    },
+    {
+      "id": "land.deployable.ugv#hostile",
+      "key": "land.deployable.ugv",
+      "variant": "hostile",
+      "sidc": "13061000001219000000",
+      "meaning": "Hostile unmanned systems (unmanned ground vehicle)",
+      "svgSha256": "dcb6e467612053e239e4f55b895f8a16defb4bbf6e1c5839068ffc59b0df1821"
+    },
+    {
+      "id": "land.deployable.ugv#mono-unknown",
+      "key": "land.deployable.ugv",
+      "variant": "mono-unknown",
+      "sidc": "13011000001219000000",
+      "meaning": "Unknown-affiliation unmanned systems (unmanned ground vehicle), monochrome",
+      "svgSha256": "527153d4fd5aa217c1202502a35ed1433bde744d7820fb4673a3e5c209283b84"
+    },
+    {
+      "id": "land.deployable.ugv#neutral",
+      "key": "land.deployable.ugv",
+      "variant": "neutral",
+      "sidc": "13041000001219000000",
+      "meaning": "Neutral unmanned systems (unmanned ground vehicle)",
+      "svgSha256": "ff4cde41f823b46f6554a27ffe36d4ec7471fd9c26a58da6445293f2205b40db"
+    },
+    {
+      "id": "land.deployable.ugv#planned",
+      "key": "land.deployable.ugv",
+      "variant": "planned",
+      "sidc": "13031010001219000000",
+      "meaning": "Friendly unmanned systems (unmanned ground vehicle), planned/anticipated (dashed frame)",
+      "svgSha256": "6a664fce33abbfe35cf51dac91d272074559fbaa86949f9cb301c348e858ca78"
+    },
+    {
+      "id": "land.deployable.ugv#selected",
+      "key": "land.deployable.ugv",
+      "variant": "selected",
+      "sidc": "13061000001219000000",
+      "meaning": "Hostile unmanned systems (unmanned ground vehicle), currently selected (game ring overlay)",
+      "svgSha256": "d0e3e669041e85ddd8bb932073386623466619686920d95cfb5c9a134d4fb3b8"
+    },
+    {
+      "id": "land.deployable.ugv#stale",
+      "key": "land.deployable.ugv",
+      "variant": "stale",
+      "sidc": "13061000001219000000",
+      "meaning": "Hostile unmanned systems (unmanned ground vehicle), last observed 6 h ago (age badge, muted)",
+      "svgSha256": "7c874904c25aeaaac7c98c3e8e3563ce4775d42664d9017cdfc896678939d8b0"
+    },
+    {
+      "id": "land.deployable.ugv#unknown",
+      "key": "land.deployable.ugv",
+      "variant": "unknown",
+      "sidc": "13011000001219000000",
+      "meaning": "Unknown-affiliation unmanned systems (unmanned ground vehicle)",
+      "svgSha256": "eb0ce5a9efb85ffc249af8af69179b2561b146b380a8919625aa119703b6945d"
+    },
+    {
+      "id": "land.infantry.airmobile#friend",
+      "key": "land.infantry.airmobile",
+      "variant": "friend",
+      "sidc": "13031000001211000100",
+      "meaning": "Friendly infantry, airmobile / air assault",
+      "svgSha256": "8fcbb9510084935065734d727b82263b93b9484547379c49d068d55ff5012cad"
+    },
+    {
+      "id": "land.infantry.airmobile#hostile",
+      "key": "land.infantry.airmobile",
+      "variant": "hostile",
+      "sidc": "13061000001211000100",
+      "meaning": "Hostile infantry, airmobile / air assault",
+      "svgSha256": "80fe512620c9d185e33770cbb479735b80345719911b9f8fb5514c40e9695719"
+    },
+    {
+      "id": "land.infantry.airmobile#neutral",
+      "key": "land.infantry.airmobile",
+      "variant": "neutral",
+      "sidc": "13041000001211000100",
+      "meaning": "Neutral infantry, airmobile / air assault",
+      "svgSha256": "40b4dde3dee7839ab9408ff99bd5cabdea9b3829223b33644a62d5acea415e9a"
+    },
+    {
+      "id": "land.infantry.airmobile#unknown",
+      "key": "land.infantry.airmobile",
+      "variant": "unknown",
+      "sidc": "13011000001211000100",
+      "meaning": "Unknown-affiliation infantry, airmobile / air assault",
+      "svgSha256": "99f17b05bee551c039c28b5a0dd58fb40348f60cbb603d24bc606d144e7a6b9e"
+    },
+    {
+      "id": "land.infantry.marine#friend",
+      "key": "land.infantry.marine",
+      "variant": "friend",
+      "sidc": "13031000001211010000",
+      "meaning": "Friendly amphibious (naval) infantry",
+      "svgSha256": "0c305ed582a274fd5f44330f765e5df54bd4cb1976cc722babf5e10c1114fa63"
+    },
+    {
+      "id": "land.infantry.marine#hostile",
+      "key": "land.infantry.marine",
+      "variant": "hostile",
+      "sidc": "13061000001211010000",
+      "meaning": "Hostile amphibious (naval) infantry",
+      "svgSha256": "240d551734838daedb7b5d2ad166d943903d6259ed9093cd7d66105178c8a402"
+    },
+    {
+      "id": "land.infantry.marine#neutral",
+      "key": "land.infantry.marine",
+      "variant": "neutral",
+      "sidc": "13041000001211010000",
+      "meaning": "Neutral amphibious (naval) infantry",
+      "svgSha256": "978e0f58a0703bcb630401d4bbd0f6453cd25d3787f0ee4a1bcbf1bb857b5635"
+    },
+    {
+      "id": "land.infantry.marine#unknown",
+      "key": "land.infantry.marine",
+      "variant": "unknown",
+      "sidc": "13011000001211010000",
+      "meaning": "Unknown-affiliation amphibious (naval) infantry",
+      "svgSha256": "ac8557fe44c910ae936f6dee711ba89fbde9eca426603a85d733a51be2a34594"
+    },
+    {
+      "id": "land.infantry.mechanized#echelon-designation",
+      "key": "land.infantry.mechanized",
+      "variant": "echelon-designation",
+      "sidc": "13031000161211020000",
+      "meaning": "Friendly mechanized infantry battalion \"2-14\" of 3 BDE (verified echelon; designation and higher formation outside the frame)",
+      "svgSha256": "860c234c9ab6c4ac714b91a2a29b36589102e089531e7c31f27f68d321fdf8c3"
+    },
+    {
+      "id": "land.infantry.mechanized#friend",
+      "key": "land.infantry.mechanized",
+      "variant": "friend",
+      "sidc": "13031000001211020000",
+      "meaning": "Friendly mechanized infantry (infantry in armored vehicles)",
+      "svgSha256": "4cd3e31404959b7e9394b93ebeea15c49ad2aba94864e059d82f55b699e9170c"
+    },
+    {
+      "id": "land.infantry.mechanized#hostile",
+      "key": "land.infantry.mechanized",
+      "variant": "hostile",
+      "sidc": "13061000001211020000",
+      "meaning": "Hostile mechanized infantry (infantry in armored vehicles)",
+      "svgSha256": "3569e7afe50b118f271d85142cfb138aea91b99b3560b1935d0291f6d81d104f"
+    },
+    {
+      "id": "land.infantry.mechanized#neutral",
+      "key": "land.infantry.mechanized",
+      "variant": "neutral",
+      "sidc": "13041000001211020000",
+      "meaning": "Neutral mechanized infantry (infantry in armored vehicles)",
+      "svgSha256": "7fea094d216ba8a7ca8113e2baa2f27853f2f2a4b8adfc3b100f94d235337d12"
+    },
+    {
+      "id": "land.infantry.mechanized#unknown",
+      "key": "land.infantry.mechanized",
+      "variant": "unknown",
+      "sidc": "13011000001211020000",
+      "meaning": "Unknown-affiliation mechanized infantry (infantry in armored vehicles)",
+      "svgSha256": "96eb8ea61679e2642e9661cc2d9a2145864243c439b2afbbf4c9040a03d0db75"
+    },
+    {
+      "id": "land.infantry.mercenary#friend",
+      "key": "land.infantry.mercenary",
+      "variant": "friend",
+      "sidc": "13031000001211000058",
+      "meaning": "Friendly irregular infantry (contract force)",
+      "svgSha256": "36217c2b9a7eee52533bedefec08f8cc70ee125dfe81af307b68405c2fa1bfc7"
+    },
+    {
+      "id": "land.infantry.mercenary#hostile",
+      "key": "land.infantry.mercenary",
+      "variant": "hostile",
+      "sidc": "13061000001211000058",
+      "meaning": "Hostile irregular infantry (contract force)",
+      "svgSha256": "c574954d02156d46ca10b0fd47b861b444ab807da698bce5ae550938cce7826c"
+    },
+    {
+      "id": "land.infantry.mercenary#neutral",
+      "key": "land.infantry.mercenary",
+      "variant": "neutral",
+      "sidc": "13041000001211000058",
+      "meaning": "Neutral irregular infantry (contract force)",
+      "svgSha256": "f4cdb3e3f67c11420bd5593100688ecc1ada0cb5b2e0337e0cd4bcf9635081d6"
+    },
+    {
+      "id": "land.infantry.mercenary#unknown",
+      "key": "land.infantry.mercenary",
+      "variant": "unknown",
+      "sidc": "13011000001211000058",
+      "meaning": "Unknown-affiliation irregular infantry (contract force)",
+      "svgSha256": "1123954ce5d24fbbc7630fe0421be9306e74c67ba09f608f81e17c7c7c2d4d7e"
+    },
+    {
+      "id": "land.infantry.militia#friend",
+      "key": "land.infantry.militia",
+      "variant": "friend",
+      "sidc": "13031000001211000019",
+      "meaning": "Friendly light infantry (national guard / militia)",
+      "svgSha256": "0f8a1ccb8924729cb28461fa7eafe4554062be48c878dcd101e7ff3f72e9f30b"
+    },
+    {
+      "id": "land.infantry.militia#hostile",
+      "key": "land.infantry.militia",
+      "variant": "hostile",
+      "sidc": "13061000001211000019",
+      "meaning": "Hostile light infantry (national guard / militia)",
+      "svgSha256": "cd579a6bf8333bc3b720c547941d81bfabdd9b74e9d31b7470389bb65b4c9adc"
+    },
+    {
+      "id": "land.infantry.militia#neutral",
+      "key": "land.infantry.militia",
+      "variant": "neutral",
+      "sidc": "13041000001211000019",
+      "meaning": "Neutral light infantry (national guard / militia)",
+      "svgSha256": "7e52cb4f37442ad1bdb99451ed110773e60455c8829347999e9eb7ea192fae53"
+    },
+    {
+      "id": "land.infantry.militia#unknown",
+      "key": "land.infantry.militia",
+      "variant": "unknown",
+      "sidc": "13011000001211000019",
+      "meaning": "Unknown-affiliation light infantry (national guard / militia)",
+      "svgSha256": "17dcc263849c6362fbb2fe2b0fe7e3afb7755e9734e4608158113d6cda229f31"
+    },
+    {
+      "id": "land.infantry.motorized#assumed_friend",
+      "key": "land.infantry.motorized",
+      "variant": "assumed_friend",
+      "sidc": "13021000001211040000",
+      "meaning": "Assumed-friend motorized infantry",
+      "svgSha256": "28085eb5fe0307c89ae62f65dc58d60e9933fb4fac0d2d6ad9d6f1c12f2397d0"
+    },
+    {
+      "id": "land.infantry.motorized#damaged",
+      "key": "land.infantry.motorized",
+      "variant": "damaged",
+      "sidc": "13031030001211040000",
+      "meaning": "Friendly motorized infantry, damaged (operational-condition bar)",
+      "svgSha256": "3603e2f9ddbaf934ab207bfe50c7cf828650c9b6b65c58964001237e00fca976"
+    },
+    {
+      "id": "land.infantry.motorized#friend",
+      "key": "land.infantry.motorized",
+      "variant": "friend",
+      "sidc": "13031000001211040000",
+      "meaning": "Friendly motorized infantry",
+      "svgSha256": "757f07bd3afbf921269504c79b58b644042cda1b689e38a319fc489fc5fa2dc1"
+    },
+    {
+      "id": "land.infantry.motorized#hostile",
+      "key": "land.infantry.motorized",
+      "variant": "hostile",
+      "sidc": "13061000001211040000",
+      "meaning": "Hostile motorized infantry",
+      "svgSha256": "f58547df2daa5684da8621f500f6dee97adfeb3f4432d409d7564096efd040b9"
+    },
+    {
+      "id": "land.infantry.motorized#legend",
+      "key": "land.infantry.motorized",
+      "variant": "legend",
+      "sidc": "13031000001211040000",
+      "meaning": "Infantry (friendly motorized infantry)",
+      "svgSha256": "757f07bd3afbf921269504c79b58b644042cda1b689e38a319fc489fc5fa2dc1"
+    },
+    {
+      "id": "land.infantry.motorized#mono-friend",
+      "key": "land.infantry.motorized",
+      "variant": "mono-friend",
+      "sidc": "13031000001211040000",
+      "meaning": "Friendly motorized infantry, monochrome (rectangle/rounded frame)",
+      "svgSha256": "a3cc7f2c3f77b15c91218495c93b9f84eb406a6ec12d98caeeddcc6ca3f24128"
+    },
+    {
+      "id": "land.infantry.motorized#mono-hostile",
+      "key": "land.infantry.motorized",
+      "variant": "mono-hostile",
+      "sidc": "13061000001211040000",
+      "meaning": "Hostile motorized infantry, monochrome (diamond/pointed frame)",
+      "svgSha256": "e60b95830ed54bb15ff21cc296e22b8c31cbb0e56a3b303f06d3f7774fc15e4e"
+    },
+    {
+      "id": "land.infantry.motorized#mono-neutral",
+      "key": "land.infantry.motorized",
+      "variant": "mono-neutral",
+      "sidc": "13041000001211040000",
+      "meaning": "Neutral motorized infantry, monochrome (square frame)",
+      "svgSha256": "bf0e08e240458068457323287825cb6d335da66110ba14bb5ed5ce5431c4644c"
+    },
+    {
+      "id": "land.infantry.motorized#mono-unknown",
+      "key": "land.infantry.motorized",
+      "variant": "mono-unknown",
+      "sidc": "13011000001211040000",
+      "meaning": "Unknown-affiliation motorized infantry, monochrome",
+      "svgSha256": "507ca69276a65336302bdc6d4e4fd2db9f4b674045faa4523afdaa039cd96640"
+    },
+    {
+      "id": "land.infantry.motorized#mono-unknown",
+      "key": "land.infantry.motorized",
+      "variant": "mono-unknown",
+      "sidc": "13011000001211040000",
+      "meaning": "Unknown-affiliation motorized infantry, monochrome (quatrefoil/cloverleaf frame)",
+      "svgSha256": "507ca69276a65336302bdc6d4e4fd2db9f4b674045faa4523afdaa039cd96640"
+    },
+    {
+      "id": "land.infantry.motorized#neutral",
+      "key": "land.infantry.motorized",
+      "variant": "neutral",
+      "sidc": "13041000001211040000",
+      "meaning": "Neutral motorized infantry",
+      "svgSha256": "14ac52153e7814ab7658be890aebcecda09b376c23af858e4abf25d807ca396f"
+    },
+    {
+      "id": "land.infantry.motorized#pending",
+      "key": "land.infantry.motorized",
+      "variant": "pending",
+      "sidc": "13001000001211040000",
+      "meaning": "Pending-identity motorized infantry",
+      "svgSha256": "c170f32f368ce2141d8a4d689e3fcdf980d94480f0789401163b7f3a96706022"
+    },
+    {
+      "id": "land.infantry.motorized#planned",
+      "key": "land.infantry.motorized",
+      "variant": "planned",
+      "sidc": "13031010001211040000",
+      "meaning": "Friendly motorized infantry, planned/anticipated (dashed frame)",
+      "svgSha256": "1970fe775669b6147b35b5f9ceb6aa8cc3cc61070c55dd3dd18c258c047473e2"
+    },
+    {
+      "id": "land.infantry.motorized#selected",
+      "key": "land.infantry.motorized",
+      "variant": "selected",
+      "sidc": "13061000001211040000",
+      "meaning": "Hostile motorized infantry, currently selected (game ring overlay)",
+      "svgSha256": "cc716fca97f23274bca0cd1332bf1e77733a83b12fbaefeabfddc2aac63e128a"
+    },
+    {
+      "id": "land.infantry.motorized#stale",
+      "key": "land.infantry.motorized",
+      "variant": "stale",
+      "sidc": "13061000001211040000",
+      "meaning": "Hostile motorized infantry, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "f837ce8dc07085549cdc3d3809cefb157b570beee4487d8793f2b6d931538978"
+    },
+    {
+      "id": "land.infantry.motorized#suspect",
+      "key": "land.infantry.motorized",
+      "variant": "suspect",
+      "sidc": "13051000001211040000",
+      "meaning": "Suspect motorized infantry",
+      "svgSha256": "54561e71f433dfd25e2bb42a5ba997cb5ad600c80dfc201f1533b95d809042f7"
+    },
+    {
+      "id": "land.infantry.motorized#unknown",
+      "key": "land.infantry.motorized",
+      "variant": "unknown",
+      "sidc": "13011000001211040000",
+      "meaning": "Unknown-affiliation motorized infantry",
+      "svgSha256": "96e223db6bac4c7c9a9e1feb3f14f486ef8fbabf2a646c65437686ef7f13ecd5"
+    },
+    {
+      "id": "land.infantry.special_forces#friend",
+      "key": "land.infantry.special_forces",
+      "variant": "friend",
+      "sidc": "13031000001217000000",
+      "meaning": "Friendly special forces",
+      "svgSha256": "92053f9a9abf60af40efb9f109974683451d307c56f2f90c15335ef349012231"
+    },
+    {
+      "id": "land.infantry.special_forces#hostile",
+      "key": "land.infantry.special_forces",
+      "variant": "hostile",
+      "sidc": "13061000001217000000",
+      "meaning": "Hostile special forces",
+      "svgSha256": "48cfeeda632034e1650cde9ba00d3dac4838cda307ecbb4d12afa15712dbef3c"
+    },
+    {
+      "id": "land.infantry.special_forces#neutral",
+      "key": "land.infantry.special_forces",
+      "variant": "neutral",
+      "sidc": "13041000001217000000",
+      "meaning": "Neutral special forces",
+      "svgSha256": "b94981a1633a2929fd75d221cf1e65e47116d9644fce5b2a85f266f42a3ff17f"
+    },
+    {
+      "id": "land.infantry.special_forces#unknown",
+      "key": "land.infantry.special_forces",
+      "variant": "unknown",
+      "sidc": "13011000001217000000",
+      "meaning": "Unknown-affiliation special forces",
+      "svgSha256": "db8fdbd70bded531a3c4bc58deadfe6178c40742fbc1de18643ec1fb79d4e4e8"
+    },
+    {
+      "id": "land.missile.ballistic_launcher#damaged",
+      "key": "land.missile.ballistic_launcher",
+      "variant": "damaged",
+      "sidc": "13031030001307000044",
+      "meaning": "Friendly missile unit, strategic (ballistic launcher), damaged (operational-condition bar)",
+      "svgSha256": "d793c17b4eaa93f92d3a47cca52a11b8cc7d6305a79933b6073ea0bfb573408c"
+    },
+    {
+      "id": "land.missile.ballistic_launcher#friend",
+      "key": "land.missile.ballistic_launcher",
+      "variant": "friend",
+      "sidc": "13031000001307000044",
+      "meaning": "Friendly missile unit, strategic (ballistic launcher)",
+      "svgSha256": "4525ed296c8e4e07ef083ba3849c418df319a88e572ec0771072e5af4a8cae13"
+    },
+    {
+      "id": "land.missile.ballistic_launcher#hostile",
+      "key": "land.missile.ballistic_launcher",
+      "variant": "hostile",
+      "sidc": "13061000001307000044",
+      "meaning": "Hostile missile unit, strategic (ballistic launcher)",
+      "svgSha256": "ec3b1473a7b2ba17ec29e2e91b6523295f439e266abb1c6053eb865075bcbc17"
+    },
+    {
+      "id": "land.missile.ballistic_launcher#mono-unknown",
+      "key": "land.missile.ballistic_launcher",
+      "variant": "mono-unknown",
+      "sidc": "13011000001307000044",
+      "meaning": "Unknown-affiliation missile unit, strategic (ballistic launcher), monochrome",
+      "svgSha256": "86836a6ee71e38f911c645375ae651ddaa54b58096eee66933ab82ae29fafefb"
+    },
+    {
+      "id": "land.missile.ballistic_launcher#neutral",
+      "key": "land.missile.ballistic_launcher",
+      "variant": "neutral",
+      "sidc": "13041000001307000044",
+      "meaning": "Neutral missile unit, strategic (ballistic launcher)",
+      "svgSha256": "81be76cc3bdc2abbc67fdf9b5c3a810efe6d925c64cc9962fda4c5e1ed4f6373"
+    },
+    {
+      "id": "land.missile.ballistic_launcher#planned",
+      "key": "land.missile.ballistic_launcher",
+      "variant": "planned",
+      "sidc": "13031010001307000044",
+      "meaning": "Friendly missile unit, strategic (ballistic launcher), planned/anticipated (dashed frame)",
+      "svgSha256": "2257460cbb8f1a3018919674bd9812940942bd7faff425fc38ad8dea77e464aa"
+    },
+    {
+      "id": "land.missile.ballistic_launcher#selected",
+      "key": "land.missile.ballistic_launcher",
+      "variant": "selected",
+      "sidc": "13061000001307000044",
+      "meaning": "Hostile missile unit, strategic (ballistic launcher), currently selected (game ring overlay)",
+      "svgSha256": "ed8ffced1f0e51554a07544c36eea06795c0391e215d0100fd846e7a0c8895bc"
+    },
+    {
+      "id": "land.missile.ballistic_launcher#stale",
+      "key": "land.missile.ballistic_launcher",
+      "variant": "stale",
+      "sidc": "13061000001307000044",
+      "meaning": "Hostile missile unit, strategic (ballistic launcher), last observed 6 h ago (age badge, muted)",
+      "svgSha256": "d8e494f3d72c2972dd6c3fbe66df61e4c2d86b51cb609672467a107920250cb8"
+    },
+    {
+      "id": "land.missile.ballistic_launcher#unknown",
+      "key": "land.missile.ballistic_launcher",
+      "variant": "unknown",
+      "sidc": "13011000001307000044",
+      "meaning": "Unknown-affiliation missile unit, strategic (ballistic launcher)",
+      "svgSha256": "71fd478dfe15cbc783d84274ad3f9aa2534d556ab089ec336f4f98bcffadbcf8"
+    },
+    {
+      "id": "land.missile.cruise_launcher#friend",
+      "key": "land.missile.cruise_launcher",
+      "variant": "friend",
+      "sidc": "13031000001307000026",
+      "meaning": "Friendly missile unit, medium range (cruise launcher)",
+      "svgSha256": "d148032d54a84c6107cbb8ce2bbea68c337de2df2e9b767208ee031d9521ea6b"
+    },
+    {
+      "id": "land.missile.cruise_launcher#hostile",
+      "key": "land.missile.cruise_launcher",
+      "variant": "hostile",
+      "sidc": "13061000001307000026",
+      "meaning": "Hostile missile unit, medium range (cruise launcher)",
+      "svgSha256": "ec291aeb5a12a45cdfb79070bad5c4731f209d898998ec38fbddc0f5be79381f"
+    },
+    {
+      "id": "land.missile.cruise_launcher#neutral",
+      "key": "land.missile.cruise_launcher",
+      "variant": "neutral",
+      "sidc": "13041000001307000026",
+      "meaning": "Neutral missile unit, medium range (cruise launcher)",
+      "svgSha256": "016e55679426989c20d9531b34a65b85e5c1a391a3fb3e3a3c6117756eedbb06"
+    },
+    {
+      "id": "land.missile.cruise_launcher#unknown",
+      "key": "land.missile.cruise_launcher",
+      "variant": "unknown",
+      "sidc": "13011000001307000026",
+      "meaning": "Unknown-affiliation missile unit, medium range (cruise launcher)",
+      "svgSha256": "9039cd8a36ba25dbf51b20c9aa7990d05f01a1c86486e7ba681e88ca0807998f"
+    },
+    {
+      "id": "land.officer.airborne#friend",
+      "key": "land.officer.airborne",
+      "variant": "friend",
+      "sidc": "13031002001211000100",
+      "meaning": "Friendly air assault infantry headquarters (officer)",
+      "svgSha256": "d1658dfee1f1e49f2e0529f26f758b9647ae35c67246364e26e76452023a425b"
+    },
+    {
+      "id": "land.officer.airborne#hostile",
+      "key": "land.officer.airborne",
+      "variant": "hostile",
+      "sidc": "13061002001211000100",
+      "meaning": "Hostile air assault infantry headquarters (officer)",
+      "svgSha256": "fa076ff914a5427ca2d110f3672a12e16b1f29136d536b0d4a067118ded90813"
+    },
+    {
+      "id": "land.officer.airborne#neutral",
+      "key": "land.officer.airborne",
+      "variant": "neutral",
+      "sidc": "13041002001211000100",
+      "meaning": "Neutral air assault infantry headquarters (officer)",
+      "svgSha256": "00e3bc2b0cbfc83b87e7f49e8824be0a473f1d75b0a09d2eaa3de8b06d597561"
+    },
+    {
+      "id": "land.officer.airborne#unknown",
+      "key": "land.officer.airborne",
+      "variant": "unknown",
+      "sidc": "13011002001211000100",
+      "meaning": "Unknown-affiliation air assault infantry headquarters (officer)",
+      "svgSha256": "0462a4400eba2284aae618460e097f4a0092e3d31c1ba5b6ce8f81b8cd6817be"
+    },
+    {
+      "id": "land.officer.armored#damaged",
+      "key": "land.officer.armored",
+      "variant": "damaged",
+      "sidc": "13031032001205000000",
+      "meaning": "Friendly armor headquarters (officer), damaged (operational-condition bar)",
+      "svgSha256": "0b2d804e4c398656053c1f39494107bdf1d936a6b54454fec39b87c5e9431b89"
+    },
+    {
+      "id": "land.officer.armored#friend",
+      "key": "land.officer.armored",
+      "variant": "friend",
+      "sidc": "13031002001205000000",
+      "meaning": "Friendly armor headquarters (officer)",
+      "svgSha256": "ca74f73e05b5fa00fa4b4e0ecedc319dd9f51112426d67597b623070dd85f00a"
+    },
+    {
+      "id": "land.officer.armored#hostile",
+      "key": "land.officer.armored",
+      "variant": "hostile",
+      "sidc": "13061002001205000000",
+      "meaning": "Hostile armor headquarters (officer)",
+      "svgSha256": "36e2fbf3abf08a7f788d46af09dd788bdbecadc92accaca8d111676c137e1758"
+    },
+    {
+      "id": "land.officer.armored#mono-unknown",
+      "key": "land.officer.armored",
+      "variant": "mono-unknown",
+      "sidc": "13011002001205000000",
+      "meaning": "Unknown-affiliation armor headquarters (officer), monochrome",
+      "svgSha256": "0e7e0c723c4ab8fe43437ca7088e42d3684cb5f760d4cb91d7f51b2c68578c24"
+    },
+    {
+      "id": "land.officer.armored#neutral",
+      "key": "land.officer.armored",
+      "variant": "neutral",
+      "sidc": "13041002001205000000",
+      "meaning": "Neutral armor headquarters (officer)",
+      "svgSha256": "b7f4741d3db92af0613ad3af7caf6bb5d97ddb036a3b87e7e9250a9ed8a1e569"
+    },
+    {
+      "id": "land.officer.armored#planned",
+      "key": "land.officer.armored",
+      "variant": "planned",
+      "sidc": "13031012001205000000",
+      "meaning": "Friendly armor headquarters (officer), planned/anticipated (dashed frame)",
+      "svgSha256": "808fbcbb8c9aace8edf98462ae8737de85611db14869abcf9b8b6e27f3f48ff2"
+    },
+    {
+      "id": "land.officer.armored#selected",
+      "key": "land.officer.armored",
+      "variant": "selected",
+      "sidc": "13061002001205000000",
+      "meaning": "Hostile armor headquarters (officer), currently selected (game ring overlay)",
+      "svgSha256": "477f433539227cac5e75f1e8a34dcf10cb863b1137b961ec219ca8769bd729e0"
+    },
+    {
+      "id": "land.officer.armored#stale",
+      "key": "land.officer.armored",
+      "variant": "stale",
+      "sidc": "13061002001205000000",
+      "meaning": "Hostile armor headquarters (officer), last observed 6 h ago (age badge, muted)",
+      "svgSha256": "7709aad897a1b872bfa6fc2ebc3b99836f72070a40a4e883ad6551a80a9ad81d"
+    },
+    {
+      "id": "land.officer.armored#unknown",
+      "key": "land.officer.armored",
+      "variant": "unknown",
+      "sidc": "13011002001205000000",
+      "meaning": "Unknown-affiliation armor headquarters (officer)",
+      "svgSha256": "5d4204ca48de8c4da5522bcb161fdce8cbc41d5b41dba484a0c568a8f26a8e1c"
+    },
+    {
+      "id": "land.officer.infantry#friend",
+      "key": "land.officer.infantry",
+      "variant": "friend",
+      "sidc": "13031002001211000000",
+      "meaning": "Friendly infantry headquarters (officer)",
+      "svgSha256": "7cc0d62690953ed77a837750597232f61f7b6204ff865f37cb15889d77d075f2"
+    },
+    {
+      "id": "land.officer.infantry#hostile",
+      "key": "land.officer.infantry",
+      "variant": "hostile",
+      "sidc": "13061002001211000000",
+      "meaning": "Hostile infantry headquarters (officer)",
+      "svgSha256": "0adf4fd7216250eb389a6758b40356183693c1a06973d841e9e10217816937f1"
+    },
+    {
+      "id": "land.officer.infantry#hq",
+      "key": "land.officer.infantry",
+      "variant": "hq",
+      "sidc": "13031002001211000000",
+      "meaning": "Friendly infantry headquarters (officer) with HQ staff",
+      "svgSha256": "d02e9f4e5195dc04d9c70dcfe43e1a512a592a80ed8723a3ca1e5dd96115be89"
+    },
+    {
+      "id": "land.officer.infantry#neutral",
+      "key": "land.officer.infantry",
+      "variant": "neutral",
+      "sidc": "13041002001211000000",
+      "meaning": "Neutral infantry headquarters (officer)",
+      "svgSha256": "944113918d36b42c8bd3ddba27e99bc879bfd9509c05d70884d981cf6a1ef61e"
+    },
+    {
+      "id": "land.officer.infantry#unknown",
+      "key": "land.officer.infantry",
+      "variant": "unknown",
+      "sidc": "13011002001211000000",
+      "meaning": "Unknown-affiliation infantry headquarters (officer)",
+      "svgSha256": "299ec59db63e8652642ddafc8cfc69f8b6d0dfd9cc167874432e794cb844848b"
+    },
+    {
+      "id": "land.recon.radar#damaged",
+      "key": "land.recon.radar",
+      "variant": "damaged",
+      "sidc": "13031030001216005000",
+      "meaning": "Friendly surveillance, radar, damaged (operational-condition bar)",
+      "svgSha256": "c7f23a60a1e8e61234977d48684fe8707486c3473861b5217a087dbaa01d5251"
+    },
+    {
+      "id": "land.recon.radar#friend",
+      "key": "land.recon.radar",
+      "variant": "friend",
+      "sidc": "13031000001216005000",
+      "meaning": "Friendly surveillance, radar",
+      "svgSha256": "578c266f979dca41c99c4a016d7777425f6c221581c1d07b7b5c96ad47beaadd"
+    },
+    {
+      "id": "land.recon.radar#hostile",
+      "key": "land.recon.radar",
+      "variant": "hostile",
+      "sidc": "13061000001216005000",
+      "meaning": "Hostile surveillance, radar",
+      "svgSha256": "789c9eb832168e2c94eeac13629baa6f172fbf596eeef249a0472c2cb3b219e3"
+    },
+    {
+      "id": "land.recon.radar#mono-unknown",
+      "key": "land.recon.radar",
+      "variant": "mono-unknown",
+      "sidc": "13011000001216005000",
+      "meaning": "Unknown-affiliation surveillance, radar, monochrome",
+      "svgSha256": "8e38ea38803ed3779b134ba1bd59ec096899b4f2c9769f421d3afe10f6df4a41"
+    },
+    {
+      "id": "land.recon.radar#neutral",
+      "key": "land.recon.radar",
+      "variant": "neutral",
+      "sidc": "13041000001216005000",
+      "meaning": "Neutral surveillance, radar",
+      "svgSha256": "d011ebaae4ee28baec94edbbc43f52ab5b5b3fbd6e4ab1aa453c61764fe36930"
+    },
+    {
+      "id": "land.recon.radar#planned",
+      "key": "land.recon.radar",
+      "variant": "planned",
+      "sidc": "13031010001216005000",
+      "meaning": "Friendly surveillance, radar, planned/anticipated (dashed frame)",
+      "svgSha256": "e5831c8acb8e2f91bf097403944993ce1a76f19d430da302b31ea97d688f4c51"
+    },
+    {
+      "id": "land.recon.radar#selected",
+      "key": "land.recon.radar",
+      "variant": "selected",
+      "sidc": "13061000001216005000",
+      "meaning": "Hostile surveillance, radar, currently selected (game ring overlay)",
+      "svgSha256": "1b39fe6c5b1948bec2beb40ee7fd094e7cf3957a967753e374a2481965061ddf"
+    },
+    {
+      "id": "land.recon.radar#stale",
+      "key": "land.recon.radar",
+      "variant": "stale",
+      "sidc": "13061000001216005000",
+      "meaning": "Hostile surveillance, radar, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "5e94aa30f8045236270a8f72448e3a2c1765291f451a7668b7f39ca3a91cffcb"
+    },
+    {
+      "id": "land.recon.radar#unknown",
+      "key": "land.recon.radar",
+      "variant": "unknown",
+      "sidc": "13011000001216005000",
+      "meaning": "Unknown-affiliation surveillance, radar",
+      "svgSha256": "693a7f9db93b3e131d4f2e104f307524cdc96a3eefbeab5d11099dd7db21e1d4"
+    },
+    {
+      "id": "land.support.rocket_artillery#friend",
+      "key": "land.support.rocket_artillery",
+      "variant": "friend",
+      "sidc": "13031000001303004100",
+      "meaning": "Friendly field artillery, multiple rocket launcher",
+      "svgSha256": "038c543440cc78cc4c00bfec88e9568754dc8d187af1848dd6717f840fdae792"
+    },
+    {
+      "id": "land.support.rocket_artillery#hostile",
+      "key": "land.support.rocket_artillery",
+      "variant": "hostile",
+      "sidc": "13061000001303004100",
+      "meaning": "Hostile field artillery, multiple rocket launcher",
+      "svgSha256": "f462165a3a17ccd1e8dc93e851f8070a8c8f1df7ea1650ef34c30888084751d0"
+    },
+    {
+      "id": "land.support.rocket_artillery#neutral",
+      "key": "land.support.rocket_artillery",
+      "variant": "neutral",
+      "sidc": "13041000001303004100",
+      "meaning": "Neutral field artillery, multiple rocket launcher",
+      "svgSha256": "ec158b0207c51079559a419112bd4441b973c05032a23beafae4dabcffdc6b14"
+    },
+    {
+      "id": "land.support.rocket_artillery#unknown",
+      "key": "land.support.rocket_artillery",
+      "variant": "unknown",
+      "sidc": "13011000001303004100",
+      "meaning": "Unknown-affiliation field artillery, multiple rocket launcher",
+      "svgSha256": "35cb9aacbd4d972c80f9b772d80019f893b6bbeea44044a9c56683bfa6373a39"
+    },
+    {
+      "id": "land.support.sp_artillery#damaged",
+      "key": "land.support.sp_artillery",
+      "variant": "damaged",
+      "sidc": "13031030001303010000",
+      "meaning": "Friendly field artillery, self-propelled (armored), damaged (operational-condition bar)",
+      "svgSha256": "3e38f8a49dcbb5f40583d98744da2bcfed7ddadd1ba5ad92b1100afd8ba7f838"
+    },
+    {
+      "id": "land.support.sp_artillery#friend",
+      "key": "land.support.sp_artillery",
+      "variant": "friend",
+      "sidc": "13031000001303010000",
+      "meaning": "Friendly field artillery, self-propelled (armored)",
+      "svgSha256": "1985bf4b2866b99dcfef77bace1478748c098733351b8dd882c7660fdf3cd49b"
+    },
+    {
+      "id": "land.support.sp_artillery#hostile",
+      "key": "land.support.sp_artillery",
+      "variant": "hostile",
+      "sidc": "13061000001303010000",
+      "meaning": "Hostile field artillery, self-propelled (armored)",
+      "svgSha256": "a1c4947cf767c3a83e6cd624a908baab17a279bd4053e8f62a00d744cda113f7"
+    },
+    {
+      "id": "land.support.sp_artillery#mono-unknown",
+      "key": "land.support.sp_artillery",
+      "variant": "mono-unknown",
+      "sidc": "13011000001303010000",
+      "meaning": "Unknown-affiliation field artillery, self-propelled (armored), monochrome",
+      "svgSha256": "4f4e9f620bb18d5e043868c73c8a182d3b75b0d380b88ebb8a0f08af7cd5a9d4"
+    },
+    {
+      "id": "land.support.sp_artillery#neutral",
+      "key": "land.support.sp_artillery",
+      "variant": "neutral",
+      "sidc": "13041000001303010000",
+      "meaning": "Neutral field artillery, self-propelled (armored)",
+      "svgSha256": "7913c9c3f514a4e048ccf5e83da3925e0df14752bc465763f5eb0adb34c6f9c6"
+    },
+    {
+      "id": "land.support.sp_artillery#planned",
+      "key": "land.support.sp_artillery",
+      "variant": "planned",
+      "sidc": "13031010001303010000",
+      "meaning": "Friendly field artillery, self-propelled (armored), planned/anticipated (dashed frame)",
+      "svgSha256": "7d93330ce2b94e622719c538f705d65e84d1b5ae8173ef6b1dbe99a284519626"
+    },
+    {
+      "id": "land.support.sp_artillery#selected",
+      "key": "land.support.sp_artillery",
+      "variant": "selected",
+      "sidc": "13061000001303010000",
+      "meaning": "Hostile field artillery, self-propelled (armored), currently selected (game ring overlay)",
+      "svgSha256": "3fe6e2c5e33b8a3bccb088bae44f42dd95d3dcb1fb85c0756fc7cbcb3cb479a9"
+    },
+    {
+      "id": "land.support.sp_artillery#stale",
+      "key": "land.support.sp_artillery",
+      "variant": "stale",
+      "sidc": "13061000001303010000",
+      "meaning": "Hostile field artillery, self-propelled (armored), last observed 6 h ago (age badge, muted)",
+      "svgSha256": "c3cc96cbcdb5dfe3807dadb40f1acc44ac557efd8a88b304da405debb1606e63"
+    },
+    {
+      "id": "land.support.sp_artillery#unknown",
+      "key": "land.support.sp_artillery",
+      "variant": "unknown",
+      "sidc": "13011000001303010000",
+      "meaning": "Unknown-affiliation field artillery, self-propelled (armored)",
+      "svgSha256": "3314afd58486b2433aa486c520e4ede8a050c8b3288743a74669a63adfba66ac"
+    },
+    {
+      "id": "land.support.towed_artillery#friend",
+      "key": "land.support.towed_artillery",
+      "variant": "friend",
+      "sidc": "13031000001303000047",
+      "meaning": "Friendly field artillery, towed",
+      "svgSha256": "8bdc3e3b239454f54b3b32a7ba68f9bedd2a880d59df03464844994488ce6ca9"
+    },
+    {
+      "id": "land.support.towed_artillery#hostile",
+      "key": "land.support.towed_artillery",
+      "variant": "hostile",
+      "sidc": "13061000001303000047",
+      "meaning": "Hostile field artillery, towed",
+      "svgSha256": "a75895f27b213e85ce6a58cc09aa0fd04cdf3127a988654c725f09065765c22f"
+    },
+    {
+      "id": "land.support.towed_artillery#neutral",
+      "key": "land.support.towed_artillery",
+      "variant": "neutral",
+      "sidc": "13041000001303000047",
+      "meaning": "Neutral field artillery, towed",
+      "svgSha256": "1eae09ffc2a357f0d9ae6aff2f7dbe84457c69d600177d2251108eb007f4c971"
+    },
+    {
+      "id": "land.support.towed_artillery#unknown",
+      "key": "land.support.towed_artillery",
+      "variant": "unknown",
+      "sidc": "13011000001303000047",
+      "meaning": "Unknown-affiliation field artillery, towed",
+      "svgSha256": "c3a76b4a9f6b75475b7746dd78f9541561ce23d6d3fc9486a36055904f54b875"
+    },
+    {
+      "id": "sea.naval.carrier#damaged",
+      "key": "sea.naval.carrier",
+      "variant": "damaged",
+      "sidc": "13033030001201000000",
+      "meaning": "Friendly carrier, damaged (operational-condition bar)",
+      "svgSha256": "03407c413ccf7ccf01954d224c26c2f68c0e3d9ddfb84b2fcd15a005ac99af68"
+    },
+    {
+      "id": "sea.naval.carrier#friend",
+      "key": "sea.naval.carrier",
+      "variant": "friend",
+      "sidc": "13033000001201000000",
+      "meaning": "Friendly carrier",
+      "svgSha256": "6492e1c20a75c493152bc7fe572db068ac8450832c8b1c854d7dcdc203f33825"
+    },
+    {
+      "id": "sea.naval.carrier#hostile",
+      "key": "sea.naval.carrier",
+      "variant": "hostile",
+      "sidc": "13063000001201000000",
+      "meaning": "Hostile carrier",
+      "svgSha256": "caf6b1687dfb528e682add213af4329681e8fd9234405cb9637d97d167790400"
+    },
+    {
+      "id": "sea.naval.carrier#mono-unknown",
+      "key": "sea.naval.carrier",
+      "variant": "mono-unknown",
+      "sidc": "13013000001201000000",
+      "meaning": "Unknown-affiliation carrier, monochrome",
+      "svgSha256": "9c288db23071546a18bc901ef8d58eabf1b1fdc9003c0a382223f158f84cc78b"
+    },
+    {
+      "id": "sea.naval.carrier#neutral",
+      "key": "sea.naval.carrier",
+      "variant": "neutral",
+      "sidc": "13043000001201000000",
+      "meaning": "Neutral carrier",
+      "svgSha256": "183e0e1e328b8e0baa86574d27f504958b9037c981bf6ce0b875595a9684a1ba"
+    },
+    {
+      "id": "sea.naval.carrier#planned",
+      "key": "sea.naval.carrier",
+      "variant": "planned",
+      "sidc": "13033010001201000000",
+      "meaning": "Friendly carrier, planned/anticipated (dashed frame)",
+      "svgSha256": "2abaf014cd7a79475f4d5792a2edb117da44f4e7861d153bfdba67bf705a7ad4"
+    },
+    {
+      "id": "sea.naval.carrier#selected",
+      "key": "sea.naval.carrier",
+      "variant": "selected",
+      "sidc": "13063000001201000000",
+      "meaning": "Hostile carrier, currently selected (game ring overlay)",
+      "svgSha256": "7dfbd4084654c9c90387a4e3622822658a8e8559025e3a26e267021929788884"
+    },
+    {
+      "id": "sea.naval.carrier#stale",
+      "key": "sea.naval.carrier",
+      "variant": "stale",
+      "sidc": "13063000001201000000",
+      "meaning": "Hostile carrier, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "6a63d4c197c50717ecc5dcdcd663004fd9859703b0f0e16587a00a314b3cee0e"
+    },
+    {
+      "id": "sea.naval.carrier#unknown",
+      "key": "sea.naval.carrier",
+      "variant": "unknown",
+      "sidc": "13013000001201000000",
+      "meaning": "Unknown-affiliation carrier",
+      "svgSha256": "173bdab04d982d6d1ddfd0b6e8d9fd2a162e3c503d2e2f812cd8e903f5a328a5"
+    },
+    {
+      "id": "sea.naval.corvette#friend",
+      "key": "sea.naval.corvette",
+      "variant": "friend",
+      "sidc": "13033000001202050000",
+      "meaning": "Friendly corvette",
+      "svgSha256": "43b0162fda64f7403307c2fd2a314e64d25ae52e7ac4e44ba94d24a61e148139"
+    },
+    {
+      "id": "sea.naval.corvette#hostile",
+      "key": "sea.naval.corvette",
+      "variant": "hostile",
+      "sidc": "13063000001202050000",
+      "meaning": "Hostile corvette",
+      "svgSha256": "9766f67c3199a0fdb40b64c3f4cc745de0bbcf3518410b2b28d4d8582762e045"
+    },
+    {
+      "id": "sea.naval.corvette#neutral",
+      "key": "sea.naval.corvette",
+      "variant": "neutral",
+      "sidc": "13043000001202050000",
+      "meaning": "Neutral corvette",
+      "svgSha256": "4f69ef6247fbf2f7caebb84d4794b56a56cea71d29315aadd4c35a23b6b82393"
+    },
+    {
+      "id": "sea.naval.corvette#unknown",
+      "key": "sea.naval.corvette",
+      "variant": "unknown",
+      "sidc": "13013000001202050000",
+      "meaning": "Unknown-affiliation corvette",
+      "svgSha256": "14c455ab229d384f9c129edd0a4100c07aaa30ccd5812af74f3dc657c28d22f9"
+    },
+    {
+      "id": "sea.naval.cruiser#friend",
+      "key": "sea.naval.cruiser",
+      "variant": "friend",
+      "sidc": "13033000001202020000",
+      "meaning": "Friendly cruiser, guided missile",
+      "svgSha256": "463870aa24a67512d81acbf29f668bd7e953d5b8cd9e5262f1d4fa96906d71c7"
+    },
+    {
+      "id": "sea.naval.cruiser#hostile",
+      "key": "sea.naval.cruiser",
+      "variant": "hostile",
+      "sidc": "13063000001202020000",
+      "meaning": "Hostile cruiser, guided missile",
+      "svgSha256": "c14ad5cdf51c5b81a6678f79278c6f8c2fd0d0b5bcb19d9cc9f505f871f187f0"
+    },
+    {
+      "id": "sea.naval.cruiser#neutral",
+      "key": "sea.naval.cruiser",
+      "variant": "neutral",
+      "sidc": "13043000001202020000",
+      "meaning": "Neutral cruiser, guided missile",
+      "svgSha256": "a54adfce0632f582fdbeafd034c86caba9494a52250abe98095e8013f3fbecb9"
+    },
+    {
+      "id": "sea.naval.cruiser#unknown",
+      "key": "sea.naval.cruiser",
+      "variant": "unknown",
+      "sidc": "13013000001202020000",
+      "meaning": "Unknown-affiliation cruiser, guided missile",
+      "svgSha256": "46529cd7c2052acd9cfce8fdbfd4e411fc01c7ba0be92f001c97ae0f79f0e279"
+    },
+    {
+      "id": "sea.naval.destroyer#damaged",
+      "key": "sea.naval.destroyer",
+      "variant": "damaged",
+      "sidc": "13033030001202030000",
+      "meaning": "Friendly destroyer, damaged (operational-condition bar)",
+      "svgSha256": "ec94a0933a6db97204dc0d07cf3be0a0f35d9a99ace24ff7a5aebe2a61d3acf6"
+    },
+    {
+      "id": "sea.naval.destroyer#friend",
+      "key": "sea.naval.destroyer",
+      "variant": "friend",
+      "sidc": "13033000001202030000",
+      "meaning": "Friendly destroyer",
+      "svgSha256": "164e7f2e3b3690489fa5b99c7da38a004b4d2e98b10f8993bd67bfb497453723"
+    },
+    {
+      "id": "sea.naval.destroyer#hostile",
+      "key": "sea.naval.destroyer",
+      "variant": "hostile",
+      "sidc": "13063000001202030000",
+      "meaning": "Hostile destroyer",
+      "svgSha256": "266cf4acde4e7b61cce4beef6c51ba973207435f88c1af9582be215b7735deaa"
+    },
+    {
+      "id": "sea.naval.destroyer#mono-unknown",
+      "key": "sea.naval.destroyer",
+      "variant": "mono-unknown",
+      "sidc": "13013000001202030000",
+      "meaning": "Unknown-affiliation destroyer, monochrome",
+      "svgSha256": "0747a05f17ae8701c61661486c7da0346777f31b6d92cc9b2ff536b20b9233d3"
+    },
+    {
+      "id": "sea.naval.destroyer#neutral",
+      "key": "sea.naval.destroyer",
+      "variant": "neutral",
+      "sidc": "13043000001202030000",
+      "meaning": "Neutral destroyer",
+      "svgSha256": "be999c2711d8945b217228f07157170712100c0e2e882a1d3d338101dcc978e6"
+    },
+    {
+      "id": "sea.naval.destroyer#planned",
+      "key": "sea.naval.destroyer",
+      "variant": "planned",
+      "sidc": "13033010001202030000",
+      "meaning": "Friendly destroyer, planned/anticipated (dashed frame)",
+      "svgSha256": "62d5655b7a4fd99704fea7ab7795dbdfa0b5a53ec3412ca2bbcf02331efcc8bf"
+    },
+    {
+      "id": "sea.naval.destroyer#selected",
+      "key": "sea.naval.destroyer",
+      "variant": "selected",
+      "sidc": "13063000001202030000",
+      "meaning": "Hostile destroyer, currently selected (game ring overlay)",
+      "svgSha256": "e51d3d68bcc2a75ff4bb37f6c80e103388cef9a4df45b82c07c086108e5cad9e"
+    },
+    {
+      "id": "sea.naval.destroyer#stale",
+      "key": "sea.naval.destroyer",
+      "variant": "stale",
+      "sidc": "13063000001202030000",
+      "meaning": "Hostile destroyer, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "5ed5ebb20dfcb1e7327bacd81c6876681d53d02954b1e59a6970baf4db266962"
+    },
+    {
+      "id": "sea.naval.destroyer#unknown",
+      "key": "sea.naval.destroyer",
+      "variant": "unknown",
+      "sidc": "13013000001202030000",
+      "meaning": "Unknown-affiliation destroyer",
+      "svgSha256": "82bd0bbd6bdcdee047313d6ccfc6fbcfe253a0c9fd9cad36dfb4edee68774715"
+    },
+    {
+      "id": "sea.naval.frigate#friend",
+      "key": "sea.naval.frigate",
+      "variant": "friend",
+      "sidc": "13033000001202040000",
+      "meaning": "Friendly frigate",
+      "svgSha256": "a5aa8a157d4dacbf669f39e9a5cb46558bef4064b9e820291b490157045ca336"
+    },
+    {
+      "id": "sea.naval.frigate#hostile",
+      "key": "sea.naval.frigate",
+      "variant": "hostile",
+      "sidc": "13063000001202040000",
+      "meaning": "Hostile frigate",
+      "svgSha256": "74c59a41254b63f9de69e9b599a3c67ecf365367f85453b6cedfb858f7aa550e"
+    },
+    {
+      "id": "sea.naval.frigate#mono-friend",
+      "key": "sea.naval.frigate",
+      "variant": "mono-friend",
+      "sidc": "13033000001202040000",
+      "meaning": "Friendly frigate, monochrome (rectangle/rounded frame)",
+      "svgSha256": "15e2f4b955cd37d3f27455acdc9791e40f5f10f391deb36a65709ae4b75716dd"
+    },
+    {
+      "id": "sea.naval.frigate#mono-hostile",
+      "key": "sea.naval.frigate",
+      "variant": "mono-hostile",
+      "sidc": "13063000001202040000",
+      "meaning": "Hostile frigate, monochrome (diamond/pointed frame)",
+      "svgSha256": "9a5f7cd8942fff58c32bf5f6154911a29f85e16dc3544fe3a4098a20ae992f59"
+    },
+    {
+      "id": "sea.naval.frigate#mono-neutral",
+      "key": "sea.naval.frigate",
+      "variant": "mono-neutral",
+      "sidc": "13043000001202040000",
+      "meaning": "Neutral frigate, monochrome (square frame)",
+      "svgSha256": "8beb2081c7b9d952f73235ead0b84fd80ecddffe15cbedd62ad23d841b153996"
+    },
+    {
+      "id": "sea.naval.frigate#mono-unknown",
+      "key": "sea.naval.frigate",
+      "variant": "mono-unknown",
+      "sidc": "13013000001202040000",
+      "meaning": "Unknown-affiliation frigate, monochrome (quatrefoil/cloverleaf frame)",
+      "svgSha256": "1237676cf51a1e2cf8c5f574b275a03de9d900235e3de0773aca3e79e3b72733"
+    },
+    {
+      "id": "sea.naval.frigate#neutral",
+      "key": "sea.naval.frigate",
+      "variant": "neutral",
+      "sidc": "13043000001202040000",
+      "meaning": "Neutral frigate",
+      "svgSha256": "7918dca25506e2ca0d70a4289d277e1fd27fc32e8b3c416fabb00cadafbbe8b0"
+    },
+    {
+      "id": "sea.naval.frigate#unknown",
+      "key": "sea.naval.frigate",
+      "variant": "unknown",
+      "sidc": "13013000001202040000",
+      "meaning": "Unknown-affiliation frigate",
+      "svgSha256": "a5fbf3ea91f2ff26fdf68f1c04daebd5b87462207007298e77d58511deba43e2"
+    },
+    {
+      "id": "sea.officer.naval#friend",
+      "key": "sea.officer.naval",
+      "variant": "friend",
+      "sidc": "13033000001210020000",
+      "meaning": "Friendly navy task force (flotilla commander)",
+      "svgSha256": "b971bdf66f7f92a38433e94d5856b0e8dd4f1da9d5b7c2e3234e6cc9592ebe0b"
+    },
+    {
+      "id": "sea.officer.naval#hostile",
+      "key": "sea.officer.naval",
+      "variant": "hostile",
+      "sidc": "13063000001210020000",
+      "meaning": "Hostile navy task force (flotilla commander)",
+      "svgSha256": "1ad49a459809ddc73d616ad191200f2a3afb11c5138c83f9df20c5310e71e795"
+    },
+    {
+      "id": "sea.officer.naval#neutral",
+      "key": "sea.officer.naval",
+      "variant": "neutral",
+      "sidc": "13043000001210020000",
+      "meaning": "Neutral navy task force (flotilla commander)",
+      "svgSha256": "864bba24b34971e67c27a83366d055800c0e9c79c434853d2576316c8faf5057"
+    },
+    {
+      "id": "sea.officer.naval#unknown",
+      "key": "sea.officer.naval",
+      "variant": "unknown",
+      "sidc": "13013000001210020000",
+      "meaning": "Unknown-affiliation navy task force (flotilla commander)",
+      "svgSha256": "44140ce06bf97554c5be7f678a4602067d6a88b5e986b028d8ef585c2882d9cf"
+    },
+    {
+      "id": "subsurface.officer.submarine#friend",
+      "key": "subsurface.officer.submarine",
+      "variant": "friend",
+      "sidc": "13033500001101000300",
+      "meaning": "Friendly submarine, command and control (undersea commander)",
+      "svgSha256": "0681fbf8aca8ff1c0640d64459e02ce1077cf72038a66dbe28acdd2e8a6db65f"
+    },
+    {
+      "id": "subsurface.officer.submarine#hostile",
+      "key": "subsurface.officer.submarine",
+      "variant": "hostile",
+      "sidc": "13063500001101000300",
+      "meaning": "Hostile submarine, command and control (undersea commander)",
+      "svgSha256": "736837a1a5070719c931c50b19cd7a18c8db4db23662083f78f142a1d90a9cf2"
+    },
+    {
+      "id": "subsurface.officer.submarine#neutral",
+      "key": "subsurface.officer.submarine",
+      "variant": "neutral",
+      "sidc": "13043500001101000300",
+      "meaning": "Neutral submarine, command and control (undersea commander)",
+      "svgSha256": "7601fc26fa6067ab21b915121376fe9e75aab5436213b505331199521f5aa4b2"
+    },
+    {
+      "id": "subsurface.officer.submarine#unknown",
+      "key": "subsurface.officer.submarine",
+      "variant": "unknown",
+      "sidc": "13013500001101000300",
+      "meaning": "Unknown-affiliation submarine, command and control (undersea commander)",
+      "svgSha256": "dffaba2cfa1778d7b4fc615dd27fce4a28a87c20a5fb747b945877a0e71331bc"
+    },
+    {
+      "id": "subsurface.submarine.attack#damaged",
+      "key": "subsurface.submarine.attack",
+      "variant": "damaged",
+      "sidc": "13033530001101000800",
+      "meaning": "Friendly submarine, attack, damaged (operational-condition bar)",
+      "svgSha256": "94ec0f755306c36f0b683dbbff67883249c6b2bb8eef02a7ada5be603fafcaba"
+    },
+    {
+      "id": "subsurface.submarine.attack#friend",
+      "key": "subsurface.submarine.attack",
+      "variant": "friend",
+      "sidc": "13033500001101000800",
+      "meaning": "Friendly submarine, attack",
+      "svgSha256": "7d84f27fa4d4014ca5c61e5cfe1b63d4d49537934396b9ab348256b1ef3fefd2"
+    },
+    {
+      "id": "subsurface.submarine.attack#hostile",
+      "key": "subsurface.submarine.attack",
+      "variant": "hostile",
+      "sidc": "13063500001101000800",
+      "meaning": "Hostile submarine, attack",
+      "svgSha256": "3fdb5b880a85bff25a6561d898bd46637712885c1f8c6b6f161642a983f4e929"
+    },
+    {
+      "id": "subsurface.submarine.attack#mono-friend",
+      "key": "subsurface.submarine.attack",
+      "variant": "mono-friend",
+      "sidc": "13033500001101000800",
+      "meaning": "Friendly submarine, attack, monochrome (rectangle/rounded frame)",
+      "svgSha256": "3108e1881b6b705c6b2f7790822401c3ceb4fbc2a4bbb6edf6ea53a229047c23"
+    },
+    {
+      "id": "subsurface.submarine.attack#mono-hostile",
+      "key": "subsurface.submarine.attack",
+      "variant": "mono-hostile",
+      "sidc": "13063500001101000800",
+      "meaning": "Hostile submarine, attack, monochrome (diamond/pointed frame)",
+      "svgSha256": "0679b71e6c477b6a5a62bbfa22b7845ec389450e0c98f9caf35776db77ce1de3"
+    },
+    {
+      "id": "subsurface.submarine.attack#mono-neutral",
+      "key": "subsurface.submarine.attack",
+      "variant": "mono-neutral",
+      "sidc": "13043500001101000800",
+      "meaning": "Neutral submarine, attack, monochrome (square frame)",
+      "svgSha256": "fda5790659a80d38822ddcd16114cc6a280d303971ca932d84d65013275e635e"
+    },
+    {
+      "id": "subsurface.submarine.attack#mono-unknown",
+      "key": "subsurface.submarine.attack",
+      "variant": "mono-unknown",
+      "sidc": "13013500001101000800",
+      "meaning": "Unknown-affiliation submarine, attack, monochrome",
+      "svgSha256": "80978671cc24bc9c341e51f76978729207618bdf38ed9db306dbe4e834bb3148"
+    },
+    {
+      "id": "subsurface.submarine.attack#mono-unknown",
+      "key": "subsurface.submarine.attack",
+      "variant": "mono-unknown",
+      "sidc": "13013500001101000800",
+      "meaning": "Unknown-affiliation submarine, attack, monochrome (quatrefoil/cloverleaf frame)",
+      "svgSha256": "80978671cc24bc9c341e51f76978729207618bdf38ed9db306dbe4e834bb3148"
+    },
+    {
+      "id": "subsurface.submarine.attack#neutral",
+      "key": "subsurface.submarine.attack",
+      "variant": "neutral",
+      "sidc": "13043500001101000800",
+      "meaning": "Neutral submarine, attack",
+      "svgSha256": "cd9482381b6fc6358d6d87bef4648392c8444b0582bfff13591c14ad18c28e3e"
+    },
+    {
+      "id": "subsurface.submarine.attack#planned",
+      "key": "subsurface.submarine.attack",
+      "variant": "planned",
+      "sidc": "13033510001101000800",
+      "meaning": "Friendly submarine, attack, planned/anticipated (dashed frame)",
+      "svgSha256": "865c1bcb3db4bfdbe3f109a42ffa7dad856f82c072db63b3c21bd876954cca5a"
+    },
+    {
+      "id": "subsurface.submarine.attack#selected",
+      "key": "subsurface.submarine.attack",
+      "variant": "selected",
+      "sidc": "13063500001101000800",
+      "meaning": "Hostile submarine, attack, currently selected (game ring overlay)",
+      "svgSha256": "dd32210a72225a43a57f5894cf5e8f11600e6bb95ccb1d1a29f12771dc23eb3a"
+    },
+    {
+      "id": "subsurface.submarine.attack#stale",
+      "key": "subsurface.submarine.attack",
+      "variant": "stale",
+      "sidc": "13063500001101000800",
+      "meaning": "Hostile submarine, attack, last observed 6 h ago (age badge, muted)",
+      "svgSha256": "d3a8ad244ac21db2930594ec462804613accb259101bbc825ebb34037fe9e46c"
+    },
+    {
+      "id": "subsurface.submarine.attack#unknown",
+      "key": "subsurface.submarine.attack",
+      "variant": "unknown",
+      "sidc": "13013500001101000800",
+      "meaning": "Unknown-affiliation submarine, attack",
+      "svgSha256": "d8386f63ce65bf4d85a2d13da2e76deb1925b1d8f56c482e712b8c9285fb80f5"
+    },
+    {
+      "id": "subsurface.submarine.ballistic#friend",
+      "key": "subsurface.submarine.ballistic",
+      "variant": "friend",
+      "sidc": "13033500001101000900",
+      "meaning": "Friendly submarine, ballistic missile",
+      "svgSha256": "435c53b93e246f76bb63fafb2edc9401b4dfda42caddaf002f0fa27c1a2c27bc"
+    },
+    {
+      "id": "subsurface.submarine.ballistic#hostile",
+      "key": "subsurface.submarine.ballistic",
+      "variant": "hostile",
+      "sidc": "13063500001101000900",
+      "meaning": "Hostile submarine, ballistic missile",
+      "svgSha256": "bec2ca39023806f67ba4af593c268b60561e648a3a2a048ffb025f1fc62846dd"
+    },
+    {
+      "id": "subsurface.submarine.ballistic#neutral",
+      "key": "subsurface.submarine.ballistic",
+      "variant": "neutral",
+      "sidc": "13043500001101000900",
+      "meaning": "Neutral submarine, ballistic missile",
+      "svgSha256": "77f2a9852d39951c0534a2bf9045750717d417c932b4cd4027c3ca517b1f1e83"
+    },
+    {
+      "id": "subsurface.submarine.ballistic#unknown",
+      "key": "subsurface.submarine.ballistic",
+      "variant": "unknown",
+      "sidc": "13013500001101000900",
+      "meaning": "Unknown-affiliation submarine, ballistic missile",
+      "svgSha256": "7c1befa02b55b0d5da84e1f609464a81c2b1ee84d536f7a69a58ec952c80ef20"
+    }
+  ]
+}
