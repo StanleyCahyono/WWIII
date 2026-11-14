@@ -373,7 +373,7 @@ function market(t: Turn): void {
     if (t.add({ type: 'marketOrder', country: t.me, side: 'buy', resource: r, qty, price }, 'economic', 'market_buy', `buy ${r} for a planned investment (short ${Math.ceil(gap / 1000)})`)) { t.marketOpen++; return; }
   }
   // 2. cash-starved: sell the largest surplus competitively, even into a crowded book
-  if ((t.blocked.money ?? 0) > 0) {
+  if ((t.blocked.money ?? 0) > 0 && t.budget.money < t.reserve.money * 2 + 1_500_000) {
     const sur = (RESOURCES.filter((r) => r !== 'money' && !openRes.has(r) && !t.mem.plan.shortages.includes(r)) as Resource[])
       .map((r) => ({ r, ex: (t.res[r]?.stock ?? 0) - Math.max(t.reserve[r] * 3, (t.res[r]?.consumptionPerDay ?? 0) * 8) }))
       .filter((x) => x.ex > 20_000 && (t.res[x.r]?.netPerDay ?? 0) >= 0)

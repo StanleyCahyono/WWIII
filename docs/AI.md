@@ -69,7 +69,10 @@ province returns immediately without touching memory (most peace-time calls).
 * Stacks: tasks (`defend` 18 h, `attack` 12 h, `stage` 24 h, naval 1–3 days); a move is never issued to the
   destination the stack is already heading to (repeated no-op = 0 in tests and observer runs).
 * Market: stale buys after 2 days / sells after 4 days are cancelled with a 2-day cooldown per
-  resource/side; re-listing steps the ask down a 5 % ladder; no selling into a glut (≥ 4 ask levels, no bids).
+  resource/side; re-listing steps the ask down a 5 % ladder; no routine selling into a glut (≥ 4 ask levels,
+  no bids). Priority per review: (1) buy the inputs that blocked a planned investment this review,
+  (2) when cash-starved, sell the largest surplus competitively (undercut ≥ 0.6 × reference), (3) cover
+  forecast deficits, (4) list surpluses. At most one new order per review and four open orders per bot.
 * Proposal IDs: replies reference the engine offer id; answered offers are remembered (bounded list).
 
 ## Personality, memory and decay
@@ -135,9 +138,11 @@ invalidates the shared public slices. See Engine requests 1–2.
 5. **Coalition join time in the view** (`members[].joinedAt`) for transparent leave rules.
 6. **Viewer's own trust history** (entries about counterparts) in the view, so replies can cite the
    engine's recorded reasons rather than the AI's own grievance memory.
-7. **Data/engine semantic (profiles/catalog):** building `productionMult` totals such as 1.1 at level 1 are
-   applied as `1 + Σ productionMult`, i.e. +110 % output — the AI correctly rates arms industry as the best
-   investment almost everywhere. Agree on multiplier vs increment semantics (see docs/PROFILES notes).
+7. ~~Building `productionMult` semantics~~ — resolved by the engine pass (catalog multiplier semantics,
+   `1 + Σ(mult − 1)`); the planner values `*Mult` increments against a base of 1 accordingly.
+8. **Market depth.** Bots are the only counterparties; with 119 sellers of common surpluses the books are
+   one-sided. The planner now creates demand (it buys inputs that blocked a planned investment) and lets
+   cash-starved states undercut, but a scenario-level importer/exporter of last resort would stabilise prices.
 
 ## Known gaps
 

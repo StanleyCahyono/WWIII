@@ -22,10 +22,97 @@ import type { CountryId, Domain, NodeId } from '../data-types';
 import type { Contact, ContactLevel, GameState, Stack } from '../state';
 import { CITY_SIGHT_KM, IDENTIFY_FRACTION, STALE_KEEP_MIN, STEALTH_VISUAL_FRACTION } from '../rules';
 import { S } from '../scenario/registry';
-import { binKey, binsAround, distKm } from './mapindex';
+import { distKm } from './mapindex';
 import { hash32 } from '../rng';
 import { cmpId, sortedStacks, stacksReadonly, stackLL, takeOwnerChanges, ustats, utype, visionSources } from './world';
 import { sumEffect } from './economy';
+
+/**
+ * Visibility spatial grid (acceleration structure only — results never depend on it): VIS_BIN_DEG
+ * cells, and an EXACT cover of a sensor's range (every cell that can hold a point within `km`
+ * great-circle distance, computed with the same Earth radius as distKm plus a small margin).
+ * Fine cells keep each sensor's footprint tight, so a moving stack only invalidates the sensors
+ * that can actually reach it.
+ */
+const VIS_BIN_DEG = 1;
+const EARTH_R = 6371;
+const LON_CELLS = Math.round(360 / VIS_BIN_DEG);
+function vbin(lon: number, lat: number): number {
+  let l = lon;
+  while (l < -180) l += 360;
+  while (l >= 180) l -= 360;
+  return (Math.floor((l + 180) / VIS_BIN_DEG) % LON_CELLS) * 1000 + Math.floor((lat + 90) / VIS_BIN_DEG);
+}
+const coverCache = new Map<number, Map<number, Map<number, number[]>>>();
+let coverCacheSize = 0;
+/** Sorted cell keys covering every point within `km` of (lon, lat). Memoized (pure). */
+export function visCover(lon: number, lat: number, km: number): number[] {
+  let a = coverCache.get(km);
+  if (!a) {
+    a = new Map();
+    coverCache.set(km, a);
+  }
+  let b = a.get(lon);
+  if (!b) {
+    if (coverCacheSize > 200000) {
+      coverCache.clear();
+      coverCacheSize = 0;
+      a = new Map();
+      coverCache.set(km, a);
+    }
+    b = new Map();
+    a.set(lon, b);
+  }
+  let res = b.get(lat);
+  if (!res) {
+    res = coverRaw(lon, lat, km);
+    b.set(lat, res);
+    coverCacheSize++;
+  }
+  return res;
+}
+function coverRaw(lon: number, lat: number, km: number): number[] {
+  const MARGIN = 1e-6; // degrees (floating-point safety)
+  const delta = km / EARTH_R; // angular radius (rad)
+  const dDeg = (delta * 180) / Math.PI + MARGIN;
+  const latMin = Math.max(-90, lat - dDeg);
+  const latMax = Math.min(90, lat + dDeg);
+  const phi = (lat * Math.PI) / 180;
+  let full = latMax >= 90 || latMin <= -90 || delta >= Math.PI / 2;
+  let dLon = 180;
+  if (!full) {
+    const x = Math.sin(delta) / Math.cos(phi);
+    if (x >= 1) full = true;
+    else dLon = (Math.asin(x) * 180) / Math.PI + MARGIN;
+  }
+  if (dLon >= 180) full = true;
+  const out: number[] = [];
+  const la0 = Math.floor((latMin + 90) / VIS_BIN_DEG), la1 = Math.floor((latMax + 90) / VIS_BIN_DEG);
+  let lo0: number, lo1: number;
+  if (full) {
+    lo0 = 0;
+    lo1 = LON_CELLS - 1;
+  } else {
+    lo0 = Math.floor((lon - dLon + 180) / VIS_BIN_DEG);
+    lo1 = Math.floor((lon + dLon + 180) / VIS_BIN_DEG);
+    if (lo1 - lo0 >= LON_CELLS - 1) {
+      lo0 = 0;
+      lo1 = LON_CELLS - 1;
+    }
+  }
+  const seen = new Set<number>();
+  for (let i = lo0; i <= lo1; i++) {
+    const li = ((i % LON_CELLS) + LON_CELLS) % LON_CELLS;
+    for (let j = la0; j <= la1; j++) {
+      const k = li * 1000 + j;
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push(k);
+      }
+    }
+  }
+  return out.sort((x, y) => x - y);
+}
 
 const LEVEL_RANK: Record<ContactLevel, number> = { stale: 0, contact: 1, unidentified: 2, identified: 3 };
 
@@ -449,7 +536,7 @@ export function computeDetections(state: GameState, opts: { full?: boolean } = {
   };
   const addRec = (s: Stack, pr: StackProfile) => {
     const ll: [number, number] = s.pos.kind === 'node' ? (pr.ll ??= [mm.lon[s.pos.node], mm.lat[s.pos.node]]) : stackLL(state, s);
-    const bin = s.pos.kind === 'node' ? (pr.bin ??= binKey(ll[0], ll[1])) : binKey(ll[0], ll[1]);
+    const bin = s.pos.kind === 'node' ? (pr.bin ??= vbin(ll[0], ll[1])) : vbin(ll[0], ll[1]);
     const r: TRec = { s, pr, ll, bin, moving: s.pos.kind !== 'node', group: null, terr: null, terrNode: null };
     r.group = groupKey(r);
     [r.terr, r.terrNode] = terrOf(r);
@@ -516,6 +603,7 @@ export function computeDetections(state: GameState, opts: { full?: boolean } = {
   }
   for (const c of state.countryOrder) {
     if (!ownChanged && !dirtyCountries.has(c) && vc.countryDets.has(c)) continue;
+    if ((globalThis as any).__wcprof) (globalThis as any).__wcprof['v.dirtyC'] = ((globalThis as any).__wcprof['v.dirtyC'] ?? 0) + 1;
     const sens: Sensor[] = [];
     for (const gk of vc.countryGroups.get(c) ?? []) {
       const g = vc.groups.get(gk);
@@ -543,7 +631,7 @@ export function computeDetections(state: GameState, opts: { full?: boolean } = {
     for (const sen of sens) {
       const r = Math.max(sen.sight, sen.radar);
       if (r <= 0) continue;
-      const keys = binsAround(sen.ll[0], sen.ll[1], r);
+      const keys = visCover(sen.ll[0], sen.ll[1], r);
       keyRefs.push(keys);
       sensKeys.push(sen.key);
       const entry = vc.sensors.get(sen.key);
@@ -552,9 +640,11 @@ export function computeDetections(state: GameState, opts: { full?: boolean } = {
       let hits: Hit[];
       if (valid) hits = entry!.hits;
       else {
+        if ((globalThis as any).__wcprof) (globalThis as any).__wcprof['v.senRecomp'] = ((globalThis as any).__wcprof['v.senRecomp'] ?? 0) + 1;
         hits = detectFrom(state, c, sen, vc, keys);
         vc.sensors.set(sen.key, { snap: sen, hits });
       }
+      if ((globalThis as any).__wcprof) { (globalThis as any).__wcprof['v.sensVisited'] = ((globalThis as any).__wcprof['v.sensVisited'] ?? 0) + 1; (globalThis as any).__wcprof['v.hitsMerged'] = ((globalThis as any).__wcprof['v.hitsMerged'] ?? 0) + hits.length; }
       for (const h of hits) upd(h.sid, h.level, h.units, h.domain, sen.id);
     }
     for (const r of vc.terr.get(c) ?? []) {
@@ -632,7 +722,10 @@ const viewerMemos = new WeakMap<GameState, Map<CountryId, ViewerMemo>>();
  * skipped except for stale-contact expiry — results are identical to processing every viewer.
  */
 export function updateVisibility(state: GameState): void {
+  const P = (globalThis as any).__wcprof as Record<string, number> | undefined;
+  const t0 = P ? performance.now() : 0;
   const dets = computeDetections(state);
+  if (P) P['v.detect'] = (P['v.detect'] ?? 0) + performance.now() - t0;
   const t = state.clock.tick;
   const prevRefresh = state.clock.lastVisibility ?? t;
   let memos = viewerMemos.get(state);
@@ -640,6 +733,7 @@ export function updateVisibility(state: GameState): void {
     memos = new Map();
     viewerMemos.set(state, memos);
   }
+  let dirtyV = 0;
   for (const viewer of state.countryOrder) {
     const table = (state.contacts[viewer] ??= {});
     const srcs = visionSources(state, viewer);
@@ -651,6 +745,7 @@ export function updateVisibility(state: GameState): void {
       if (memo!.staleCount > 0) memo!.staleCount = expireStale(table, t);
       continue;
     }
+    dirtyV++;
     let merged = new Map<string, Det>();
     if (srcs.length === 1) {
       const d = srcDets[0];
@@ -742,6 +837,7 @@ export function updateVisibility(state: GameState): void {
     memos.set(viewer, { srcs, dets: srcDets, merged, staleCount: stale });
   }
   state.clock.lastVisibility = t;
+  if (P) P['v.dirtyViewers'] = (P['v.dirtyViewers'] ?? 0) + dirtyV;
 }
 function expireStale(table: Record<string, Contact>, t: number): number {
   let stale = 0;
