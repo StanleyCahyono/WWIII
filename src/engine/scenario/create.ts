@@ -70,7 +70,7 @@ export function createCampaign(opts: CreateOptions): GameState {
     articles: [],
     score: { denominator: 0, history: [], result: null, lastSettledDay: 0 },
     career: { xp: 0, entries: [] },
-    ai: { memory: {}, schedule: {}, rr: 0, calls: 0 },
+    ai: { memory: {}, schedule: {}, rr: 0, calls: 0, wakeCursor: 0 },
     openingPower: null,
     ui: { planning: [], prefs: {}, nextDrawingId: 1 },
   };
@@ -202,7 +202,10 @@ export function createCampaign(opts: CreateOptions): GameState {
       pr.war = true;
       pr.warDeclaredBy = a;
       state.ids.relv = (state.ids.relv ?? 0) + 1;
-    } else if (rel.status !== 'peace') state.grants[dirKey(a, rel.with)] = { level: rel.status, since: 0 };
+    } else if (rel.status !== 'peace') {
+      state.grants[dirKey(a, rel.with)] = { level: rel.status, since: 0 };
+      state.ids.grv = (state.ids.grv ?? 0) + 1;
+    }
   }
   state.score.denominator = computeDenominator(sc);
   for (const c of order) if (state.countries[c].controller === 'ai') state.ai.schedule[c] = initSchedule(c, 0);

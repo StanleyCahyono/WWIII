@@ -88,6 +88,12 @@ export function checkBase(state: GameState, c: CountryId, base: { node: NodeId }
   }
   const p = state.provinces[base.node];
   if (!p || p.control !== 'country') return { ok: false, code: 'missing_facility', reason: 'No airfield there.' };
+  // fast path: own city airstrip in working condition
+  if (p.owner === c) {
+    const ck = S(state).map.cityByNode.get(base.node);
+    const city = ck ? state.cities[ck] : undefined;
+    if (city && city.condition >= BASE_DISABLED_CONDITION && (CITY_AIR_SLOTS_BY_TIER[city.tier] ?? 0) > 0) return { ok: true };
+  }
   if (!isFriendlyTerritory(state, c, p.owner)) return { ok: false, code: 'no_access', reason: `No basing rights at ${S(state).map.data.nodes[base.node].name}.` };
   if (nodeAirSlots(state, base.node) <= 0) return { ok: false, code: 'missing_facility', reason: 'No airfield at that location.' };
   if (baseCondition(state, base.node) < BASE_DISABLED_CONDITION) return { ok: false, disabled: true, code: 'base_disabled', reason: 'Airfield is disabled (condition too low).' };
@@ -138,11 +144,15 @@ function fly(state: GameState, s: Stack, to: [number, number], st: AirState): vo
 export function launchPatrol(state: GameState, s: Stack, center: [number, number], node: NodeId | null, radiusKm = DEFAULT_PATROL_RADIUS_KM): void {
   const air = s.air!;
   const from = stackLL(state, s);
-  const d = distKm(from[0], from[1], center[0], center[1]);
   const sp = Math.max(1, airSpeed(state, s));
-  const transit = Math.ceil((d / sp) * 60);
-  air.airborneSince = state.clock.tick;
-  air.patrol = { center, node, radiusKm, until: state.clock.tick + Math.max(transit, airEndurance(state, s) - transit) };
+  const transit = Math.ceil((distKm(from[0], from[1], center[0], center[1]) / sp) * 60);
+  const home = baseLL(state, air.home) ?? from;
+  const back = Math.ceil((distKm(center[0], center[1], home[0], home[1]) / sp) * 60);
+  // re-tasking while airborne keeps the original take-off time (no endurance reset)
+  if (air.airborneSince === null || air.state === 'landed' || air.state === 'refueling') air.airborneSince = state.clock.tick;
+  const endurance = airEndurance(state, s);
+  const arrive = state.clock.tick + transit;
+  air.patrol = { center, node, radiusKm, until: Math.max(arrive, air.airborneSince + endurance - back) };
   air.dest = null;
   fly(state, s, center, 'outbound');
   s.order = null;

@@ -76,6 +76,7 @@ export const MIGRATIONS: Record<number, Migration> = {
       if (c.ledger && !c.ledger.initial) c.ledger.initial = { ...c.stock };
     }
     o.ui ??= { planning: [], prefs: {}, nextDrawingId: 1 };
+    if (o.ai) o.ai.wakeCursor ??= 0;
     o.schemaVersion = 1;
     return o;
   },

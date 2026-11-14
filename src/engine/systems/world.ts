@@ -45,8 +45,23 @@ export function atWar(state: GameState, a: CountryId, b: CountryId): boolean {
   const s = enemyMap(state).get(a);
   return !!s && s.has(b);
 }
-/** Level granted by `from` to `to` (peace if none). */
+const grantCache = new WeakMap<GameState, { v: number; g: object; m: Map<CountryId, Map<CountryId, DiploLevel>> }>();
+/** Level granted by `from` to `to` (peace if none). Cached; keyed by the relations version counter. */
 export function grantLevel(state: GameState, from: CountryId, to: CountryId): DiploLevel {
+  const v = state.ids.grv ?? 0;
+  let c = grantCache.get(state);
+  if (!c || c.v !== v || c.g !== state.grants) {
+    const m = new Map<CountryId, Map<CountryId, DiploLevel>>();
+    for (const k of Object.keys(state.grants)) {
+      const [a, b] = k.split('>');
+      (m.get(a) ?? m.set(a, new Map()).get(a)!).set(b, state.grants[k].level);
+    }
+    c = { v, g: state.grants, m };
+    grantCache.set(state, c);
+  }
+  return c.m.get(from)?.get(to) ?? 'peace';
+}
+export function grantLevelUncached(state: GameState, from: CountryId, to: CountryId): DiploLevel {
   const g = state.grants[dirKey(from, to)];
   return g ? g.level : 'peace';
 }
@@ -61,7 +76,7 @@ export function levelAtLeast(l: DiploLevel, min: DiploLevel): boolean {
 export function coalitionOf(state: GameState, c: CountryId): Coalition | null {
   const ids = Object.keys(state.coalitions);
   if (!ids.length) return null;
-  const idx = derived(state, '~coMember', () => {
+  const idx = derived(state, 'coMember', () => {
     const m = new Map<CountryId, string>();
     for (const id of ids.sort()) {
       const co = state.coalitions[id];
@@ -211,6 +226,22 @@ function sortStacks(state: GameState): Stack[] {
     .map((s) => [idNum(s.id), s] as const)
     .sort((a, b) => a[0] - b[0] || (a[1].id < b[1].id ? -1 : 1))
     .map((x) => x[1]);
+}
+/** Nodes and city keys owned by a country (memoized per step / ownership change). */
+export function territoryOf(state: GameState, c: CountryId): { nodes: NodeId[]; cities: string[] } {
+  const idx = derived(state, '~territoryByOwner', () => {
+    const m = new Map<CountryId, { nodes: NodeId[]; cities: string[] }>();
+    for (const p of state.provinces) {
+      if (!p || !p.owner) continue;
+      (m.get(p.owner) ?? m.set(p.owner, { nodes: [], cities: [] }).get(p.owner)!).nodes.push(p.node);
+    }
+    for (const k of Object.keys(state.cities).sort()) {
+      const o = state.provinces[state.cities[k].node]?.owner;
+      if (o) (m.get(o) ?? m.set(o, { nodes: [], cities: [] }).get(o)!).cities.push(k);
+    }
+    return m;
+  });
+  return idx.get(c) ?? { nodes: [], cities: [] };
 }
 export function ownedNodes(state: GameState, c: CountryId): NodeId[] {
   const out: NodeId[] = [];

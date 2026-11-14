@@ -68,10 +68,17 @@ export function cityAdjustedOutput(state: GameState, city: CityState): ResM {
   return mul(out, f);
 }
 
+const cityCache = new WeakMap<CityState, { k: string; out: ResM }>();
 export function cityOutput(state: GameState, city: CityState): ResM {
   const p = state.provinces[city.node];
   if (!p || p.control !== 'country' || !p.owner) return zero();
-  return applyTerritoryFactor(cityAdjustedOutput(state, city), p.status);
+  let k = `${p.owner}|${p.status}|${p.changedAt}|${city.morale}|${city.condition}|${city.population}`;
+  for (const b of city.buildings) k += `|${b.type}:${b.level}:${b.condition}`;
+  const c = cityCache.get(city);
+  if (c && c.k === k) return c.out;
+  const out = applyTerritoryFactor(cityAdjustedOutput(state, city), p.status);
+  cityCache.set(city, { k, out });
+  return out;
 }
 
 export function provinceAdjustedOutput(state: GameState, p: ProvinceState): ResM {
@@ -153,19 +160,11 @@ export function computeRates(state: GameState): Record<CountryId, CountryRates> 
     bUp(city.buildings, r.upkeepBuildings);
     if (p.status === 'occupied') addInto(r.occupation, mul(occ, city.tier));
   }
-  const upCache = new Map<string, ResM>();
+  // unit upkeep: per-stack vector cached until the roster changes
   for (const id of Object.keys(state.stacks)) {
-    const s = state.stacks[id];
-    const r = out[s.owner];
-    if (!r) continue;
-    for (const u of s.units) {
-      let v = upCache.get(u.type);
-      if (!v) {
-        v = vecFromWhole(utype(state, u.type).upkeepPerDay);
-        upCache.set(u.type, v);
-      }
-      addInto(r.upkeepUnits, v);
-    }
+    const st = state.stacks[id];
+    const r = out[st.owner];
+    if (r) addInto(r.upkeepUnits, stackUpkeep(state, st));
   }
   for (const c of state.countryOrder) {
     const r = out[c];
@@ -175,6 +174,16 @@ export function computeRates(state: GameState): Record<CountryId, CountryRates> 
     for (const res of RESOURCES) r.net[res] = r.production[res] - r.consumption[res];
   }
   return out;
+}
+
+const upkeepCache = new WeakMap<object, { units: object; len: number; v: ResM }>();
+function stackUpkeep(state: GameState, st: { units: { type: string }[] }): ResM {
+  const c = upkeepCache.get(st);
+  if (c && c.units === st.units && c.len === st.units.length) return c.v;
+  const v = zero();
+  for (const u of st.units) addInto(v, vecFromWhole(utype(state, u.type).upkeepPerDay));
+  upkeepCache.set(st, { units: st.units, len: st.units.length, v });
+  return v;
 }
 
 function slice(rate: number, h: number): number {

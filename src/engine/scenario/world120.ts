@@ -58,10 +58,13 @@ export function buildWorld120Scenario(inp: World120Inputs): Scenario {
 
 type Loader = () => Promise<Record<string, unknown>>;
 function glob(): Record<string, Loader> {
-  const g = (import.meta as unknown as { glob?: (p: string[]) => Record<string, Loader> }).glob;
-  if (typeof g !== 'function') return {};
-  // NOTE: the literal argument is required by Vite's static analysis.
-  return import.meta.glob(['../../data/map-index.ts', '../../data/generated/map.json', '../../data/catalog/index.ts', '../../data/profiles/index.ts', '../../data/countries.ts']) as Record<string, Loader>;
+  try {
+    // import.meta.glob is a Vite compile-time macro (Vite, Vitest, workers). In plain Node it is
+    // undefined and throws — callers then pass modules to buildWorld120Scenario themselves.
+    return import.meta.glob(['../../data/map-index.ts', '../../data/generated/map.json', '../../data/catalog/index.ts', '../../data/profiles/index.ts', '../../data/countries.ts']) as Record<string, Loader>;
+  } catch {
+    return {};
+  }
 }
 
 function pickMap(mod: Record<string, unknown> | undefined): MapData | null {
@@ -80,12 +83,11 @@ export async function loadWorld120(): Promise<Scenario> {
     const k = Object.keys(mods).find((x) => x.endsWith(suffix));
     return k ? await mods[k]() : undefined;
   };
-  let map = pickMap(await load('map-index.ts'));
-  if (!map) {
-    const mi = await load('map-index.ts');
-    const fn = mi && (mi['loadMap'] ?? mi['getMap']);
-    if (typeof fn === 'function') map = await (fn as () => Promise<MapData> | MapData)();
-  }
+  const mi = await load('map-index.ts');
+  let map: MapData | null = null;
+  const fn = mi && (mi['loadMapData'] ?? mi['loadMap'] ?? mi['getMap']);
+  if (typeof fn === 'function') map = pickMap({ map: await (fn as () => Promise<MapData> | MapData)() });
+  if (!map) map = pickMap(mi);
   if (!map) map = pickMap(await load('generated/map.json'));
   if (!map) throw new Error('World 120 map data is not available yet (src/data/generated/map.json).');
   const cat = await load('catalog/index.ts');

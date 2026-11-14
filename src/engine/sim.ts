@@ -154,10 +154,10 @@ export function stepOnce(state: GameState, host?: SimHost): GameState {
 }
 
 export function runStep(state: GameState, T: number, host: SimHost): void {
-  const evStart = state.events.length;
   invalidateViewCache(state);
   processScheduled(state, T);
   state.clock.tick = T;
+  invalidateViewCache(state);
   airStep(state, (st, s) => destroyStack(st, s, null));
   moveStep(state, sortedStacks(state), moveHooks);
   if (isHour(T)) {
@@ -165,6 +165,7 @@ export function runStep(state: GameState, T: number, host: SimHost): void {
     combatRound(state, combatHooks);
   }
   captureStep(state, govHooks);
+  invalidateViewCache(state);
   if (isHour(T)) economyHour(state);
   if (T % VISIBILITY_INTERVAL_MIN === 0) updateVisibility(state);
   if (isDayChange(T)) {
@@ -179,7 +180,7 @@ export function runStep(state: GameState, T: number, host: SimHost): void {
   state.clock.lastStep = T;
   invalidateViewCache(state);
   if (!state.score.result) {
-    collectWakes(state, evStart);
+    collectWakes(state);
     runAi(state, host);
   }
   invalidateViewCache(state);

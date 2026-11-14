@@ -19,6 +19,7 @@ import { awardXp, emit, toAll } from './events';
 import { sumEffect } from './economy';
 import { dayOf } from '../time';
 import { derived } from '../derived';
+import { territoryOf } from './world';
 
 export type TechStatus =
   | 'completed'
@@ -45,10 +46,7 @@ export interface TechStatusInfo {
 }
 
 function ownedResearchCities(state: GameState, c: CountryId) {
-  return Object.values(state.cities).filter((ci) => {
-    const p = state.provinces[ci.node];
-    return p && p.owner === c && p.status !== 'occupied';
-  });
+  return territoryOf(state, c).cities.map((k) => state.cities[k]).filter((ci) => state.provinces[ci.node]?.status !== 'occupied');
 }
 export function researchSlots(state: GameState, c: CountryId): number {
   return derived(state, `~rslots:${c}`, () => computeResearchSlots(state, c));

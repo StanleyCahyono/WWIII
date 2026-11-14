@@ -22,9 +22,9 @@ export function defaultCityOutput(tier: number): ResVec {
 }
 
 function starter(catalog: Catalog, pred: (u: UnitType) => boolean): UnitType | undefined {
-  return [...catalog.units]
-    .filter((u) => !u.unlockTech && u.requires.length === 0 && pred(u))
-    .sort((a, b) => (a.cost.money ?? 0) - (b.cost.money ?? 0) || (a.id < b.id ? -1 : 1))[0];
+  const pick = (list: UnitType[]) => list.sort((a, b) => (a.cost.money ?? 0) - (b.cost.money ?? 0) || (a.id < b.id ? -1 : 1))[0];
+  // prefer starter units that need no facility; fall back to any unlocked-at-start unit
+  return pick(catalog.units.filter((u) => !u.unlockTech && u.requires.length === 0 && pred(u))) ?? pick(catalog.units.filter((u) => !u.unlockTech && pred(u)));
 }
 
 export function synthesizeProfile(map: MapData, catalog: Catalog, c: CountryId, name?: string): CountryProfile {

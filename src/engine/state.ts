@@ -657,7 +657,7 @@ export interface GameState {
   articles: Article[];
   score: { denominator: number; history: ScoreSettlement[]; result: CampaignResult | null; lastSettledDay: number };
   career: { xp: number; entries: { event: string; kind: string; xp: number; at: number }[] };
-  ai: { memory: Record<CountryId, unknown>; schedule: Record<CountryId, AiSchedule>; rr: number; calls: number };
+  ai: { memory: Record<CountryId, unknown>; schedule: Record<CountryId, AiSchedule>; rr: number; calls: number; wakeCursor: number };
   openingPower: OpeningPowerResult | null;
   ui: UiSection;
 }

@@ -24,7 +24,7 @@ import {
 } from '../rules';
 import { S } from '../scenario/registry';
 import { hopDistances } from './mapindex';
-import { cmpId, isFriendlyTerritory, utype , sortedStacks } from './world';
+import { cmpId, isFriendlyTerritory, utype, sortedStacks, stacksReadonly } from './world';
 import { sumEffect } from './economy';
 import { unitCost } from './production';
 import { valueAt } from '../fixed';
@@ -42,14 +42,15 @@ function computeMaintenance(state: GameState, c: CountryId): number {
   return Math.floor(s);
 }
 
-export function supplyOf(state: GameState, s: Stack, friendlyNear?: Map<number, number>): Stack['supply'] {
+export function supplyOf(state: GameState, s: Stack, friendlyNear?: Map<number, number> | (() => Map<number, number>)): Stack['supply'] {
   const m = S(state).map;
   const node = s.pos.kind === 'node' ? s.pos.node : s.pos.kind === 'edge' ? s.pos.to : null;
   if (s.moveClass === 'air') return 'supplied';
   if (node === null) return 'limited';
   if (m.isLand[node]) {
     if (isFriendlyTerritory(state, s.owner, state.provinces[node]?.owner ?? null)) return 'supplied';
-    if (friendlyNear && (friendlyNear.get(node) ?? 99) <= 2) return 'limited';
+    const near = typeof friendlyNear === 'function' ? friendlyNear() : friendlyNear;
+    if (near && (near.get(node) ?? 99) <= 2) return 'limited';
     return 'out';
   }
   return 'limited';
@@ -69,7 +70,7 @@ export function readinessDay(state: GameState): void {
   };
   const used = new Map<CountryId, number>();
   for (const s of sortedStacks(state)) {
-    const sup = supplyOf(state, s, s.moveClass === 'ground' ? friendlyNodes(s.owner) : undefined);
+    const sup = supplyOf(state, s, s.moveClass === 'ground' ? () => friendlyNodes(s.owner) : undefined);
     s.supply = sup;
     const shortage = (state.countries[s.owner]?.shortages ?? []).some((r) => ESSENTIAL.includes(r));
     let refitOk = false;
@@ -121,16 +122,7 @@ export interface ForceSummary {
 
 /** Fielded vs ready vs committed strength (replacement value × HP fraction). */
 export function forceSummary(state: GameState, c: CountryId): ForceSummary {
-  const all = derived(state, 'forceAll', () => {
-    const m = new Map<CountryId, Stack[]>();
-    for (const s of Object.values(state.stacks)) {
-      const l = m.get(s.owner) ?? [];
-      l.push(s);
-      m.set(s.owner, l);
-    }
-    return m;
-  });
-  return derived(state, `force:${c}`, () => computeForce(state, c, all.get(c) ?? []));
+  return derived(state, `force:${c}`, () => computeForce(state, c, stacksReadonly(state).filter((s) => s.owner === c)));
 }
 
 function computeForce(state: GameState, c: CountryId, stacks: Stack[]): ForceSummary {

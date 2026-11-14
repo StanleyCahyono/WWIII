@@ -20,8 +20,8 @@ describe('scale: 120 countries, ~2,000 stacks', () => {
     const aiDay = performance.now() - t2;
     // eslint-disable-next-line no-console
     console.log(`[bench] create=${tCreate.toFixed(0)}ms stacks=${stacks} engine-day=${engineDay.toFixed(0)}ms basic-ai-day=${aiDay.toFixed(0)}ms aiCalls=${s.ai.calls} saveKB=${(JSON.stringify(s).length / 1024).toFixed(0)}`);
-    expect(engineDay).toBeLessThan(6000);
-    expect(aiDay).toBeLessThan(20000);
+    expect(engineDay).toBeLessThan(3000);
+    expect(aiDay).toBeLessThan(15000);
   });
 
   it('AI starvation: all 119 bots get reviews within a day, including distant ones; budget is respected per step', () => {

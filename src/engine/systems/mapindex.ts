@@ -44,15 +44,25 @@ export function binKey(lon: number, lat: number): number {
   while (l >= 180) l -= 360;
   return (Math.floor(l / SPATIAL_BIN_DEG) + 500) * 1000 + (Math.floor(lat / SPATIAL_BIN_DEG) + 500);
 }
-const aroundCache = new Map<string, number[]>();
+const aroundCache = new Map<number, Map<number, Map<number, number[]>>>();
 /** All bin keys whose cells may contain points within `km` of (lon,lat). Memoized (pure). */
 export function binsAround(lon: number, lat: number, km: number): number[] {
-  const ck = `${lon},${lat},${km}`;
-  const hit = aroundCache.get(ck);
-  if (hit) return hit;
-  const res = binsAroundRaw(lon, lat, km);
-  if (aroundCache.size > 200000) aroundCache.clear();
-  aroundCache.set(ck, res);
+  let a = aroundCache.get(lon);
+  if (!a) {
+    if (aroundCache.size > 50000) aroundCache.clear();
+    a = new Map();
+    aroundCache.set(lon, a);
+  }
+  let b = a.get(lat);
+  if (!b) {
+    b = new Map();
+    a.set(lat, b);
+  }
+  let res = b.get(km);
+  if (!res) {
+    res = binsAroundRaw(lon, lat, km);
+    b.set(km, res);
+  }
   return res;
 }
 function binsAroundRaw(lon: number, lat: number, km: number): number[] {

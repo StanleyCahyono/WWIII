@@ -124,6 +124,8 @@ interface StackProfile {
   asw: boolean;
   dom: Domain[];
   sig: number[];
+  ll?: [number, number];
+  bin?: number;
 }
 const profileCache = new WeakMap<Stack, StackProfile>();
 /** Sensor/target profile of a stack, cached until its position, roster, air state or tech levels change. */
@@ -156,7 +158,7 @@ function profileOf(state: GameState, s: Stack): StackProfile {
   return p;
 }
 
-function buildSensors(state: GameState, stacks: Stack[], lls: Map<string, [number, number]>): Map<CountryId, Sensor[]> {
+function buildSensors(state: GameState, targets: Target[]): Map<CountryId, Sensor[]> {
   const out = new Map<CountryId, Sensor[]>();
   const push = (c: CountryId, s: Sensor) => {
     const l = out.get(c);
@@ -165,12 +167,13 @@ function buildSensors(state: GameState, stacks: Stack[], lls: Map<string, [numbe
   };
   // co-located stacks of one owner form a single merged sensor (same recon/ASW class)
   const merged = new Map<string, Sensor>();
-  for (const s of stacks) {
-    const pr = profileOf(state, s);
+  for (const tg of targets) {
+    const s = tg.s;
+    const pr = tg.pr;
     const { sight, radar, sens, recon, asw } = pr;
     const det = pr.detects;
     if (sight <= 0 && radar <= 0) continue;
-    const ll = lls.get(s.id)!;
+    const ll = tg.ll;
     const key = `${s.owner}|${s.pos.kind === 'node' ? s.pos.node : ll.join(',')}|${recon ? 1 : 0}${asw ? 1 : 0}`;
     const prev = merged.get(key);
     if (!prev) {
@@ -201,24 +204,23 @@ interface Target {
   ll: [number, number];
   dom: Domain[];
   sig: number[];
+  pr: StackProfile;
 }
 
 export function computeDetections(state: GameState): Map<CountryId, Map<string, Det>> {
   const stacks = sortedStacks(state).filter((s) => !s.aboard);
-  const lls = new Map<string, [number, number]>();
-  for (const s of stacks) lls.set(s.id, stackLL(state, s));
-  const sensors = buildSensors(state, stacks, lls);
   const bins = new Map<number, Target[]>();
   const binOwners = new Map<number, Set<CountryId>>();
+  const targets: Target[] = [];
   const targetOf = new Map<string, Target>();
+  const mm = S(state).map;
   for (const s of stacks) {
-    const ll = lls.get(s.id)!;
     const pr = profileOf(state, s);
-    const dom = pr.dom;
-    const sig = pr.sig;
-    const tg: Target = { s, ll, dom, sig };
+    const ll: [number, number] = s.pos.kind === 'node' ? (pr.ll ??= [mm.lon[s.pos.node], mm.lat[s.pos.node]]) : stackLL(state, s);
+    const tg: Target = { s, ll, dom: pr.dom, sig: pr.sig, pr };
+    targets.push(tg);
     targetOf.set(s.id, tg);
-    const k = binKey(ll[0], ll[1]);
+    const k = s.pos.kind === 'node' ? (pr.bin ??= binKey(ll[0], ll[1])) : binKey(ll[0], ll[1]);
     const l = bins.get(k);
     if (l) l.push(tg);
     else bins.set(k, [tg]);
@@ -226,6 +228,7 @@ export function computeDetections(state: GameState): Map<CountryId, Map<string, 
     if (os) os.add(s.owner);
     else binOwners.set(k, new Set([s.owner]));
   }
+  const sensors = buildSensors(state, targets);
   const m = S(state).map;
   const result = new Map<CountryId, Map<string, Det>>();
   const terrBy = new Map<CountryId, { s: Stack; node: NodeId }[]>();
@@ -262,6 +265,7 @@ export function computeDetections(state: GameState): Map<CountryId, Map<string, 
         for (const tg of l) {
           const s = tg.s;
           if (s.owner === c) continue;
+          if (Math.abs(tg.ll[1] - sen.ll[1]) * 111 > r + 1) continue; // cheap latitude reject
           const d = distKm(sen.ll[0], sen.ll[1], tg.ll[0], tg.ll[1]);
           if (d > r) continue;
           const vis: number[] = [];
@@ -315,8 +319,11 @@ export function updateVisibility(state: GameState): void {
   for (const viewer of state.countryOrder) {
     const table = (state.contacts[viewer] ??= {});
     const srcs = visionSources(state, viewer);
-    const merged = new Map<string, Det>();
-    for (const sc of srcs) {
+    let merged = new Map<string, Det>();
+    if (srcs.length === 1) {
+      const d = dets.get(srcs[0]);
+      if (d) merged = d;
+    } else for (const sc of srcs) {
       const d = dets.get(sc);
       if (!d) continue;
       for (const [sid, det] of d) {
@@ -341,29 +348,43 @@ export function updateVisibility(state: GameState): void {
       }
     }
     const seen = new Set<string>();
-    for (const sid of [...merged.keys()].sort()) {
-      const det = merged.get(sid) as Det;
+    const ids = cidCache(state, viewer);
+    for (const [sid, det] of merged) {
       const s = state.stacks[sid];
-      const cid = contactId(state, viewer, sid);
+      if (!s || s.owner === viewer) continue;
+      let cid = ids.get(sid);
+      if (!cid) {
+        cid = contactId(state, viewer, sid);
+        ids.set(sid, cid);
+      }
       seen.add(cid);
       const ll = stackLL(state, s);
       const prev = table[cid];
-      const idx = [...det.units].sort((a, b) => a - b);
-      const c: Contact = {
+      const idx = det.level === 'contact' ? [] : [...det.units].sort((a, b) => a - b);
+      const lon = round4(ll[0]), lat = round4(ll[1]);
+      const node = s.pos.kind === 'node' ? s.pos.node : null;
+      if (prev && prev.level === det.level && det.level === 'contact' && prev.domain === det.domain) {
+        // in-place refresh of an unchanged radar contact
+        prev.observedAt = t;
+        prev.lonlat = [lon, lat];
+        prev.node = node;
+        prev.sources = det.src.size === 1 ? [...det.src] : [...det.src].sort();
+        continue;
+      }
+      table[cid] = {
         id: cid,
         stack: sid,
         level: det.level,
         domain: det.domain,
-        lonlat: [round4(ll[0]), round4(ll[1])],
-        node: s.pos.kind === 'node' ? s.pos.node : null,
+        lonlat: [lon, lat],
+        node,
         observedAt: t,
         firstSeenAt: prev?.firstSeenAt ?? t,
         owner: det.level === 'contact' ? null : s.owner,
         count: det.level === 'contact' ? null : idx.length,
         units: det.level === 'identified' ? idx.map((i) => ({ type: s.units[i].type, hpPct: Math.round((s.units[i].hp / s.units[i].maxHp) * 100) })) : null,
-        sources: [...det.src].sort(),
+        sources: det.src.size === 1 ? [...det.src] : [...det.src].sort(),
       };
-      table[cid] = c;
     }
     for (const cid of Object.keys(table)) {
       if (seen.has(cid)) continue;
@@ -375,6 +396,20 @@ export function updateVisibility(state: GameState): void {
       if (t - c.observedAt > STALE_KEEP_MIN) delete table[cid];
     }
   }
+}
+const cidCaches = new WeakMap<GameState, Map<CountryId, Map<string, string>>>();
+function cidCache(state: GameState, viewer: CountryId): Map<string, string> {
+  let m = cidCaches.get(state);
+  if (!m) {
+    m = new Map();
+    cidCaches.set(state, m);
+  }
+  let v = m.get(viewer);
+  if (!v) {
+    v = new Map();
+    m.set(viewer, v);
+  }
+  return v;
 }
 function round4(x: number): number {
   return Math.round(x * 10000) / 10000;

@@ -46,8 +46,12 @@ function controllerFor(host: SimHost, c: CountryId): CountryController {
   return ctl ?? host.fallback ?? IdleController;
 }
 
-/** Collect wake triggers from events emitted since index `from`. */
-export function collectWakes(state: GameState, from: number): void {
+/** Collect wake triggers from events emitted since the last AI phase (cursor = event sequence). */
+export function collectWakes(state: GameState): void {
+  const cursor = state.ai.wakeCursor ?? 0;
+  let from = state.events.length;
+  while (from > 0 && Number(state.events[from - 1].id.slice(1)) > cursor) from--;
+  state.ai.wakeCursor = state.ids.event ?? 0;
   for (let i = from; i < state.events.length; i++) {
     const e = state.events[i];
     let tag: string | null = null;
@@ -122,7 +126,7 @@ function invoke(state: GameState, host: SimHost, c: CountryId, reviews: ReviewKi
   };
   let cmds: Command[] = [];
   try {
-    cmds = ctl.decide(getCountryView(state, c, { journalLimit: 15, journalScan: 1500 }), ctx) ?? [];
+    cmds = ctl.decide(getCountryView(state, c, { journalLimit: 15, journalScan: 400 }), ctx) ?? [];
   } catch (e) {
     cmds = [];
     const cs = state.countries[c];

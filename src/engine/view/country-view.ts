@@ -37,7 +37,7 @@ import { S } from '../scenario/registry';
 import { formatGameTime, dayOf } from '../time';
 import { resourceSummary, type ResourceSummary } from '../systems/economy';
 import { researchSlots } from '../systems/research';
-import { atWar, coalitionOf, grantLevel, statusFrom, visionSources, sameCoalition } from '../systems/world';
+import { atWar, coalitionOf, grantLevel, statusFrom, visionSources, sameCoalition, stacksReadonly, territoryOf } from '../systems/world';
 import { trustOf } from '../systems/diplomacy';
 import { bookView, type BookLevel } from '../systems/market';
 import { countryScores, thresholdFor } from '../systems/score';
@@ -209,37 +209,14 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
   const pub = publicSlice(state);
   const t = state.clock.tick;
   const stacks: StackView[] = [];
-  const byOwner = derived(state, 'stacksByOwner', () => {
-    const m = new Map<CountryId, string[]>();
-    for (const id of Object.keys(state.stacks)) {
-      const o = state.stacks[id].owner;
-      const l = m.get(o) ?? [];
-      l.push(id);
-      m.set(o, l);
-    }
-    return m;
-  });
-  for (const id of byOwner.get(viewer) ?? []) {
-    const s = state.stacks[id];
-    if (!s || s.owner !== viewer) continue;
-    stacks.push({ ...JSON.parse(JSON.stringify(s)), eta: routeEtaTick(state, s), lonlat: lonlatOf(state, s) });
+  for (const s of stacksByOwner(state).get(viewer) ?? []) {
+    if (state.stacks[s.id] !== s) continue;
+    stacks.push({ ...cloneStack(s), eta: routeEtaTick(state, s), lonlat: lonlatOf(state, s) });
   }
   stacks.sort((a, b) => (a.id < b.id ? -1 : 1));
   const cities: CityState[] = [];
   const provinces: ProvinceState[] = [];
-  const terr = derived(state, '~territoryByOwner', () => {
-    const m = new Map<CountryId, { nodes: number[]; cities: string[] }>();
-    for (const p of state.provinces) {
-      if (!p || !p.owner) continue;
-      (m.get(p.owner) ?? m.set(p.owner, { nodes: [], cities: [] }).get(p.owner)!).nodes.push(p.node);
-    }
-    for (const k of Object.keys(state.cities).sort()) {
-      const o = state.provinces[state.cities[k].node]?.owner;
-      if (o) (m.get(o) ?? m.set(o, { nodes: [], cities: [] }).get(o)!).cities.push(k);
-    }
-    return m;
-  });
-  const mine = terr.get(viewer) ?? { nodes: [], cities: [] };
+  const mine = territoryOf(state, viewer);
   for (const n of mine.nodes) provinces.push(JSON.parse(JSON.stringify(state.provinces[n])));
   for (const k of mine.cities) cities.push(JSON.parse(JSON.stringify(state.cities[k])));
   const contacts: ContactView[] = [];
@@ -284,10 +261,8 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
     score: co.members.reduce((a, m) => a + (pub.scores[m.country] ?? 0), 0),
   }));
   const messages: Record<string, Message[]> = {};
-  for (const th of Object.keys(state.messages)) {
-    const mine = th.startsWith('dm:') ? th.slice(3).split('|').includes(viewer) : !!myCo && th === `co:${myCo.id}`;
-    if (mine) messages[th] = state.messages[th].map((m) => ({ ...m }));
-  }
+  for (const th of threadIndex(state).get(viewer) ?? []) messages[th] = state.messages[th].map((m) => ({ ...m }));
+  if (myCo && state.messages[`co:${myCo.id}`]) messages[`co:${myCo.id}`] = state.messages[`co:${myCo.id}`].map((m) => ({ ...m }));
   const launches: CountryView['launches'] = [];
   for (const l of Object.values(state.launches)) {
     const k = l.knowledge[viewer];
@@ -350,6 +325,40 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
     journal: journalFor(state, viewer, opts.journalLimit ?? 40, opts.journalScan ?? 4000),
     openingPower: state.openingPower,
     rules: RULES,
+  };
+}
+
+const byOwnerCache = new WeakMap<GameState, { list: readonly Stack[]; m: Map<CountryId, Stack[]> }>();
+function stacksByOwner(state: GameState): Map<CountryId, Stack[]> {
+  const list = stacksReadonly(state);
+  const c = byOwnerCache.get(state);
+  if (c && c.list === list) return c.m;
+  const m = new Map<CountryId, Stack[]>();
+  for (const s of list) (m.get(s.owner) ?? m.set(s.owner, []).get(s.owner)!).push(s);
+  byOwnerCache.set(state, { list, m });
+  return m;
+}
+const threadCache = new WeakMap<GameState, { n: number; obj: object; m: Map<CountryId, string[]> }>();
+function threadIndex(state: GameState): Map<CountryId, string[]> {
+  const keys = Object.keys(state.messages);
+  const c = threadCache.get(state);
+  if (c && c.n === keys.length && c.obj === state.messages) return c.m;
+  const m = new Map<CountryId, string[]>();
+  for (const th of keys.sort()) {
+    if (!th.startsWith('dm:')) continue;
+    for (const p of th.slice(3).split('|')) (m.get(p) ?? m.set(p, []).get(p)!).push(th);
+  }
+  threadCache.set(state, { n: keys.length, obj: state.messages, m });
+  return m;
+}
+/** Structural copy of a stack (cheaper than JSON round-trip; stacks are plain data). */
+function cloneStack(s: Stack): Stack {
+  return {
+    ...s,
+    units: s.units.map((u) => ({ ...u })),
+    pos: s.pos.kind === 'air' ? { ...s.pos, from: [s.pos.from[0], s.pos.from[1]], to: [s.pos.to[0], s.pos.to[1]] } : { ...s.pos },
+    order: s.order ? (s.order.kind === 'move' ? { ...s.order, route: s.order.route.map((r) => ({ ...r })), waypoints: [...s.order.waypoints], warConfirmed: [...s.order.warConfirmed], attack: s.order.attack ? { ...s.order.attack } : undefined } : { ...s.order, warConfirmed: [...s.order.warConfirmed] }) : null,
+    air: s.air ? JSON.parse(JSON.stringify(s.air)) : null,
   };
 }
 

@@ -51,7 +51,8 @@ export function setGrant(state: GameState, from: CountryId, to: CountryId, level
   if (level === 'peace') delete state.grants[k];
   else state.grants[k] = { level, since: state.clock.tick };
   rel(state, from, to).version++;
-  invalidateDerived(state);
+  state.ids.grv = (state.ids.grv ?? 0) + 1;
+  invalidateDerived(state, 'command');
 }
 
 export function declareWarInternal(state: GameState, by: CountryId, target: CountryId, reason: string): void {
@@ -62,9 +63,10 @@ export function declareWarInternal(state: GameState, by: CountryId, target: Coun
   r.since = state.clock.tick;
   r.version++;
   r.warDeclaredBy = by;
-  invalidateDerived(state);
+  invalidateDerived(state, 'command');
   delete state.grants[dirKey(by, target)];
   delete state.grants[dirKey(target, by)];
+  state.ids.grv = (state.ids.grv ?? 0) + 1;
   // pending offers between them become void
   for (const o of Object.values(state.offers)) {
     if (o.status === 'pending' && ((o.from === by && o.to === target) || (o.from === target && o.to === by)) && !o.receive.concat(o.give).some((t) => t.kind === 'peace')) {
@@ -92,7 +94,7 @@ export function makePeace(state: GameState, a: CountryId, b: CountryId): void {
   r.since = state.clock.tick;
   r.version++;
   r.warDeclaredBy = null;
-  invalidateDerived(state);
+  invalidateDerived(state, 'command');
   emit(state, { kind: 'peace', category: 'diplomacy', public: { headline: `${a} and ${b} conclude peace`, countries: [a, b] }, private: toAll([a, b], `Peace concluded between ${a} and ${b}.`) });
 }
 
