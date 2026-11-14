@@ -247,7 +247,7 @@ interface Spec {
   symbol: string;
   doctrine: DoctrineTable;
   description: string;
-  extra?: Partial<Pick<UnitType, 'officerBonus' | 'carries' | 'deployable' | 'carrierCapable' | 'liftCapacity'>>;
+  extra?: Partial<Pick<UnitType, 'officerBonus' | 'carries' | 'deployable' | 'carrierCapable' | 'liftCapacity' | 'airmobileCapacity'>>;
 }
 
 function unit(s: Spec): UnitType {
@@ -312,6 +312,7 @@ export const UNIT_TYPES: UnitType[] = [
     base: { hp: 18, atk: [6.5, 3, 1.5, 0, 0, 0, 2], def: [6, 3, 2, 1, 0, 0, 0], speed: 55, range: 0, sight: 30, signature: 0 },
     terrain: T_INFANTRY, orders: [...O_INFANTRY, 'rebase'], features: ['occupier', 'entrench', 'air_assault'], symbol: 'land.infantry.airmobile', doctrine: D.infantry,
     description: 'Light infantry with organic helicopter lift. Can rebase between friendly airfields to seize objectives far behind the front.',
+    extra: { airmobileCapacity: 1 },
   }),
   unit({
     id: 'inf_special_forces', name: 'Nightglass Commandos', family: 'infantry', domain: 'land', targetClass: 'unarmored', echelon: 1, capture: true,
@@ -443,7 +444,8 @@ export const UNIT_TYPES: UnitType[] = [
     cost: { supplies: 20, components: 70, electronics: 30, fuel: 30, manpower: 10, money: 480 }, buildHours: 36, requires: air(1), unlockTech: 'avi_gunship', levels: 3,
     base: { hp: 18, atk: [8, 5, 2, 0, 1, 0, 2], def: [4, 3, 4, 2, 1, 0, 0], speed: 260, range: 0, sight: 40, signature: 1, opRange: 600 },
     terrain: T_HELI, orders: O_HELI, features: [], symbol: 'air.helicopter.gunship', doctrine: D.air,
-    description: 'Armed utility helicopter. Fast fire support against infantry anywhere along the front; cannot hold ground.',
+    description: 'Armed utility helicopter. Fast fire support against infantry anywhere along the front; cannot hold ground. Its cabin lifts two light-infantry units on an air-mobile hop.',
+    extra: { airmobileCapacity: 2 },
   }),
   unit({
     id: 'heli_attack', name: 'Talonblade Attack Helicopter', family: 'helicopter', domain: 'air', targetClass: 'helicopter', echelon: 1,

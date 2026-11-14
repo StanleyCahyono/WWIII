@@ -22,7 +22,8 @@ import type {
 } from './data-types';
 import type { ResM } from './fixed';
 
-export const SCHEMA_VERSION = 1;
+/** v2: `blockades` section, optional offer haggling fields, optional air-mobile order marker. */
+export const SCHEMA_VERSION = 2;
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type TerritoryStatus = 'homeland' | 'occupied' | 'annexed';
@@ -131,6 +132,8 @@ export interface MoveOrder {
   attack?: { targetStack?: string; targetNode?: NodeId };
   retreat?: boolean;
   issuedAt: number;
+  /** (additive, v2) Air-mobile lift in flight: the stack is in an `air` position until it lands at `dest`. */
+  airmobile?: { from: NodeId; launchedAt: number; arriveAt: number; km: number };
 }
 export interface AttackOrder {
   kind: 'attack';
@@ -216,6 +219,7 @@ export type LedgerCategory =
   | 'treaty_transfer'
   | 'intel'
   | 'annex'
+  | 'operations'
   | 'initial';
 
 export interface LedgerDay {
@@ -328,7 +332,9 @@ export type OfferTerm =
   | { kind: 'status'; level: DiploLevel }
   | { kind: 'peace' }
   | { kind: 'coalition_invite'; coalition: string }
-  | { kind: 'resource'; resource: Resource; amount: number /* milli */ };
+  | { kind: 'resource'; resource: Resource; amount: number /* milli */ }
+  /** (additive, v2) Cession of a province (and the city at its control node) by the giver — peace settlements only. */
+  | { kind: 'territory'; node: NodeId };
 
 export interface Offer {
   id: string;
@@ -348,6 +354,19 @@ export interface Offer {
   applied: boolean;
   reason: string | null;
   responseReason: string | null;
+  /** (additive, v2) Haggling: the offer this one counters (the countered offer is declined). */
+  counterOf?: string | null;
+  /** (additive, v2) Negotiation round (1 = opening offer; a counter is previous round + 1). */
+  round?: number;
+}
+
+/** (v2) A port city under blockade: hostile warships in an adjacent sea zone and no friendly naval presence. */
+export interface BlockadeState {
+  since: number;
+  /** Countries whose warships enforce it (internal; the victim's view does not name them). */
+  by: CountryId[];
+  /** Adjacent sea zones held by the blockaders. */
+  zones: NodeId[];
 }
 
 export interface Coalition {
@@ -652,6 +671,8 @@ export interface GameState {
   messages: Record<string, Message[]>;
   market: { orders: Record<string, MarketOrder>; fills: MarketFill[]; seq: number; lastPrice: Partial<Record<Resource, number>> };
   launches: Record<string, MissileLaunch>;
+  /** (v2) Port blockades by city key, refreshed every game hour before the economy. */
+  blockades: Record<CityKey, BlockadeState>;
   contacts: Record<CountryId, Record<string, Contact>>;
   reports: Record<string, IntelReport>;
   agents: Record<string, Agent>;

@@ -305,6 +305,12 @@ export interface UnitType {
   carrierCapable?: boolean;
   /** (additive, catalog) Abstract lift units this unit adds to national lift while fielded and ready (transports). */
   liftCapacity?: number;
+  /**
+   * (additive, engine features pass) Air-mobile lift: how many light-infantry units this unit can carry
+   * in an air-mobile hop (rotary-wing utility/transport helicopters). An infantry type with a value
+   * lifts itself (organic helicopter lift). Not part of national `lift`.
+   */
+  airmobileCapacity?: number;
   /** Limited-use deployable (consumed on use). */
   deployable?: { uses: number; effect: string; cooldownMin: number };
   /** Symbology entity key → crosswalk (see catalog/sidc.ts). */

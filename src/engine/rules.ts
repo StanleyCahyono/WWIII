@@ -156,6 +156,58 @@ export const SPATIAL_BIN_DEG = 3;
 /** Observation tables are recomputed on this cadence (minutes) and after relation changes. */
 export const VISIBILITY_INTERVAL_MIN = 30;
 
+// ───────────── Air-mobile lift (helicopters) ─────────────
+/**
+ * Air-mobile hop: rotary-wing units with `airmobileCapacity` lift light infantry (family infantry,
+ * target class unarmored; officers ride along) between land nodes in one flight. See
+ * systems/airmobile.ts for the full rule.
+ */
+export const AIRMOBILE = {
+  /** One-way hop limit when a lifter has no `operationalRangeKm` (km). */
+  defaultRangeKm: 400,
+  /** Minimum hop (km) — shorter moves go by land. */
+  minKm: 20,
+  /** Cruise speed cap (km/h) of a loaded lift. */
+  maxSpeedKmh: 220,
+  /** Load/unload time added to every hop (minutes). */
+  loadMin: 30,
+  /** Fuel per lifting unit per 100 km (whole units, rounded up per 100 km). */
+  fuelPer100Km: 3,
+  /** Refuel/turnaround after landing before the lifters can fly again (minutes). */
+  turnaroundMin: 120,
+  /** Hostile air defence engages a lift whose straight path passes within max(range, this) km. */
+  adCoverKm: 60,
+  /** Interception chance per air-defence unit level in cover (× hp fraction). */
+  riskPerAdLevel: 0.12,
+  /** Interception chance per hostile fighter (on patrol, path inside its patrol circle). */
+  riskPerFighter: 0.08,
+  /** Landing at a node held by hostile ground forces (opposed landing). */
+  riskOpposedLanding: 0.1,
+  riskCap: 0.75,
+  /** Damage to every unit of an intercepted lift: fraction of max HP in [min, max] (seeded). */
+  damageMin: 0.25,
+  damageMax: 0.6,
+} as const;
+
+// ───────────── Blockade ─────────────
+/**
+ * A port city is BLOCKADED when at least one adjacent sea zone holds warships (naval units with
+ * attack > 0) of a country at war with the city's owner, and no adjacent sea zone holds a naval
+ * stack of the owner or a coalition partner. Re-evaluated every whole game hour before the economy.
+ */
+export const BLOCKADE = {
+  /** City output factor while blockaded (port trade and coastal shipping lost). */
+  outputFactor: 0.7,
+} as const;
+
+// ───────────── Peace settlements / haggling ─────────────
+export const PEACE = {
+  /** Highest negotiation round (opening offer = 1; each counter-offer adds one). */
+  maxRounds: 4,
+  /** Most territory clauses in one offer. */
+  maxTerritoryTerms: 6,
+} as const;
+
 // ───────────── Intel agents ─────────────
 export const AGENT_COST: Partial<Record<Resource, number>> = { money: 200 };
 export const AGENT_REPORT_INTERVAL_MIN = 12 * 60;
@@ -276,4 +328,7 @@ export const RULES = {
   MARKET_EXECUTION,
   AIR_LOSS_RULE,
   OPENING_POWER,
+  AIRMOBILE,
+  BLOCKADE,
+  PEACE,
 } as const;
