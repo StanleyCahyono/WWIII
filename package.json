@@ -1,0 +1,49 @@
+{
+  "name": "world-command",
+  "private": true,
+  "version": "0.1.0",
+  "description": "World Command: World 120 — private single-player world-scale grand strategy game (local, offline).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "play": "npm run build && npm run preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test --trace off",
+    "map:build": "tsx scripts/build-map.ts",
+    "report:power": "tsx scripts/opening-power-report.ts",
+    "report:observer": "tsx scripts/observer-suite.ts",
+    "gallery": "tsx scripts/symbol-gallery.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "milsymbol": "3.0.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/d3-delaunay": "6.0.4",
+    "@types/d3-geo": "3.1.0",
+    "@types/node": "22.10.1",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@types/topojson-client": "3.1.5",
+    "@vitejs/plugin-react": "4.3.4",
+    "d3-delaunay": "6.0.4",
+    "d3-geo": "3.1.1",
+    "fake-indexeddb": "6.0.0",
+    "polygon-clipping": "0.15.7",
+    "topojson-client": "3.1.0",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3",
+    "vite": "5.4.11",
+    "vitest": "2.1.8",
+    "world-atlas": "2.0.2"
+  }
+}
