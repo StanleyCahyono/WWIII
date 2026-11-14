@@ -24,7 +24,7 @@ import { CITY_SIGHT_KM, IDENTIFY_FRACTION, STALE_KEEP_MIN, STEALTH_VISUAL_FRACTI
 import { S } from '../scenario/registry';
 import { distKm, fineBin as vbin, fineCover as visCover } from './mapindex';
 import { hash32 } from '../rng';
-import { cmpId, sortedStacks, stacksOfOwner, stacksReadonly, stackLL, takeOwnerChanges, ustats, utype, visionSources } from './world';
+import { cmpId, idNum, sortedStacks, stacksOfOwner, stacksReadonly, stackLL, takeOwnerChanges, ustats, utype, visionSources } from './world';
 import { econChangesSince, sumEffect } from './economy';
 import { derived } from '../derived';
 
@@ -1038,28 +1038,50 @@ export function resolveContact(state: GameState, viewer: CountryId, cid: string)
 
 /** Allied (vision-source) stacks are fully identified and projected live (never stored as contacts). */
 export function alliedContacts(state: GameState, viewer: CountryId): Contact[] {
-  const srcs = visionSources(state, viewer);
-  if (srcs.length <= 1) return [];
-  const ids = cidCache(state, viewer);
   const out: Contact[] = [];
   const t = state.clock.tick;
-  // per-owner lists are each in sortedStacks order; with several sources merge them by id
-  const list: Stack[] = [];
-  for (const src of srcs) {
-    if (src === viewer) continue;
-    for (const s of stacksOfOwner(state, src)) if (state.stacks[s.id] === s && !s.aboard) list.push(s);
-  }
-  if (srcs.length > 2) list.sort(cmpId);
+  forEachAlliedStack(state, viewer, (s, cid, ll, domain) => {
+    out.push({ id: cid, stack: s.id, level: 'identified', domain, lonlat: ll, node: s.pos.kind === 'node' ? s.pos.node : null, observedAt: t, firstSeenAt: t, owner: s.owner, count: s.units.length, units: s.units.map((u) => ({ type: u.type, hpPct: Math.round((u.hp / u.maxHp) * 100) })), sources: [`ally:${s.owner}`] });
+  });
+  return out;
+}
+/** The allied stacks behind `alliedContacts`, in the same order, with their contact id and rounded position. */
+export function forEachAlliedStack(state: GameState, viewer: CountryId, visit: (s: Stack, cid: string, lonlat: [number, number], domain: Domain) => void): void {
+  const srcs = visionSources(state, viewer);
+  if (srcs.length <= 1) return;
+  const ids = cidCache(state, viewer);
+  // per-owner lists are each in sortedStacks order (cmpId); with several sources k-way merge them
+  const lists: (readonly Stack[])[] = [];
+  for (const src of srcs) if (src !== viewer) lists.push(stacksOfOwner(state, src));
+  const list: Stack[] = lists.length === 1 ? (lists[0] as Stack[]) : mergeById(lists);
   for (const s of list) {
+    if (state.stacks[s.id] !== s || s.aboard) continue;
     let cid = ids.get(s.id);
     if (!cid) {
       cid = contactId(state, viewer, s.id);
       ids.set(s.id, cid);
     }
     const ll = stackLL(state, s);
-    out.push({ id: cid, stack: s.id, level: 'identified', domain: unitDomain(state, s, 0), lonlat: [round4(ll[0]), round4(ll[1])], node: s.pos.kind === 'node' ? s.pos.node : null, observedAt: t, firstSeenAt: t, owner: s.owner, count: s.units.length, units: s.units.map((u) => ({ type: u.type, hpPct: Math.round((u.hp / u.maxHp) * 100) })), sources: [`ally:${s.owner}`] });
+    visit(s, cid, [round4(ll[0]), round4(ll[1])], unitDomain(state, s, 0));
   }
-  return out;
+}
+/** Merge lists that are each sorted by `cmpId` into one sorted list (numeric ids computed once). */
+function mergeById(lists: (readonly Stack[])[]): Stack[] {
+  const pos = lists.map(() => 0);
+  const heads = lists.map((l) => (l.length ? idNum(l[0].id) : Infinity));
+  const out: Stack[] = [];
+  for (;;) {
+    let best = -1;
+    for (let k = 0; k < lists.length; k++) {
+      if (heads[k] === Infinity) continue;
+      if (best < 0 || heads[k] < heads[best] || (heads[k] === heads[best] && cmpId(lists[k][pos[k]], lists[best][pos[best]]) < 0)) best = k;
+    }
+    if (best < 0) return out;
+    const l = lists[best];
+    out.push(l[pos[best]]);
+    const p = ++pos[best];
+    heads[best] = p < l.length ? idNum(l[p].id) : Infinity;
+  }
 }
 /** Does viewer currently observe a node (any sensor/territory covering it)? */
 export function observesNode(state: GameState, viewer: CountryId, node: NodeId): boolean {

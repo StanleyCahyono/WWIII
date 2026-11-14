@@ -95,6 +95,10 @@ export function grantLevel(state: GameState, from: CountryId, to: CountryId): Di
 export function grantsFrom(state: GameState, from: CountryId): ReadonlyMap<CountryId, DiploLevel> | undefined {
   return grantIndex(state).get(from);
 }
+/** All grants: from → (to → level); absent = peace. Shared, read-only. */
+export function grantMap(state: GameState): ReadonlyMap<CountryId, ReadonlyMap<CountryId, DiploLevel>> {
+  return grantIndex(state);
+}
 function grantIndex(state: GameState): Map<CountryId, Map<CountryId, DiploLevel>> {
   const v = state.ids.grv ?? 0;
   let c = grantCache.get(state);
@@ -126,8 +130,14 @@ function hasAnyKey(o: object): boolean {
   return false;
 }
 export function coalitionOf(state: GameState, c: CountryId): Coalition | null {
-  if (!hasAnyKey(state.coalitions)) return null;
-  const idx = derived(state, `coMember:${state.ids.cov ?? 0}`, () => {
+  const id = coalitionIndex(state).get(c);
+  return id ? state.coalitions[id] : null;
+}
+const NO_COALITIONS: ReadonlyMap<CountryId, string> = new Map();
+/** Country → id of its (live) coalition; shared, read-only. Keyed by the membership counter `cov`. */
+export function coalitionIndex(state: GameState): ReadonlyMap<CountryId, string> {
+  if (!hasAnyKey(state.coalitions)) return NO_COALITIONS;
+  return derived(state, `coMember:${state.ids.cov ?? 0}`, () => {
     const m = new Map<CountryId, string>();
     for (const id of Object.keys(state.coalitions).sort()) {
       const co = state.coalitions[id];
@@ -136,8 +146,6 @@ export function coalitionOf(state: GameState, c: CountryId): Coalition | null {
     }
     return m;
   });
-  const id = idx.get(c);
-  return id ? state.coalitions[id] : null;
 }
 export function sameCoalition(state: GameState, a: CountryId, b: CountryId): boolean {
   if (a === b) return true;
@@ -269,30 +277,34 @@ export function idNum(id: string): number {
 const sortedCache = new WeakMap<GameState, { list: Stack[]; counter: number; obj: object }>();
 /** Read-only (do not mutate) sorted stack list without copying. */
 export function stacksReadonly(state: GameState): readonly Stack[] {
-  sortedStacks(state);
-  return sortedCache.get(state)!.list;
+  return currentSorted(state);
 }
+/** A fresh (mutable) copy of the sorted stack list. */
 export function sortedStacks(state: GameState): Stack[] {
+  return currentSorted(state).slice();
+}
+/** The memoized sorted list, brought up to date (new stacks appended, removed ones dropped). */
+function currentSorted(state: GameState): Stack[] {
   const counter = state.ids.stack ?? 0;
   let cached = sortedCache.get(state);
   if (!cached || cached.obj !== state.stacks) {
     cached = { list: sortStacks(state), counter, obj: state.stacks };
     sortedCache.set(state, cached);
-    return cached.list.slice();
+    return cached.list;
   }
   if (cached.counter !== counter) {
     cached.list = appendNewStacks(state, cached.list, cached.counter, counter) ?? sortStacks(state);
     cached.counter = counter;
-    return cached.list.slice();
+    return cached.list;
   }
-  const out: Stack[] = [];
-  let changed = false;
-  for (const s of cached.list) {
-    if (state.stacks[s.id] === s) out.push(s);
-    else changed = true;
+  const list = cached.list;
+  for (let i = 0; i < list.length; i++) {
+    if (state.stacks[list[i].id] === list[i]) continue;
+    // a stack was removed: drop every removed entry (new array: earlier results stay intact)
+    cached.list = list.filter((s) => state.stacks[s.id] === s);
+    return cached.list;
   }
-  if (changed) cached.list = out.slice();
-  return out;
+  return list;
 }
 /**
  * Stacks created since the last sort get ids `s<n>` from the counter, so they sort after every

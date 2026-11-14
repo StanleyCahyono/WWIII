@@ -181,37 +181,42 @@ declared war on in the same batch → guard added; 0 invalid commands since.
 
 ## Engine requests
 
-1. **Scheduler pre-check (largest win, −55 % views).** In `ai-host/scheduler.ts` `invoke`, before building
-   the view:
-   ```ts
-   const w = (ctl as { wants?: (i: { country: CountryId; reviews: ReviewKind[]; wake: string[]; memory: unknown }) => boolean }).wants;
-   if (w && !w({ country: c, reviews, wake, memory: state.ai.memory[c] ?? null })) return;
-   ```
-   and add `wants?` (optional) to `CountryController` in `ai-host/types.ts`. `UtilityController.wants`
-   (= exported `wantsCall`) is already implemented: it declines only operational-only calls without wake
-   triggers when the saved memory says the last full review was quiet (no war, no rebel province, no
-   unhandled request) — a pure function of the call info and the saved memory, so determinism and
-   save/reload equality are preserved. Measured: 2,208 → 982 views/day, 5.9 → 4.2 s/day.
-2. **Lite view for planners.** `getCountryView(state, c, { lite: true })` from the scheduler that skips
-   `forceSummary`, `liftBreakdown` and `observedNodes` (unused by src/ai; ≈ 16 % + 10 % of view time).
-3. **Market books keyed on a market version**, not cleared by every command: e.g. derived key
-   `~books:${state.market.seq}:${state.market.fills.length}`, and iterate only open orders (keep an
-   open-order index) instead of every order record. Prototype of 2+3: 4.2 → 2.5 s/day.
-4. **Granular derived invalidation.** `submitCommand` clears every non-`~` key; research/diplomacy/market
-   commands do not change ownership, rates or force summaries. Version-keyed caches (like `ownv`,
-   `econv`) for the remaining per-view rows would let ~650 bot commands/day stop forcing rebuilds.
-5. **Per-step diplomacy rows**: 119 `trustOf`/`statusFrom`/`coalitionOf` lookups per view (lazy trust
-   initialisation shows up at ≈ 7 %) could be one shared per-step matrix.
-6. **Route flip-flop after peace.** A stack on an edge whose both endpoints became illegal (e.g. inside a
-   former enemy after peace) turns back every step (`route_revoked` ≈ 96 events/day for one stack).
-   Stop it at the nearer node, or grant a time-limited withdrawal passage back to own territory.
-7. **Wake on coordination messages** (`sendMessage` with intent `coordinate`/`request_operation` to an AI
-   country). With request 1 in place a partner's request is otherwise answered at the next
-   economic/diplomatic review (≤ 6 h) rather than within the hour.
-8. **Structured event payloads.** `war_declared`, `grant_revoked`, `city_captured` private texts are parsed
-   for the actor; please add `data: { by, target }` / `{ from, to }`.
-9. **Coalition join time in the view** (`members[].joinedAt`) and the **viewer's own trust history**, so
-   leave rules and reply reasons can cite engine-recorded facts rather than AI memory.
+_Requests 1–9 landed in the engine pass of 2026-11-14 (details: docs/ENGINE.md "AI scheduler" and
+"Cache-invalidation contract"; tests: `tests/engine/perf-caches.test.ts`)._
+
+1. ~~**Scheduler pre-check.**~~ **Landed.** `CountryController.wants?(info)` (`info = { country, reviews,
+   wake, memory }`, memory = the saved blob, read-only) is called in `invoke` before any view is built;
+   false skips the call. `UtilityController.wants = wantsCall` and `controllerWithDifficulty` forward it.
+   Measured 2,210 → ≈ 980 views/day.
+2. ~~**Lite view for planners.**~~ **Landed** as an opt-in: `CountryController.liteView = true` (set on
+   `UtilityController` and `controllerWithDifficulty`) makes the scheduler build `getCountryView(…, { lite:
+   true })`: `self.force`, `self.lift`, `self.liftBreakdown`, `observedNodes`, stack `sightKm`/`radarKm` and
+   `market.myFills` are zero/empty placeholders and `view.lite === true`; every other field is identical to
+   the full view (tested field by field). None of these fields is read in src/ai (grep before relying on
+   one; if the planner ever needs them, drop `liteView`). Same seed ⇒ same `stateHash` with or without
+   lite (verified on the real map). `BasicController` keeps full views (it reads `force.ready`).
+3. ~~**Market books keyed on a market version.**~~ **Landed**: an incremental open-order index (open list,
+   orders per country, open counts) updated in place by every order mutation, books cached per market
+   version (frozen, shared); matching/previews, the open-order limit and `myOrders` use it.
+4. ~~**Granular derived invalidation.**~~ **Landed**: key classes `~` (step) / `@` (forces) / plain; the
+   FORCE_NEUTRAL commands (build, mobilize, research, market, offers, agents, intel, messages, …) keep
+   `@` keys; the public slice and territory index are memoized across steps by `ownv`; offers, threads,
+   journal, books, wars are version-keyed.
+5. ~~**Per-step diplomacy rows.**~~ **Landed** as shared indexes read once per view (war sets by `relv`,
+   grant map by `grv`, coalition index by `cov`) plus per-viewer trust rows with precomputed pair keys and
+   opening values (explicit trust entries read live).
+6. ~~**Route flip-flop after peace.**~~ **Fixed**: a stack mid-edge whose way forward AND back are illegal
+   settles once on the nearer endpoint (one `route_revoked`, idempotent ⇒ also equal after a reload).
+7. ~~**Wake on coordination messages.**~~ **Landed**: `sendMessage` with intent `coordinate` /
+   `request_operation` wakes the DM recipient (or every other member of the coalition thread) with tag
+   `message:<id>` at the next AI phase.
+8. ~~**Structured event payloads.**~~ **Landed** (private `data`, additive): `war_declared` `{ by, target }`,
+   `peace` `{ a, b }`, `grant_revoked` `{ from, to, level }`, `city_captured` / `province_captured` /
+   `uprising_success` `{ node, city, from, to, cause }`.
+9. ~~**Coalition join time / own trust history.**~~ **Landed**: `view.coalitions[].joinedAt` (member →
+   tick) and `view.relations[].trustHistory?` = the viewer's own trust changes toward that country as
+   `{ at, kind, delta }` (the free-text reason is omitted: it can carry the other side's private wording,
+   e.g. a war-declaration reason only the declarer was told).
 10. ~~Building `productionMult` semantics~~ — resolved by the engine pass (catalog multiplier semantics,
    `1 + Σ(mult − 1)`); the planner values `*Mult` increments against a base of 1 accordingly.
 11. **Market depth.** Bots are the only counterparties; with 119 sellers of common surpluses the books are
@@ -220,7 +225,8 @@ declared war on in the same batch → guard added; 0 invalid commands since.
 12. **Blockade effect.** Warships parked off an enemy port have no engine effect beyond engaging what comes
    by. A rule such as "a port whose adjacent sea zones hold only hostile warships loses its port trade /
    naval production / sea supply" would make the planner's superiority-gated blockade matter.
-13. **Partners' wars in the view.** Public `war_declared`/`peace` headlines exist (newspaper) but are not in the
+13. ~~**Partners' wars in the view.**~~ **Landed**: `view.wars` = every current war as a sorted `[a, b]`
+   pair (public, frozen, shared; keyed by `relv`). Original request: Public `war_declared`/`peace` headlines exist (newspaper) but are not in the
    CountryView, so the planner infers that a partner is under attack from foreign formations inside its
    territory or a named foe in its request. A public `wars: [a, b][]` list (or `relations[].atWarWith` for
    coalition partners) would remove false alarms from passage-holders transiting a partner's land.

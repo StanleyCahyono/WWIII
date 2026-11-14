@@ -20,6 +20,11 @@ export function derived<T>(state: GameState, key: string, compute: () => T): T {
   return v;
 }
 
+/** The memoized value of `key` if present (never computes). */
+export function peekDerived<T>(state: GameState, key: string): T | undefined {
+  return caches.get(state)?.get(key) as T | undefined;
+}
+
 /**
  * Key classes (by prefix):
  *  - `~…` step-scoped: only the simulation step can change their inputs (economy rates, public

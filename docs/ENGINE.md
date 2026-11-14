@@ -46,8 +46,13 @@ isReviewMode(state)            // campaign result frozen
 validateCommand(state, cmd) / previewCommand(state, cmd) → { ok:true, preview, warnings? } | { ok:false, code, reason, details? }
 submitCommand(state, cmd) → { ok:true, preview, result, duplicate? } | { ok:false, code, reason, details? }
 // projections
-getCountryView(state, country) : CountryView
-getCountryViews(state, ids) : Map<country, CountryView>   // batch; shares the per-step public slices
+getCountryView(state, country, { journalLimit?, journalScan?, lite? }) : CountryView
+getCountryViews(state, ids, opts?) : Map<country, CountryView>   // batch; shares the public slices
+//   lite: planner view — self.force/lift/liftBreakdown, observedNodes, stack sightKm/radarKm and
+//         market.myFills are zero/empty placeholders and `view.lite === true`; all else identical
+//   CountryView.wars: [a, b][] — every current war (public), sorted
+//   coalitions[].joinedAt: { member → join tick } ; relations[].trustHistory?: the viewer's OWN
+//         trust changes toward that country ({ at, kind, delta }; free-text reasons omitted)
 //   CountryView.observedNodes: NodeId[] — nodes covered by the viewer's (+ vision sources') sensors/territory
 //   StackView.sightKm / radarKm — effective sensor radii of the viewer's own stacks
 observedNodes(state, country) ; stackSensorRadii(state, stack)   // same values as the view fields
@@ -72,7 +77,11 @@ Functions **mutate** the passed state in place (`advance` returns the same objec
 ### AI plug-in
 
 ```ts
-interface CountryController { decide(view: CountryView, ctx: PlannerContext): Command[] }
+interface CountryController {
+  decide(view: CountryView, ctx: PlannerContext): Command[]
+  wants?(info: { country, reviews, wake, memory }): boolean  // pre-check before any view is built
+  liteView?: boolean                                          // opt in to the planner (lite) view
+}
 // ctx: now, reviews ('strategic'|'economic'|'diplomatic'|'operational')[], wake (event triggers),
 //      budget (max commands, by difficulty), difficulty, memory/setMemory (opaque JSON saved in
 //      state.ai.memory), preview(cmd), route(stackId, dest), map, catalog, rng (seeded per call)
@@ -80,6 +89,10 @@ advance(state, minutes, { controllers: { USA: myCtl } | (c) => ctl, fallback: Ba
 ```
 Controllers receive **only** the CountryView. Commands whose `country` ≠ the controlled country
 are rejected (`foreign_issuer`). A throwing controller is counted (`controller_error`) and ignored.
+`wants` must be a pure function of its argument (`memory` is the saved blob, read-only); returning
+false skips the call (no view, no decide; that call's wake tags are consumed). A throwing `wants`
+counts as true. `src/ai`'s `UtilityController` declares both (`wantsCall`, `liteView: true`);
+`BasicController` reads `self.force` and keeps full views.
 
 ## Time and step order
 
@@ -168,7 +181,11 @@ are rejected (`foreign_issuer`). A throwing controller is counted (`controller_e
   `missing_facility`, `outside_campaign`, `unreachable`, `invalid_domain`.
 * Remaining routes are re-validated every step; the first illegal segment truncates the route
   (stop at last legal node) or turns a stack mid-edge back to its origin — never a teleport; an
-  event explains why (A03).
+  event explains why (A03). If the way back is illegal too (e.g. a stack mid-edge inside a former
+  enemy after peace) the stack **settles once** on the nearer endpoint (ties: ahead) and finishes
+  that edge: one `route_revoked` event, no flip-flop. The rule is idempotent, so the re-validation
+  memo (skipped when no rights/ownership/roster changed) can never make a warm run differ from a
+  reloaded one (before, both-ends-illegal stacks turned back on every re-check).
 * Effective speed = slowest unit × terrain (catalog terrain speed or default table) × logistics.
 
 ## Combat (documented solo algorithm)
@@ -288,7 +305,14 @@ Result frozen; `advance` becomes a no-op and commands return `game_over` (review
 Staggered reviews (strategic 24 h, economic 6 h, diplomatic 12 h, operational 2 h) with hashed
 offsets; ≤ 60 controller calls per step served round-robin (no starvation; tested with 120
 countries); per-review command budget by difficulty (4/8/14). Wakes on war declared, territory
-change, offer received/answered, coalition application.
+change, offer received/answered, coalition application, and on a `sendMessage` with intent
+`coordinate` / `request_operation` (tag `message:<id>`; DM recipient, or every other member for the
+coalition thread; `ai-host/wake.ts`, applied when the message is posted).
+
+Per due call `invoke` asks the controller's optional `wants(...)` first and builds no view when it
+declines; otherwise it builds `getCountryView(..., { journalLimit: 15, journalScan: 400, lite:
+ctl.liteView })`. The planner memory is copied with `jsonClone` (exactly `JSON.parse(JSON.stringify)`
+semantics: non-finite → null, undefined dropped), so a warm run equals a reloaded one.
 
 ## Cache-invalidation contract (incremental systems)
 
@@ -312,9 +336,48 @@ Per-location announcements (non-serialized, consumed by caches; a gap forces a f
 * Unit levels: `techv`. Profiles/speed caches compare roster content (type, level, alive), so a new
   roster array with the same members keeps the cache.
 * Other per-state memos: sorted stack list (new stacks are appended — ids grow with the counter —
-  with a full sort as fallback), owner set for eliminations (keyed by `ownv`), cached city list,
-  `S(state)` one-entry memo (reset by `registerScenario`). Hot fixed-point vector primitives
-  (`addInto`, `add`, `mul`, …) are written per resource (same results, monomorphic).
+  with a full sort as fallback; `stacksReadonly` returns it without copying), owner set for
+  eliminations (keyed by `ownv`), cached city list, `S(state)` one-entry memo (reset by
+  `registerScenario`). Hot fixed-point vector primitives (`addInto`, `add`, `mul`, …) are written
+  per resource (same results, monomorphic).
+
+**`derived()` key classes and command scopes** (`derived.ts`). The per-state memo is cleared at
+every step boundary. After a successful command `submitCommand` clears by class:
+* `~…` step-scoped (economy rates `~rates`/`~rate:<c>`/`~staticRates`, research slots/speed,
+  maintenance, `~publicSlice`, `~offerIndex:<ids.offer>`): never cleared by commands (`demolish`
+  clears everything).
+* `@…` forces-scoped (`@force:<c>`, `@liftAll`, `@obsNodes:<c>`, `@stacksByOwner`): cleared by
+  every command except the **FORCE_NEUTRAL** set in `commands/index.ts` (build, cancelJob, annex,
+  mobilize, setRally, start/cancelResearch, produceMissile, market orders, offers, agents, intel
+  reports, articles, messages) — their `apply` never touches stacks, territory, relations or
+  coalition membership (paths that do, e.g. `setGrant`/coalition joins, invalidate on their own).
+* anything else: cleared after every command.
+
+**Cross-step memos keyed by saved counters** (`memoByVersion(state, name, key, deps, compute,
+stillValid?)`, survive steps and commands): territory per owner and the public basemap slice
+(owners, rebel nodes, public cities, scores — frozen, shared by all views) are keyed by `ownv` (every
+owner/control change goes through `transferNode`); the only other public field that changes
+(annexation status) is re-checked once per step. **Code that changes ownership directly must bump
+`ownv`** (or go through `transferNode`).
+
+**Other version-keyed indexes** (non-serialized WeakMaps; a reloaded/cloned state rebuilds):
+* Market (`systems/market.ts`): open-order index (open list, orders per country, open counts) and
+  aggregated books (frozen, shared). Every order mutation lives in market.ts and updates the index
+  in place (`noteOrder`: place / fill / cancel / prune); validity = private version + `market.seq` +
+  orders object. Lists keep `Object.values(state.market.orders)` order, so results equal a full
+  scan in warm and reloaded runs (tested). **Code that edits orders directly must call
+  `bumpMarket(state)`.** `counterOrders` (matching, previews), the open-order limit and elimination
+  cancels use the index.
+* Offers per country: `~offerIndex:<ids.offer>` (offers are only created with a new id, deleted only
+  by the day-change prune; status changes are in place).
+* dm threads per participant: keyed by the message counter `ids.message`.
+* Journal (`journalFor`): per-recipient lists of event references appended from a cursor (event
+  ids ascend), trimmed lazily after the log is pruned; rebuilt when `state.events` is replaced.
+* Diplomacy rows: war sets (`enemyMap`, `relv`), grant maps (`grantMap`, `grv`), coalition
+  membership (`coalitionIndex`, `cov`), public war list (`relv`), trust rows (`trustRow`: pair keys
+  and opening values precomputed per viewer row; explicit `state.trust` entries are read live, so
+  direct test edits are seen).
+* Sorted techs per country (techs are only added; keyed by the record and its key count).
 
 ## Save format
 
@@ -385,12 +448,59 @@ movement: numeric re-validation key, per-route node set, slowest-unit memo; capt
 pre-filtered by war/rebel eligibility; elimination owner set cached by `ownv`; sorted stack list
 appended; `S(state)` memo; O(n) VP table.
 
+### AI phase: 120 AI seats with the src/ai utility planner (engine pass of 2026-11-14)
+
+Real map, observer mode, seed 7, snapshot after 6 game days (≈ 1,690–1,750 stacks), days 7–9,
+esbuild bundle, Node 22. **Another agent's 4-worker observer run occupied ≈ 2.7 of the 4 vCPUs during
+all of these measurements (load average 6–10)**, so absolute wall times are inflated; every row
+was measured interleaved under the same load. To compare engine versions the planner was frozen
+(src/ai as of the start of this pass, extracted from the baseline bundle); "current AI" is src/ai
+at the end of the pass (with the concurrent alliance/naval layers).
+
+| Configuration (ms / game day) | load ≈ 1 (start of pass) | load ≈ 6–7 | load ≈ 9–10 |
+| --- | ---: | ---: | ---: |
+| Before (old engine, frozen AI; 2,210 full views/day) | 6,049 (days 7–9; day 9: 5,637) | 6,703–7,287 | 8,647 |
+| After, frozen AI, process-cold days 7–9 | — | 1,591–1,798 | — |
+| After, frozen AI, JIT-warm (`WARM=1`) | — | **1,295** | 2,114 |
+| After, current AI, JIT-warm | — | **1,456** | 1,969 |
+| After, views only (empty lite controller, all 2,210 calls), JIT-warm | — | 992 (cold) | 852 |
+| Engine only (IdleController), JIT-warm | 224 (cold) | — | 273 |
+
+Same-state checks: with the frozen planner the old and new engine produce the **identical
+`stateHash`** after 3 days as long as only behaviour-neutral changes are compared (market index,
+granular invalidation, cross-step memos, lite views, trust rows, journal index, …: hash
+`3b1c84b6…` before and after). The intended behaviour changes alter it: the `wants` pre-check
+(skipped calls), structured event `data`, the route-settle fix.
+
+Per view: lite ≈ 0.26 ms vs. full ≈ 0.83 ms (load 7; 1.9 ms full before). Views per day: 2,210 →
+≈ 980 (pre-check). Remaining split of a JIT-warm day (CPU profile, current AI): planner (`decide`,
+incl. ≈ 60–90 ms of validator previews / route A*) ≈ 35–40 %, views ≈ 25–30 % (diplomacy rows,
+allied contacts, rates, public slice, clones), engine steps ≈ 25 % (visibility ≈ ⅓ of it), GC ≈ 11 %.
+**≤ 1 s/day is not reached on this loaded machine** (≈ 1.3–1.5 s/day JIT-warm at load 6–7; the
+before/after ratio is 4.1–4.7×, so ≈ 1.2–1.4 s/day is expected on an idle 4-vCPU box). The largest
+remaining single item is the planner itself (src/ai), then per-view object construction.
+
+**69-war engine-only day** (save rebuilt this pass: seed 42, 40 neighbour wars + 1 BasicController
+day + 5 more days, then extra neighbour wars up to 69; 1,354 stacks, **831 movers at load** — heavier
+than the earlier 647-mover save; load ≈ 5.6): day 1 process-cold 1,513 ms (old engine on the same
+save 1,591 ms), **JIT-warm 473–610 ms**, days 2–3 JIT-warm 249–330 ms. The AI-phase work did not
+target this path; visibility is still the largest part of it (see the known gaps).
+
 Profiling recipe: bundle a script that loads the scenario with `buildWorld120Scenario` (or a JSON
 snapshot of map/catalog/profiles) and a war save, `npx esbuild <script> --bundle --platform=node`,
 run with `node --cpu-prof` (or the inspector `Profiler` for a time window) and aggregate self /
 inclusive samples per function and per line (`positionTicks`).
 
 ## Known gaps / resume notes
+
+* AI-phase cost (≈ 1.3–1.5 s/day JIT-warm under load, target ≈ 1 s): next engine levers are
+  (1) per-viewer diplomacy rows reused across calls (needs a trust version counter — today trust
+  entries are read live because tests edit `state.trust` directly), (2) allied contacts shared per
+  coalition per step (only the contact id is viewer-specific), (3) a stack-roster version so
+  `~rates`/`@stacksByOwner` survive steps, (4) a deletion counter for stacks so `stacksReadonly`
+  need not re-check every record. Planner-side (src/ai): ≈ 35–40 % of the day; `tests/ai/helpers.ts`
+  `recording()` does not forward `wants`/`liteView`, so the 20-day smoke test still measures the
+  full-view, no-pre-check path (≈ 4.4 s/day at load 7).
 
 * Heavy-war performance with ~650 simultaneous movers (first war day: 530–640 ms JIT-warm, target
   400): next levers are (1) integer-indexed visibility structures (typed arrays for records, cells

@@ -6,7 +6,9 @@
  *  - Foreign cities: public fields only (name, owner, tier, capital, port, node, status).
  *  - Political ownership of provinces is public (the basemap).
  *  - Intel reports: own + those of shared-intel/coalition sources, frozen snapshots.
- * Shared public slices are cached per (state, tick) and frozen.
+ * Shared public slices (ownership, public cities, scores, books, war list) are memoized by saved
+ * version counters and frozen; per-viewer data is copied. `{ lite: true }` builds the planner view
+ * (see `ViewOptions.lite`).
  */
 import type { CityKey, CountryId, NodeId, Resource } from '../data-types';
 import { RESOURCES } from '../data-types';
@@ -39,12 +41,12 @@ import { S } from '../scenario/registry';
 import { formatGameTime, dayOf } from '../time';
 import { resourceSummary, type ResourceSummary } from '../systems/economy';
 import { researchSlots } from '../systems/research';
-import { coalitionOf, enemyMap, grantLevel, grantsFrom, visionSources, stacksOfOwner, territoryOf } from '../systems/world';
+import { coalitionIndex, coalitionOf, enemyMap, grantLevel, grantMap, visionSources, stacksOfOwner, territoryOf } from '../systems/world';
 import { trustRow } from '../systems/diplomacy';
 import { bookView, ordersOf, type BookLevel } from '../systems/market';
 import { countryScores, thresholdFor } from '../systems/score';
 import { routeEtaTick } from '../systems/movement';
-import { alliedContacts, observedNodes, stackSensorRadii } from '../systems/visibility';
+import { forEachAlliedStack, observedNodes, stackSensorRadii } from '../systems/visibility';
 import { forceSummary, liftBreakdown, type ForceSummary, type LiftBreakdown } from '../systems/readiness';
 import { RULES } from '../rules';
 import { derived, invalidateDerived, memoByVersion } from '../derived';
@@ -165,6 +167,8 @@ export interface CountryView {
     score: number;
   })[];
   myCoalition: string | null;
+  /** Every current war as a sorted pair [a, b] (a < b), sorted — public (declarations and peace are headlines). */
+  wars: [CountryId, CountryId][];
   messages: Record<string, Message[]>;
   market: { books: Record<string, { bids: BookLevel[]; asks: BookLevel[]; last: number | null }>; myOrders: MarketOrder[]; myFills: MarketFill[] };
   launches: { id: string; missile: string; target: NodeId; launchedAt: number; arriveAt: number; knowledge: string; mine: boolean }[];
@@ -177,23 +181,23 @@ export interface CountryView {
 function publicSlice(state: GameState) {
   // public basemap slice: ownership/control changes bump `ownv` (transferNode); the only other
   // public field that changes — territory status (annexation) — is re-checked on every hit
-  const base = memoByVersion(state, 'publicSlice', `${state.ids.ownv ?? 0}`, [state.provinces, state.cities], () => computePublic(state), (b) => {
+  // (re-validated once per step: commands cannot change ownership or territory status)
+  const base = derived(state, '~publicSlice', () => memoByVersion(state, 'publicSlice', `${state.ids.ownv ?? 0}`, [state.provinces, state.cities], () => computePublic(state), (b) => {
     for (const pc of b.cities) {
       const p = state.provinces[pc.node] as ProvinceState;
       if (pc.status !== (p.control === 'rebel' ? 'rebel' : p.status) || pc.owner !== p.owner) return false;
     }
     return true;
-  });
+  }));
   const books: CountryView['market']['books'] = {};
   for (const r of RESOURCES) if (r !== 'money') books[r] = bookView(state, r);
-  const offers = derived(state, 'offerIndex', () => {
+  // offers are created only with a new id (counter) and deleted only by the day-change prune
+  // (a step boundary); status changes are in place, so the index of references stays valid
+  const offers = derived(state, `~offerIndex:${state.ids.offer ?? 0}`, () => {
     const byCountry = new Map<CountryId, Offer[]>();
     for (const o of Object.values(state.offers)) {
-      for (const c of [o.from, o.to]) {
-        const l = byCountry.get(c) ?? [];
-        l.push(o);
-        byCountry.set(c, l);
-      }
+      (byCountry.get(o.from) ?? byCountry.set(o.from, []).get(o.from)!).push(o);
+      if (o.to !== o.from) (byCountry.get(o.to) ?? byCountry.set(o.to, []).get(o.to)!).push(o);
     }
     return byCountry;
   });
@@ -209,7 +213,7 @@ function computePublic(state: GameState) {
       const p = state.provinces[ci.node] as ProvinceState;
       return Object.freeze({ key: k, name: ci.name, node: ci.node, owner: p.owner, homeland: p.homeland as CountryId, tier: ci.tier, capital: ci.capital, port: ci.port, status: p.control === 'rebel' ? 'rebel' : p.status }) as PublicCity;
     });
-  return { owners: Object.freeze(owners) as (CountryId | null)[], rebel: Object.freeze(rebel) as NodeId[], cities: Object.freeze(cities) as PublicCity[], scores: countryScores(state) };
+  return { owners: Object.freeze(owners) as (CountryId | null)[], rebel: Object.freeze(rebel) as NodeId[], cities: Object.freeze(cities) as PublicCity[], scores: Object.freeze(countryScores(state)) as Record<CountryId, number> };
 }
 
 /** Invalidate memoized derived data (public slices, rates, force summaries). */
@@ -320,8 +324,8 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
   const cities: CityState[] = [];
   const provinces: ProvinceState[] = [];
   const mine = territoryOf(state, viewer);
-  for (const n of mine.nodes) provinces.push(plainClone(state.provinces[n] as ProvinceState));
-  for (const k of mine.cities) cities.push(plainClone(state.cities[k]));
+  for (const n of mine.nodes) provinces.push(cloneProvince(state.provinces[n] as ProvinceState));
+  for (const k of mine.cities) cities.push(cloneCity(state.cities[k]));
   const contacts: ContactView[] = [];
   const table = state.contacts[viewer] ?? {};
   const refreshed = state.clock.lastVisibility;
@@ -329,7 +333,11 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
     const c = table[k];
     contacts.push(projectContact(c, t, refreshed, c.level === 'identified' ? state.stacks[c.stack] ?? null : null));
   }
-  for (const c of alliedContacts(state, viewer)) if (!table[c.id]) contacts.push(projectContact(c, t));
+  // allied (vision-source) stacks: identified and live; projected directly (same fields as projectContact)
+  forEachAlliedStack(state, viewer, (s, cid, lonlat, domain) => {
+    if (table[cid]) return;
+    contacts.push({ id: cid, level: 'identified', domain, lonlat, node: s.pos.kind === 'node' ? s.pos.node : null, observedAt: t, ageMin: 0, owner: s.owner, count: s.units.length, units: s.units.map((u) => ({ type: u.type, hpPct: Math.round((u.hp / u.maxHp) * 100) })) });
+  });
   const srcs = new Set(visionSources(state, viewer));
   const reports: CountryView['reports'] = [];
   for (const r of Object.values(state.reports)) {
@@ -356,8 +364,8 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
     score: co.members.reduce((a, m) => a + (pub.scores[m.country] ?? 0), 0),
   }));
   const messages: Record<string, Message[]> = {};
-  for (const th of threadIndex(state).get(viewer) ?? []) messages[th] = state.messages[th].map((m) => ({ ...m }));
-  if (myCo && state.messages[`co:${myCo.id}`]) messages[`co:${myCo.id}`] = state.messages[`co:${myCo.id}`].map((m) => ({ ...m }));
+  for (const th of threadIndex(state).get(viewer) ?? []) messages[th] = state.messages[th].map(messageCopy);
+  if (myCo && state.messages[`co:${myCo.id}`]) messages[`co:${myCo.id}`] = state.messages[`co:${myCo.id}`].map(messageCopy);
   const launches: CountryView['launches'] = [];
   for (const l of Object.values(state.launches)) {
     const k = l.knowledge[viewer];
@@ -384,7 +392,7 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
       escrow: { ...cs.escrow },
       resources: res,
       shortages: [...cs.shortages],
-      techs: Object.keys(cs.techs).sort(),
+      techs: sortedTechs(cs),
       research: cs.research.map((r) => ({ ...r, cost: { ...r.cost } })),
       researchSlots: researchSlots(state, viewer),
       unitLevels: { ...cs.unitLevels },
@@ -411,6 +419,7 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
     offers,
     coalitions,
     myCoalition: myCo?.id ?? null,
+    wars: publicWars(state),
     messages,
     market: {
       books: pub.books,
@@ -418,12 +427,66 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
       myFills: lite ? [] : state.market.fills.filter((f) => f.buyer === viewer || f.seller === viewer).map((f) => ({ ...f })),
     },
     launches,
-    scores: { denominator: state.score.denominator, byCountry: { ...pub.scores }, soloThreshold: thresholdFor(state.score.denominator, 1), coalitionThresholds: { 2: thresholdFor(state.score.denominator, 2), 3: thresholdFor(state.score.denominator, 3), 4: thresholdFor(state.score.denominator, 4), 5: thresholdFor(state.score.denominator, 5) }, lastSettledDay: state.score.lastSettledDay },
+    scores: { denominator: state.score.denominator, byCountry: pub.scores, soloThreshold: thresholdFor(state.score.denominator, 1), coalitionThresholds: { 2: thresholdFor(state.score.denominator, 2), 3: thresholdFor(state.score.denominator, 3), 4: thresholdFor(state.score.denominator, 4), 5: thresholdFor(state.score.denominator, 5) }, lastSettledDay: state.score.lastSettledDay },
     journal: journalFor(state, viewer, opts.journalLimit ?? 40, opts.journalScan ?? 4000),
     openingPower: state.openingPower,
     rules: RULES,
     ...(lite ? { lite: true as const } : {}),
   };
+}
+
+const messageCopies = new WeakMap<Message, Message>();
+/**
+ * Messages are immutable once posted (`postMessage` only appends/trims threads), so every view
+ * shares one frozen copy per message instead of copying whole threads (up to 200 each) per view.
+ */
+function messageCopy(m: Message): Message {
+  let c = messageCopies.get(m);
+  if (!c) {
+    c = Object.freeze({ ...m });
+    messageCopies.set(m, c);
+  }
+  return c;
+}
+
+const warsCache = new WeakMap<GameState, { v: number; rel: object; list: [CountryId, CountryId][] }>();
+/** Public war list (frozen, shared), keyed by the relations counter `relv`. */
+function publicWars(state: GameState): [CountryId, CountryId][] {
+  const v = state.ids.relv ?? 0;
+  const c = warsCache.get(state);
+  if (c && c.v === v && c.rel === state.relations) return c.list;
+  const list: [CountryId, CountryId][] = [];
+  for (const k of Object.keys(state.relations).sort()) {
+    if (!state.relations[k].war) continue;
+    const [a, b] = k.split('|');
+    list.push(Object.freeze([a, b]) as [CountryId, CountryId]);
+  }
+  Object.freeze(list);
+  warsCache.set(state, { v, rel: state.relations, list });
+  return list;
+}
+
+const techCache = new WeakMap<object, { n: number; list: string[] }>();
+/** Sorted tech ids (techs are only ever added; memo keyed by the record and its key count). */
+function sortedTechs(cs: GameState['countries'][string]): string[] {
+  let n = 0;
+  for (const _ in cs.techs) n++;
+  let e = techCache.get(cs.techs);
+  if (!e || e.n !== n) {
+    e = { n, list: Object.keys(cs.techs).sort() };
+    techCache.set(cs.techs, e);
+  }
+  return e.list.slice();
+}
+
+const countryListCache = new WeakMap<object, { order: readonly CountryId[]; list: GameState['countries'][string][] }>();
+/** Country records aligned with `countryOrder` (records are stable objects; keyed by both containers). */
+function countryList(state: GameState): GameState['countries'][string][] {
+  const e = countryListCache.get(state.countries);
+  if (e && e.order === state.countryOrder) return e.list;
+  const list = state.countryOrder.map((c) => state.countries[c]);
+  countryListCache.set(state.countries, { order: state.countryOrder, list });
+  return list;
 }
 
 /**
@@ -432,7 +495,8 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
  */
 function relationRows(state: GameState, viewer: CountryId, myOffers: Offer[], myCo: Coalition | null): DiplomacyRow[] {
   const enemies = enemyMap(state).get(viewer);
-  const mineOut = grantsFrom(state, viewer);
+  const grants = grantMap(state);
+  const mineOut = grants.get(viewer);
   const pending = new Map<CountryId, string[]>();
   for (const o of myOffers) {
     if (o.status !== 'pending') continue;
@@ -443,11 +507,13 @@ function relationRows(state: GameState, viewer: CountryId, myOffers: Offer[], my
   const entries: (TrustState | undefined)[] = [];
   const trust = trustRow(state, viewer, entries);
   const order = state.countryOrder;
+  const others = countryList(state);
+  const coIdx = coalitionIndex(state);
   const rows: DiplomacyRow[] = [];
   for (let i = 0; i < order.length; i++) {
     const c = order[i];
     if (c === viewer) continue;
-    const other = state.countries[c];
+    const other = others[i];
     const war = !!enemies && enemies.has(c);
     rows.push({
       country: c,
@@ -455,16 +521,30 @@ function relationRows(state: GameState, viewer: CountryId, myOffers: Offer[], my
       controller: other.controller,
       alive: other.alive,
       myStatusToThem: war ? 'war' : mineOut?.get(c) ?? 'peace',
-      theirStatusToMe: war ? 'war' : grantLevel(state, c, viewer),
+      theirStatusToMe: war ? 'war' : grants.get(c)?.get(viewer) ?? 'peace',
       war,
       trust: trust[i],
-      coalition: coalitionOf(state, c)?.id ?? null,
+      coalition: coIdx.get(c) ?? null,
       sameCoalition: !!coMembers && coMembers.has(c),
       pendingOffers: pending.get(c) ?? [],
       ...(entries[i] ? { trustHistory: entries[i]!.history.map((h) => ({ at: h.at, kind: h.kind, delta: h.delta })) } : {}),
     });
   }
   return rows;
+}
+
+function cloneBuildings(l: CityState['buildings']): CityState['buildings'] {
+  const out = new Array(l.length);
+  for (let i = 0; i < l.length; i++) out[i] = { ...l[i] };
+  return out;
+}
+/** Province copy (all members are primitives except `buildings`). */
+function cloneProvince(p: ProvinceState): ProvinceState {
+  return { ...p, buildings: cloneBuildings(p.buildings) };
+}
+/** City copy (nested: functions, morale factors, buildings, base output). */
+function cloneCity(c: CityState): CityState {
+  return { ...c, functions: [...c.functions], moraleFactors: c.moraleFactors.map((f) => ({ ...f })), buildings: cloneBuildings(c.buildings), baseOutput: { ...c.baseOutput } };
 }
 
 /** Deep copy of plain JSON data with JSON round-trip semantics (undefined members dropped). */

@@ -16,9 +16,9 @@ import { ESSENTIAL, MANPOWER_PER_SQRT_KPOP, MONEY_PER_SQRT_KPOP, RURAL_POP_FACTO
 import { S } from '../scenario/registry';
 import { chargePartial, credit } from './ledger';
 import { hourOfDay } from '../time';
-import { stacksReadonly, utype } from './world';
+import { stacksOfOwner, stacksReadonly, utype } from './world';
 import type { BuildingLevel } from '../data-types';
-import { derived } from '../derived';
+import { derived, peekDerived } from '../derived';
 import { cmod } from './modifiers';
 
 export function buildingLevelDef(state: GameState, b: BuildingInstance): BuildingLevel | null {
@@ -346,6 +346,30 @@ function staticRates(state: GameState): Record<CountryId, StaticRates> {
   return m;
 }
 
+/**
+ * Per-day rates of ONE country, memoized per step: identical to `allRates(state)[c]` (same static
+ * territory part, the same per-stack upkeep vectors summed over its stacks — integer sums, so the
+ * order is irrelevant) without summing every stack of the world. Used by the views.
+ */
+export function countryRates(state: GameState, c: CountryId): CountryRates {
+  return derived(state, `~rate:${c}`, () => {
+    const all = peekDerived<Record<CountryId, CountryRates>>(state, '~rates');
+    if (all) return all[c];
+    const x = derived(state, '~staticRates', () => staticRates(state))[c];
+    const r: CountryRates = x
+      ? { production: { ...x.production }, upkeepUnits: zero(), upkeepBuildings: { ...x.upkeepBuildings }, occupation: { ...x.occupation }, consumption: zero(), net: zero() }
+      : { production: zero(), upkeepUnits: zero(), upkeepBuildings: zero(), occupation: zero(), consumption: zero(), net: zero() };
+    for (const s of stacksOfOwner(state, c)) if (state.stacks[s.id] === s) addInto(r.upkeepUnits, stackUpkeep(state, s));
+    const fm = cmod(state, c, 'fuel_upkeep_mult');
+    if (fm !== 1) r.upkeepUnits.fuel = Math.trunc(r.upkeepUnits.fuel * fm);
+    addInto(r.consumption, r.upkeepUnits);
+    addInto(r.consumption, r.upkeepBuildings);
+    addInto(r.consumption, r.occupation);
+    for (const res of RESOURCES) r.net[res] = r.production[res] - r.consumption[res];
+    return r;
+  });
+}
+
 /** Per-day rates for all countries (territory part cached by the economy version; units summed). */
 export function computeRates(state: GameState): Record<CountryId, CountryRates> {
   const st = staticRates(state);
@@ -442,7 +466,7 @@ export interface ResourceSummary {
 
 export function resourceSummary(state: GameState, c: CountryId): ResourceSummary[] {
   const cs = state.countries[c];
-  const r = allRates(state)[c];
+  const r = countryRates(state, c);
   const committed = zero();
   for (const j of cs.jobs) addInto(committed, j.cost);
   return RESOURCES.map((res) => {
