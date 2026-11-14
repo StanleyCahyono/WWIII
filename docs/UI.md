@@ -103,6 +103,9 @@ main thread (React 18)                         Web Worker (src/workers/sim.worke
 | Score/standings, End screen, Campaign info | `panels/Score.tsx` |
 | Advisor + keyboard chart | `panels/Help.tsx` |
 | Planning layer (draw/rename/hide/delete, Issue order → move preview) | `components/Planning.tsx` |
+| Stack orders: attack (current contacts or a province), retreat (adjacent destination + forecast HP cost), delay, embark/disembark, deployables (uses, cooldown, placement range); aircraft patrol (area, radius, time on station, home, refuel) and rebase/ferry (new home); aircraft panel (mission, elapsed endurance, footprint, diversion/loss/landing events) | `components/Orders.tsx` (+ `components/Inspector.tsx`) |
+| Missiles: program table (research flags, maturity badges with distinct prototype art, backlog, batch cost, ceiling, replacement time), production dialog, launch dialog (facility/platform, range-limited sector picker or map pick, all four outcomes + headline chance before commit, conditional-accuracy definition, war confirmation, inventory after commit), strike reports (“effect unconfirmed” when unobserved), map origin→sector line without steering | `components/Orders.tsx`, `panels/Forces.tsx`, `map/renderer.ts` |
+| Career ledger (local XP, separate from VP) | `panels/Score.tsx` (Campaign info) |
 
 ## Keyboard chart
 
@@ -127,10 +130,12 @@ main thread (React 18)                         Web Worker (src/workers/sim.worke
 | `e2e/acceptance.spec.ts` | A01 (Indonesia + Bolivia separate slots, 119 AI), A13/W10 (all non-loopback requests blocked; export → import into a fresh profile, identical seed/clock/stock/jobs; damaged import rejected), A04/W05 (injected radar-only contact over a real hidden stack: no type/name in aria, inspector, search; SIDC entity 000000), W06 (draw/rename/hide/delete leave `stateHash` + RNG unchanged; Issue order opens the move preview), A15 (island port pick, layer switch, city sheet, camera unchanged, layer restored after reload), A14 (second tab read-only) |
 | `e2e/workflows.spec.ts` | Bulk construction preview/confirm charges the previewed total; bot negotiation reply in the thread |
 | `e2e/mobile-keyboard.spec.ts` | A12 on iPhone 13 viewport, keyboard only: title → campaign → city → mobilize → Esc restores focus → Forces list → move preview/confirm → Stop → advance hour |
+| `e2e/military.spec.ts` | Missiles research (test hook) → production job → ready → launch dialog (4 outcomes, headline) → in flight with origin → report in viewer terms; aircraft patrol preview → on station → landed → rebase → new home; retreat with forecast HP cost (test hook engages a foreign stack); intelligence agent mission + purchased report |
 | `e2e/perf.spec.ts` | Map input response / pan fps probe with 2,000 synthetic render-only stacks |
 
-`?e2e=1` enables a test-only worker op (`debugContact`) used by A04; it is unreachable without the
-URL flag. `window.__wc` exposes read-only accessors (camera, frame, projection) for tests.
+`?e2e=1` enables test-only worker ops (`debugContact` for A04, `debugMissileSetup` = grant the
+missile blueprint + a launch complex in the capital, `debugEngage` = put a foreign stack on one of
+yours at war, for the retreat test); they are unreachable without the URL flag. `window.__wc` exposes read-only accessors (camera, frame, projection) for tests.
 
 ## Performance (measured 2026-11-14)
 
@@ -177,12 +182,13 @@ Gaps (worked around in the adapter; nice to have in the engine):
 
 ## Known gaps / resume notes
 
-* Aircraft-specific orders (patrol, rebase, ferry), embark/disembark buttons, attack-on-contact,
-  retreat, delay, deployables and missile launch have engine commands but no dedicated UI flows yet
-  (move covers embarkation via route mode changes). Add them to `components/Inspector.tsx`
-  StackSheet using the same `ActionButton` + preview pattern.
+* Missile launch on the map has no target-click shortcut from the contact sheet (use Forces → Launch…
+  or a platform's stack sheet; the dialog supports “Pick on map”).
+* The adapter imports a few read-only engine internals (`systems/air` range/base checks,
+  `economy.sumEffect`) and, for `?e2e=1` hooks only, `grantTech`/`declareWarInternal`. If the
+  engine exposes sight radius, observed nodes or `threadFor`, switch `engine-adapter.ts` to them
+  (not exposed as of this pass).
 * Sound is a stored preference only (no audio assets).
-* Light theme is implemented via tokens but has had less visual review than dark.
 * The End screen derives losses/captures from journal event kinds; a dedicated engine summary would
   be more precise.
 * Perf numbers come from headless software rendering; re-measure on a reference laptop with GPU.

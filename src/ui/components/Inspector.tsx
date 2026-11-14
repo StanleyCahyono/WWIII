@@ -260,7 +260,7 @@ export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame:
             )}
           </div>
         ) : (
-          <p className="muted" style={{ margin: 0 }}>Holding position — no orders.</p>
+          <p className="muted" style={{ margin: 0 }}>{s.air && s.air.state !== 'landed' ? `Air mission in progress (${s.air.state.replace('_', ' ')}) — see Aircraft below.` : 'Holding position — no orders.'}</p>
         )}
         {s.air && <AircraftPanel s={s} />}
       </div>
