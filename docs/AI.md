@@ -17,7 +17,10 @@ in `ctx.memory` (JSON saved by the engine in `state.ai.memory`)._
   `RESOURCES` constant of the static data contract).
 * Every command is previewed through the same validator as the human's before it is returned; a local
   copy of the spendable budget (with an upkeep reserve) is decremented per accepted command so a batch
-  never over-commits. Result in every test and observer run so far: **0 invalid bot commands**.
+  never over-commits, and batch-consistency guards drop commands that a command earlier in the same batch
+  would invalidate (no offer/message/application toward a country we just declared war on — previews run
+  against the pre-batch state). Invalid bot commands are counted by the engine (`stats.rejected`) and
+  reported by the tests and the observer suite.
 * One stateless controller instance serves all 119 bots. Module-level caches hold only pure functions of
   public static data (map adjacency/geography per `MapData`, catalog indexes per `Catalog`) or of
   content-identical inputs (hop distances keyed by the frozen public `owners` array), so caching never

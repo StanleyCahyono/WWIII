@@ -133,6 +133,20 @@ export function retargetTrigger(t: Turn, a: Analysis): string | null {
   return null;
 }
 
+/** Public score leader (excluding us) and the fractions of the solo threshold (balance of power). */
+export function leaderInfo(t: Turn): { leader: CountryId | null; leaderFrac: number; myFrac: number; secondFrac: number } {
+  const sc = t.view.scores.byCountry;
+  const thr = Math.max(1, t.view.scores.soloThreshold);
+  let leader: CountryId | null = null, best = -1, second = -1;
+  for (const r of t.view.relations) {
+    if (!r.alive) continue;
+    const v = sc[r.country] ?? 0;
+    if (v > best) { second = best; best = v; leader = r.country; } else if (v > second) second = v;
+  }
+  const mine = sc[t.me] ?? 0;
+  return { leader, leaderFrac: best / thr, myFrac: mine / thr, secondFrac: Math.max(second, 0) / thr };
+}
+
 function chooseObjective(t: Turn, a: Analysis): void {
   const mem = t.mem;
   const trig = retargetTrigger(t, a);
@@ -140,6 +154,7 @@ function chooseObjective(t: Turn, a: Analysis): void {
   const g = t.geo, v = t.view;
   const cands: { c: CountryId; node: NodeId; score: number; why: string }[] = [];
   const enemies = new Set(a.enemies);
+  const li = leaderInfo(t);
   // candidate countries: land neighbours + enemies + (maritime) nearby overseas
   const cset = new Set<CountryId>([...a.neighbours.keys(), ...a.enemies]);
   if (mem.geography !== 'landlocked' && a.capitalNode !== null) {
@@ -163,7 +178,9 @@ function chooseObjective(t: Turn, a: Analysis): void {
     const trustPen = Math.max(0, r.trust) / 25 + (r.theirStatusToMe !== 'peace' ? 1 : 0);
     const griev = (mem.grievance[c] ?? 0) / 25;
     const exposure = (a.neighbours.get(c) ?? 0) * 0.1;
-    const score = bestS * (0.6 + t.personality.expansion) * Math.min(2.5, ratio) + griev + (enemies.has(c) ? 2.5 : 0) + exposure - trustPen - bestHop * 0.15;
+    // balance of power: a runaway leader becomes a preferred objective for capable neighbours
+    const contain = c === li.leader && li.leaderFrac >= 0.18 && li.leaderFrac > li.myFrac * 1.3 && ratio >= 0.5 ? (li.leaderFrac - 0.15) * 10 : 0;
+    const score = bestS * (0.6 + t.personality.expansion) * Math.min(2.5, ratio) + griev + (enemies.has(c) ? 2.5 : 0) + exposure + contain - trustPen - bestHop * 0.15;
     cands.push({ c, node: best, score, why: `${enemies.has(c) ? 'at war; ' : ''}VP ${g.vp[best]} at ${bestHop} hop(s), power ratio ${ratio.toFixed(2)}${griev > 0 ? `, grievance ${(griev * 25).toFixed(0)}` : ''}` });
   }
   cands.sort((x, y) => y.score - x.score || (x.c < y.c ? -1 : 1));
@@ -211,13 +228,16 @@ function considerWar(t: Turn, a: Analysis): void {
   // score pressure grows with the calendar; a clearly weaker target is an opportunity
   const pressure = Math.min(0.25, (v.day / 180) * 0.5);
   const opportunity = ratio > 1.5 ? Math.min(0.2, (ratio - 1.5) * 0.1) : 0;
-  const appetite = p.aggression * 0.5 + p.expansion * 0.4 + 0.1 + pressure + opportunity + (mem.grievance[o.target] ?? 0) / 60 - Math.max(0, r.trust) / 80 - (r.theirStatusToMe !== 'peace' ? 0.2 : 0);
+  // anti-snowball: a clear score leader consolidates (occupation upkeep, morale) instead of overextending
+  const li = leaderInfo(t);
+  const consolidate = li.myFrac >= 0.15 && li.myFrac > li.leaderFrac * 1.25 ? Math.min(0.25, (li.myFrac / Math.max(0.01, li.leaderFrac) - 1.25) * 0.5 + 0.1) : 0;
+  const appetite = p.aggression * 0.5 + p.expansion * 0.4 + 0.1 + pressure + opportunity - consolidate + (mem.grievance[o.target] ?? 0) / 60 - Math.max(0, r.trust) / 80 - (r.theirStatusToMe !== 'peace' ? 0.2 : 0);
   const need = (a.small ? 1.6 : 1.25) + p.caution * 0.4;
   // local strength at the border vs estimated defence of the objective
   const d = defenceAt(t, a, o.node as NodeId);
   const local = a.myGround - a.cities.reduce((s, c) => s + c.required * 0.5, 0);
   if (appetite < 0.45 || ratio < need || local < d.strength * t.diff.attackRatio) {
-    t.note('strategic', 'war_considered', `no war on ${o.target}`, `appetite ${appetite.toFixed(2)} (pressure ${pressure.toFixed(2)}), power ratio ${ratio.toFixed(2)} (need ${need.toFixed(2)}), local ${local.toFixed(0)} vs defence ${d.strength.toFixed(0)}`);
+    t.note('strategic', 'war_considered', `no war on ${o.target}`, `appetite ${appetite.toFixed(2)} (pressure ${pressure.toFixed(2)}${consolidate ? `, leader consolidating −${consolidate.toFixed(2)}` : ''}), power ratio ${ratio.toFixed(2)} (need ${need.toFixed(2)}), local ${local.toFixed(0)} vs defence ${d.strength.toFixed(0)}`);
     return;
   }
   const reason = `objective ${o.reason}; power ratio ${ratio.toFixed(2)}`;

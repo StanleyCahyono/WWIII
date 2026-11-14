@@ -104,8 +104,14 @@ export class Turn {
    * Preview a command with the shared validator; on success check its cost against the local
    * budget, deduct it, record it and log the decision. Returns the preview (or null).
    */
+  /** Countries we declared war on earlier in this batch (previews ran against the pre-war state). */
+  readonly declaredWar = new Set<CountryId>();
+
   add(cmd: Command, layer: Layer, kind: string, reason: string, opts: { useReserve?: boolean; path?: boolean } = {}): { ok: true; preview: any } | null {
     if (this.full) return null;
+    // batch consistency: no status/offer commands toward a country we just declared war on
+    if ((cmd.type === 'proposeOffer' && this.declaredWar.has(cmd.to)) || (cmd.type === 'sendMessage' && cmd.to !== 'coalition' && this.declaredWar.has(cmd.to))) return null;
+    if (cmd.type === 'applyCoalition' && this.view.coalitions.find((x) => x.id === cmd.coalition)?.members.some((m) => this.declaredWar.has(m))) return null;
     if (opts.path) {
       if (this.pathLeft <= 0) return null;
       this.pathLeft--;
@@ -123,6 +129,7 @@ export class Turn {
     if (cost && !this.affordable(cost, opts.useReserve, false)) return null;
     if (cost) for (const r of RESOURCES) this.budget[r] -= cost[r] ?? 0;
     this.out.push(c);
+    if (c.type === 'declareWar') this.declaredWar.add(c.target);
     this.mem.counters[c.type] = (this.mem.counters[c.type] ?? 0) + 1;
     logDecision(this.me, { tick: this.now, layer, kind, detail: describe(c), reason, command: c.type });
     return { ok: true, preview: v.preview };
