@@ -6,10 +6,10 @@
   "reference": "USA",
   "summary": {
     "reference": "USA",
-    "composite": 110.29,
+    "composite": 118.34,
     "nearestRival": "CHN",
     "rivalComposite": 100,
-    "leadPct": 10.29,
+    "leadPct": 18.34,
     "rank": [
       "USA",
       "CHN",
@@ -25,8 +25,8 @@
       "TUR",
       "AUS",
       "CAN",
-      "ITA",
       "TWN",
+      "ITA",
       "IRN",
       "PAK",
       "ESP",
@@ -59,12 +59,12 @@
       "ARE",
       "COD",
       "IRQ",
+      "AUT",
       "MAR",
       "KEN",
-      "AUT",
       "MMR",
-      "PER",
       "SYR",
+      "PER",
       "KAZ",
       "AGO",
       "VEN",
@@ -74,21 +74,21 @@
       "OMN",
       "CZE",
       "LTU",
-      "PNG",
       "EST",
+      "PNG",
       "ROU",
       "LBY",
       "GEO",
       "NZL",
-      "BLR",
       "TZA",
+      "BLR",
       "LVA",
       "BEL",
       "IRL",
       "QAT",
       "AZE",
-      "HRV",
       "SDN",
+      "HRV",
       "TUN",
       "KWT",
       "HUN",
@@ -109,20 +109,20 @@
       "SVN",
       "CUB",
       "GHA",
+      "NPL",
       "CRI",
       "SVK",
+      "PRY",
       "BOL",
       "CIV",
-      "NPL",
       "DOM",
-      "PRY",
       "URY",
       "SEN",
       "ARM",
       "MDA",
       "KHM",
-      "GTM",
       "LAO",
+      "GTM",
       "TJK",
       "HND",
       "ALB",
@@ -152,13 +152,13 @@
     "researchBaseSlots": 2
   },
   "normalization": {
-    "industrial": 216677.05,
-    "formations": 284662.37,
-    "research": 570860,
+    "industrial": 216134.88,
+    "formations": 300871.65,
+    "research": 558260,
     "mobility": 796023.04,
     "resilience": 1
   },
-  "rescale": 100.00000000000001,
+  "rescale": 102.04814216045318,
   "referenceBasket": {
     "supplies": 3,
     "components": 6,
@@ -173,12 +173,12 @@
       "rank": 1,
       "id": "USA",
       "name": "United States",
-      "composite": 110.29,
+      "composite": 118.34,
       "raw": {
-        "industrial": 152974.84,
+        "industrial": 197725.87,
         "formations": 478523.06,
         "research": 832310,
-        "mobility": 455844.56,
+        "mobility": 537975.92,
         "resilience": 1
       },
       "template": "superpower"
@@ -189,9 +189,9 @@
       "name": "China",
       "composite": 100,
       "raw": {
-        "industrial": 216677.05,
-        "formations": 284662.37,
-        "research": 570860,
+        "industrial": 216134.88,
+        "formations": 276717.25,
+        "research": 558260,
         "mobility": 796023.04,
         "resilience": 1
       },
@@ -201,7 +201,7 @@
       "rank": 3,
       "id": "IND",
       "name": "India",
-      "composite": 61.74,
+      "composite": 62.76,
       "raw": {
         "industrial": 134364.85,
         "formations": 101705.42,
@@ -215,12 +215,12 @@
       "rank": 4,
       "id": "RUS",
       "name": "Russia",
-      "composite": 51.01,
+      "composite": 57.23,
       "raw": {
-        "industrial": 53990.1,
-        "formations": 242732.71,
+        "industrial": 62637.05,
+        "formations": 300871.65,
         "research": 294540,
-        "mobility": 124978.99,
+        "mobility": 130594.09,
         "resilience": 1
       },
       "template": "major_land_power"
@@ -229,9 +229,9 @@
       "rank": 5,
       "id": "JPN",
       "name": "Japan",
-      "composite": 36.51,
+      "composite": 37.06,
       "raw": {
-        "industrial": 48464.39,
+        "industrial": 48480.39,
         "formations": 91388.38,
         "research": 289630,
         "mobility": 109087.21,
@@ -243,9 +243,9 @@
       "rank": 6,
       "id": "FRA",
       "name": "France",
-      "composite": 35.37,
+      "composite": 35.97,
       "raw": {
-        "industrial": 35027.46,
+        "industrial": 35043.46,
         "formations": 81941.45,
         "research": 329830,
         "mobility": 102409.15,
@@ -257,9 +257,9 @@
       "rank": 7,
       "id": "GBR",
       "name": "United Kingdom",
-      "composite": 34.39,
+      "composite": 34.97,
       "raw": {
-        "industrial": 31359.5,
+        "industrial": 31375.5,
         "formations": 81098.95,
         "research": 318770,
         "mobility": 98657.74,
@@ -271,7 +271,7 @@
       "rank": 8,
       "id": "DEU",
       "name": "Germany",
-      "composite": 31.66,
+      "composite": 32.21,
       "raw": {
         "industrial": 48822.3,
         "formations": 61839.05,
@@ -285,7 +285,7 @@
       "rank": 9,
       "id": "KOR",
       "name": "South Korea",
-      "composite": 29.73,
+      "composite": 30.19,
       "raw": {
         "industrial": 32460.18,
         "formations": 72107.77,
@@ -299,7 +299,7 @@
       "rank": 10,
       "id": "BRA",
       "name": "Brazil",
-      "composite": 28.51,
+      "composite": 28.94,
       "raw": {
         "industrial": 47035.17,
         "formations": 55887.84,
@@ -313,9 +313,9 @@
       "rank": 11,
       "id": "IDN",
       "name": "Indonesia",
-      "composite": 26.53,
+      "composite": 26.96,
       "raw": {
-        "industrial": 45761.57,
+        "industrial": 45775.57,
         "formations": 42029.22,
         "research": 93300,
         "mobility": 170607,
@@ -327,7 +327,7 @@
       "rank": 12,
       "id": "TUR",
       "name": "Türkiye",
-      "composite": 25.84,
+      "composite": 26.13,
       "raw": {
         "industrial": 28561.61,
         "formations": 71359.62,
@@ -341,7 +341,7 @@
       "rank": 13,
       "id": "AUS",
       "name": "Australia",
-      "composite": 24.27,
+      "composite": 24.62,
       "raw": {
         "industrial": 32376.21,
         "formations": 54380,
@@ -355,7 +355,7 @@
       "rank": 14,
       "id": "CAN",
       "name": "Canada",
-      "composite": 23.46,
+      "composite": 23.85,
       "raw": {
         "industrial": 36128.05,
         "formations": 40272.89,
@@ -367,23 +367,9 @@
     },
     {
       "rank": 15,
-      "id": "ITA",
-      "name": "Italy",
-      "composite": 22.73,
-      "raw": {
-        "industrial": 28417.06,
-        "formations": 40164.44,
-        "research": 127440,
-        "mobility": 57875.71,
-        "resilience": 1
-      },
-      "template": "regional_industrial"
-    },
-    {
-      "rank": 16,
       "id": "TWN",
       "name": "Taiwan",
-      "composite": 22.69,
+      "composite": 23.12,
       "raw": {
         "industrial": 15047.63,
         "formations": 39670.23,
@@ -394,10 +380,24 @@
       "template": "frontier_state"
     },
     {
+      "rank": 16,
+      "id": "ITA",
+      "name": "Italy",
+      "composite": 23.11,
+      "raw": {
+        "industrial": 28417.06,
+        "formations": 40164.44,
+        "research": 127440,
+        "mobility": 57875.71,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
       "rank": 17,
       "id": "IRN",
       "name": "Iran",
-      "composite": 22.66,
+      "composite": 23.04,
       "raw": {
         "industrial": 20937.1,
         "formations": 42231.22,
@@ -411,7 +411,7 @@
       "rank": 18,
       "id": "PAK",
       "name": "Pakistan",
-      "composite": 22.11,
+      "composite": 22.47,
       "raw": {
         "industrial": 26088.67,
         "formations": 34134.01,
@@ -425,9 +425,9 @@
       "rank": 19,
       "id": "ESP",
       "name": "Spain",
-      "composite": 21.19,
+      "composite": 21.56,
       "raw": {
-        "industrial": 21792.8,
+        "industrial": 21822.8,
         "formations": 34809.59,
         "research": 124360,
         "mobility": 50107.57,
@@ -439,7 +439,7 @@
       "rank": 20,
       "id": "MEX",
       "name": "Mexico",
-      "composite": 20.56,
+      "composite": 20.89,
       "raw": {
         "industrial": 28972.93,
         "formations": 31490.26,
@@ -453,9 +453,9 @@
       "rank": 21,
       "id": "ISR",
       "name": "Israel",
-      "composite": 20.4,
+      "composite": 20.71,
       "raw": {
-        "industrial": 9144.02,
+        "industrial": 9149.1,
         "formations": 45838.69,
         "research": 135660,
         "mobility": 22579.12,
@@ -467,7 +467,7 @@
       "rank": 22,
       "id": "EGY",
       "name": "Egypt",
-      "composite": 20.22,
+      "composite": 20.48,
       "raw": {
         "industrial": 16492.77,
         "formations": 44035.42,
@@ -481,7 +481,7 @@
       "rank": 23,
       "id": "POL",
       "name": "Poland",
-      "composite": 19.94,
+      "composite": 20.29,
       "raw": {
         "industrial": 15725.27,
         "formations": 34603.67,
@@ -495,7 +495,7 @@
       "rank": 24,
       "id": "NLD",
       "name": "Netherlands",
-      "composite": 19.85,
+      "composite": 20.25,
       "raw": {
         "industrial": 11050.55,
         "formations": 27854.53,
@@ -509,7 +509,7 @@
       "rank": 25,
       "id": "NGA",
       "name": "Nigeria",
-      "composite": 19.76,
+      "composite": 20.11,
       "raw": {
         "industrial": 26041.12,
         "formations": 22071.51,
@@ -523,7 +523,7 @@
       "rank": 26,
       "id": "ZAF",
       "name": "South Africa",
-      "composite": 18.32,
+      "composite": 18.61,
       "raw": {
         "industrial": 17189.43,
         "formations": 28434.1,
@@ -537,7 +537,7 @@
       "rank": 27,
       "id": "SAU",
       "name": "Saudi Arabia",
-      "composite": 18.1,
+      "composite": 18.33,
       "raw": {
         "industrial": 11247.67,
         "formations": 40722.95,
@@ -551,7 +551,7 @@
       "rank": 28,
       "id": "UKR",
       "name": "Ukraine",
-      "composite": 17.84,
+      "composite": 18.08,
       "raw": {
         "industrial": 12983.15,
         "formations": 36692.44,
@@ -565,7 +565,7 @@
       "rank": 29,
       "id": "VNM",
       "name": "Vietnam",
-      "composite": 17.75,
+      "composite": 18.02,
       "raw": {
         "industrial": 17092.35,
         "formations": 27738.08,
@@ -579,9 +579,9 @@
       "rank": 30,
       "id": "SWE",
       "name": "Sweden",
-      "composite": 17.63,
+      "composite": 18,
       "raw": {
-        "industrial": 11563.09,
+        "industrial": 11577.09,
         "formations": 18339.5,
         "research": 114500,
         "mobility": 26803.81,
@@ -593,7 +593,7 @@
       "rank": 31,
       "id": "GRC",
       "name": "Greece",
-      "composite": 17.28,
+      "composite": 17.49,
       "raw": {
         "industrial": 5468.69,
         "formations": 41243.25,
@@ -607,7 +607,7 @@
       "rank": 32,
       "id": "PHL",
       "name": "Philippines",
-      "composite": 17.16,
+      "composite": 17.44,
       "raw": {
         "industrial": 15221.32,
         "formations": 22704.52,
@@ -621,7 +621,7 @@
       "rank": 33,
       "id": "BGD",
       "name": "Bangladesh",
-      "composite": 16.74,
+      "composite": 17.07,
       "raw": {
         "industrial": 18093.34,
         "formations": 9808.34,
@@ -635,7 +635,7 @@
       "rank": 34,
       "id": "SGP",
       "name": "Singapore",
-      "composite": 16.3,
+      "composite": 16.59,
       "raw": {
         "industrial": 3565.75,
         "formations": 24877.5,
@@ -649,9 +649,9 @@
       "rank": 35,
       "id": "PRK",
       "name": "North Korea",
-      "composite": 16.2,
+      "composite": 16.49,
       "raw": {
-        "industrial": 3788.62,
+        "industrial": 3825.62,
         "formations": 23819.33,
         "research": 84880,
         "mobility": 27829.15,
@@ -663,7 +663,7 @@
       "rank": 36,
       "id": "CHE",
       "name": "Switzerland",
-      "composite": 16.07,
+      "composite": 16.4,
       "raw": {
         "industrial": 9629.16,
         "formations": 15055.99,
@@ -677,7 +677,7 @@
       "rank": 37,
       "id": "ARG",
       "name": "Argentina",
-      "composite": 15.95,
+      "composite": 16.21,
       "raw": {
         "industrial": 16352.78,
         "formations": 20520.9,
@@ -691,7 +691,7 @@
       "rank": 38,
       "id": "THA",
       "name": "Thailand",
-      "composite": 15.93,
+      "composite": 16.19,
       "raw": {
         "industrial": 12231.01,
         "formations": 21352.55,
@@ -705,7 +705,7 @@
       "rank": 39,
       "id": "DZA",
       "name": "Algeria",
-      "composite": 15.74,
+      "composite": 16.02,
       "raw": {
         "industrial": 11154.47,
         "formations": 19100.16,
@@ -719,7 +719,7 @@
       "rank": 40,
       "id": "MYS",
       "name": "Malaysia",
-      "composite": 15.72,
+      "composite": 15.97,
       "raw": {
         "industrial": 14087.09,
         "formations": 22708.18,
@@ -733,7 +733,7 @@
       "rank": 41,
       "id": "COL",
       "name": "Colombia",
-      "composite": 15.36,
+      "composite": 15.63,
       "raw": {
         "industrial": 12601.15,
         "formations": 15891.98,
@@ -747,9 +747,9 @@
       "rank": 42,
       "id": "CHL",
       "name": "Chile",
-      "composite": 15.32,
+      "composite": 15.58,
       "raw": {
-        "industrial": 11419.27,
+        "industrial": 11433.27,
         "formations": 20274.42,
         "research": 45340,
         "mobility": 25406.55,
@@ -761,7 +761,7 @@
       "rank": 43,
       "id": "FIN",
       "name": "Finland",
-      "composite": 15.19,
+      "composite": 15.46,
       "raw": {
         "industrial": 6194.03,
         "formations": 20767.25,
@@ -775,9 +775,9 @@
       "rank": 44,
       "id": "NOR",
       "name": "Norway",
-      "composite": 15.11,
+      "composite": 15.38,
       "raw": {
-        "industrial": 9385.28,
+        "industrial": 9399.28,
         "formations": 18818.64,
         "research": 53820,
         "mobility": 19619.01,
@@ -789,7 +789,7 @@
       "rank": 45,
       "id": "ETH",
       "name": "Ethiopia",
-      "composite": 15.02,
+      "composite": 15.32,
       "raw": {
         "industrial": 11970.08,
         "formations": 8828.53,
@@ -803,7 +803,7 @@
       "rank": 46,
       "id": "ARE",
       "name": "United Arab Emirates",
-      "composite": 14.8,
+      "composite": 15.05,
       "raw": {
         "industrial": 6617.59,
         "formations": 19479.04,
@@ -817,7 +817,7 @@
       "rank": 47,
       "id": "COD",
       "name": "Democratic Republic of the Congo",
-      "composite": 14.71,
+      "composite": 15,
       "raw": {
         "industrial": 14853.49,
         "formations": 6447.31,
@@ -831,7 +831,7 @@
       "rank": 48,
       "id": "IRQ",
       "name": "Iraq",
-      "composite": 14.58,
+      "composite": 14.86,
       "raw": {
         "industrial": 8812.41,
         "formations": 12036.65,
@@ -843,37 +843,9 @@
     },
     {
       "rank": 49,
-      "id": "MAR",
-      "name": "Morocco",
-      "composite": 14.43,
-      "raw": {
-        "industrial": 9492.9,
-        "formations": 12401.58,
-        "research": 40540,
-        "mobility": 32858.22,
-        "resilience": 1
-      },
-      "template": "medium_balanced"
-    },
-    {
-      "rank": 50,
-      "id": "KEN",
-      "name": "Kenya",
-      "composite": 14.41,
-      "raw": {
-        "industrial": 7876.37,
-        "formations": 13631.34,
-        "research": 36780,
-        "mobility": 40581.81,
-        "resilience": 1
-      },
-      "template": "medium_balanced"
-    },
-    {
-      "rank": 51,
       "id": "AUT",
       "name": "Austria",
-      "composite": 14.4,
+      "composite": 14.75,
       "raw": {
         "industrial": 7231.34,
         "formations": 4274.48,
@@ -884,10 +856,38 @@
       "template": "landlocked_highland"
     },
     {
+      "rank": 50,
+      "id": "MAR",
+      "name": "Morocco",
+      "composite": 14.7,
+      "raw": {
+        "industrial": 9492.9,
+        "formations": 12401.58,
+        "research": 40540,
+        "mobility": 32858.22,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 51,
+      "id": "KEN",
+      "name": "Kenya",
+      "composite": 14.68,
+      "raw": {
+        "industrial": 7876.37,
+        "formations": 13631.34,
+        "research": 36780,
+        "mobility": 40581.81,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
       "rank": 52,
       "id": "MMR",
       "name": "Myanmar",
-      "composite": 14.32,
+      "composite": 14.59,
       "raw": {
         "industrial": 8962.16,
         "formations": 11468.47,
@@ -899,23 +899,9 @@
     },
     {
       "rank": 53,
-      "id": "PER",
-      "name": "Peru",
-      "composite": 14.23,
-      "raw": {
-        "industrial": 8624.08,
-        "formations": 13463.01,
-        "research": 36780,
-        "mobility": 30257.19,
-        "resilience": 1
-      },
-      "template": "medium_balanced"
-    },
-    {
-      "rank": 54,
       "id": "SYR",
       "name": "Syria",
-      "composite": 14.21,
+      "composite": 14.49,
       "raw": {
         "industrial": 3461.12,
         "formations": 12453.71,
@@ -926,10 +912,24 @@
       "template": "frontier_state"
     },
     {
+      "rank": 54,
+      "id": "PER",
+      "name": "Peru",
+      "composite": 14.48,
+      "raw": {
+        "industrial": 8624.08,
+        "formations": 13463.01,
+        "research": 36780,
+        "mobility": 30257.19,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
       "rank": 55,
       "id": "KAZ",
       "name": "Kazakhstan",
-      "composite": 14.19,
+      "composite": 14.47,
       "raw": {
         "industrial": 9952.78,
         "formations": 10272.89,
@@ -943,7 +943,7 @@
       "rank": 56,
       "id": "AGO",
       "name": "Angola",
-      "composite": 13.98,
+      "composite": 14.25,
       "raw": {
         "industrial": 6636.72,
         "formations": 9581.82,
@@ -957,7 +957,7 @@
       "rank": 57,
       "id": "VEN",
       "name": "Venezuela",
-      "composite": 13.95,
+      "composite": 14.23,
       "raw": {
         "industrial": 7684.61,
         "formations": 8542.75,
@@ -971,7 +971,7 @@
       "rank": 58,
       "id": "UZB",
       "name": "Uzbekistan",
-      "composite": 13.62,
+      "composite": 13.89,
       "raw": {
         "industrial": 7783.53,
         "formations": 8511.67,
@@ -985,7 +985,7 @@
       "rank": 59,
       "id": "DNK",
       "name": "Denmark",
-      "composite": 13.6,
+      "composite": 13.85,
       "raw": {
         "industrial": 6618.06,
         "formations": 13036.45,
@@ -999,7 +999,7 @@
       "rank": 60,
       "id": "PRT",
       "name": "Portugal",
-      "composite": 13.59,
+      "composite": 13.84,
       "raw": {
         "industrial": 3929.48,
         "formations": 13036.45,
@@ -1013,7 +1013,7 @@
       "rank": 61,
       "id": "OMN",
       "name": "Oman",
-      "composite": 13.51,
+      "composite": 13.76,
       "raw": {
         "industrial": 3019.47,
         "formations": 13521.62,
@@ -1027,7 +1027,7 @@
       "rank": 62,
       "id": "CZE",
       "name": "Czechia",
-      "composite": 13.45,
+      "composite": 13.72,
       "raw": {
         "industrial": 8113.59,
         "formations": 8025.19,
@@ -1041,7 +1041,7 @@
       "rank": 63,
       "id": "LTU",
       "name": "Lithuania",
-      "composite": 13.43,
+      "composite": 13.71,
       "raw": {
         "industrial": 2118.65,
         "formations": 8114,
@@ -1053,23 +1053,9 @@
     },
     {
       "rank": 64,
-      "id": "PNG",
-      "name": "Papua New Guinea",
-      "composite": 13.43,
-      "raw": {
-        "industrial": 4885.76,
-        "formations": 9353.89,
-        "research": 39320,
-        "mobility": 26444.73,
-        "resilience": 1
-      },
-      "template": "archipelago"
-    },
-    {
-      "rank": 65,
       "id": "EST",
       "name": "Estonia",
-      "composite": 13.42,
+      "composite": 13.7,
       "raw": {
         "industrial": 2283.01,
         "formations": 8114,
@@ -1080,10 +1066,24 @@
       "template": "frontier_state"
     },
     {
+      "rank": 65,
+      "id": "PNG",
+      "name": "Papua New Guinea",
+      "composite": 13.69,
+      "raw": {
+        "industrial": 4885.76,
+        "formations": 9353.89,
+        "research": 39320,
+        "mobility": 26444.73,
+        "resilience": 1
+      },
+      "template": "archipelago"
+    },
+    {
       "rank": 66,
       "id": "ROU",
       "name": "Romania",
-      "composite": 13.36,
+      "composite": 13.63,
       "raw": {
         "industrial": 6404.6,
         "formations": 8604.8,
@@ -1097,7 +1097,7 @@
       "rank": 67,
       "id": "LBY",
       "name": "Libya",
-      "composite": 13.33,
+      "composite": 13.6,
       "raw": {
         "industrial": 4318.08,
         "formations": 9581.82,
@@ -1111,9 +1111,9 @@
       "rank": 68,
       "id": "GEO",
       "name": "Georgia",
-      "composite": 13.29,
+      "composite": 13.58,
       "raw": {
-        "industrial": 1612.31,
+        "industrial": 1649.31,
         "formations": 7286.92,
         "research": 58620,
         "mobility": 16197.79,
@@ -1125,7 +1125,7 @@
       "rank": 69,
       "id": "NZL",
       "name": "New Zealand",
-      "composite": 13.25,
+      "composite": 13.51,
       "raw": {
         "industrial": 6544.78,
         "formations": 8635.38,
@@ -1137,23 +1137,9 @@
     },
     {
       "rank": 70,
-      "id": "BLR",
-      "name": "Belarus",
-      "composite": 13.22,
-      "raw": {
-        "industrial": 5242.36,
-        "formations": 8450.18,
-        "research": 40020,
-        "mobility": 18638.28,
-        "resilience": 1
-      },
-      "template": "landlocked_plains"
-    },
-    {
-      "rank": 71,
       "id": "TZA",
       "name": "Tanzania",
-      "composite": 13.21,
+      "composite": 13.5,
       "raw": {
         "industrial": 9472.88,
         "formations": 2013.3,
@@ -1164,10 +1150,24 @@
       "template": "small_agrarian"
     },
     {
+      "rank": 71,
+      "id": "BLR",
+      "name": "Belarus",
+      "composite": 13.48,
+      "raw": {
+        "industrial": 5242.36,
+        "formations": 8450.18,
+        "research": 40020,
+        "mobility": 18638.28,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
       "rank": 72,
       "id": "LVA",
       "name": "Latvia",
-      "composite": 13.15,
+      "composite": 13.43,
       "raw": {
         "industrial": 1540.88,
         "formations": 5828,
@@ -1181,7 +1181,7 @@
       "rank": 73,
       "id": "BEL",
       "name": "Belgium",
-      "composite": 13.1,
+      "composite": 13.37,
       "raw": {
         "industrial": 6831.25,
         "formations": 6283.6,
@@ -1195,7 +1195,7 @@
       "rank": 74,
       "id": "IRL",
       "name": "Ireland",
-      "composite": 13.06,
+      "composite": 13.32,
       "raw": {
         "industrial": 5272.34,
         "formations": 8973.75,
@@ -1209,7 +1209,7 @@
       "rank": 75,
       "id": "QAT",
       "name": "Qatar",
-      "composite": 13.04,
+      "composite": 13.31,
       "raw": {
         "industrial": 4058.06,
         "formations": 7228.3,
@@ -1223,7 +1223,7 @@
       "rank": 76,
       "id": "AZE",
       "name": "Azerbaijan",
-      "composite": 12.97,
+      "composite": 13.24,
       "raw": {
         "industrial": 3555.09,
         "formations": 7116.58,
@@ -1235,23 +1235,9 @@
     },
     {
       "rank": 77,
-      "id": "HRV",
-      "name": "Croatia",
-      "composite": 12.97,
-      "raw": {
-        "industrial": 2891.09,
-        "formations": 11288.95,
-        "research": 36780,
-        "mobility": 14031.99,
-        "resilience": 1
-      },
-      "template": "medium_balanced"
-    },
-    {
-      "rank": 78,
       "id": "SDN",
       "name": "Sudan",
-      "composite": 12.96,
+      "composite": 13.23,
       "raw": {
         "industrial": 7677.44,
         "formations": 4179.48,
@@ -1262,10 +1248,24 @@
       "template": "small_agrarian"
     },
     {
+      "rank": 78,
+      "id": "HRV",
+      "name": "Croatia",
+      "composite": 13.21,
+      "raw": {
+        "industrial": 2891.09,
+        "formations": 11288.95,
+        "research": 36780,
+        "mobility": 14031.99,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
       "rank": 79,
       "id": "TUN",
       "name": "Tunisia",
-      "composite": 12.96,
+      "composite": 13.21,
       "raw": {
         "industrial": 3235.62,
         "formations": 9541.45,
@@ -1279,7 +1279,7 @@
       "rank": 80,
       "id": "KWT",
       "name": "Kuwait",
-      "composite": 12.94,
+      "composite": 13.2,
       "raw": {
         "industrial": 2874.49,
         "formations": 7228.3,
@@ -1293,7 +1293,7 @@
       "rank": 81,
       "id": "HUN",
       "name": "Hungary",
-      "composite": 12.72,
+      "composite": 12.99,
       "raw": {
         "industrial": 6565.72,
         "formations": 4145.31,
@@ -1307,7 +1307,7 @@
       "rank": 82,
       "id": "AFG",
       "name": "Afghanistan",
-      "composite": 12.64,
+      "composite": 12.9,
       "raw": {
         "industrial": 5554.5,
         "formations": 3683.75,
@@ -1321,7 +1321,7 @@
       "rank": 83,
       "id": "BGR",
       "name": "Bulgaria",
-      "composite": 12.59,
+      "composite": 12.84,
       "raw": {
         "industrial": 3144.04,
         "formations": 6283.6,
@@ -1335,7 +1335,7 @@
       "rank": 84,
       "id": "PAN",
       "name": "Panama",
-      "composite": 12.53,
+      "composite": 12.79,
       "raw": {
         "industrial": 3228.71,
         "formations": 5859.72,
@@ -1349,7 +1349,7 @@
       "rank": 85,
       "id": "MOZ",
       "name": "Mozambique",
-      "composite": 12.51,
+      "composite": 12.77,
       "raw": {
         "industrial": 6182.14,
         "formations": 3163.34,
@@ -1363,7 +1363,7 @@
       "rank": 86,
       "id": "YEM",
       "name": "Yemen",
-      "composite": 12.5,
+      "composite": 12.76,
       "raw": {
         "industrial": 5730.42,
         "formations": 3533.21,
@@ -1377,7 +1377,7 @@
       "rank": 87,
       "id": "JOR",
       "name": "Jordan",
-      "composite": 12.49,
+      "composite": 12.75,
       "raw": {
         "industrial": 2778.37,
         "formations": 4854.78,
@@ -1391,7 +1391,7 @@
       "rank": 88,
       "id": "SRB",
       "name": "Serbia",
-      "composite": 12.41,
+      "composite": 12.67,
       "raw": {
         "industrial": 3899.5,
         "formations": 4113.14,
@@ -1405,7 +1405,7 @@
       "rank": 89,
       "id": "LKA",
       "name": "Sri Lanka",
-      "composite": 12.38,
+      "composite": 12.65,
       "raw": {
         "industrial": 3709.81,
         "formations": 2499.89,
@@ -1419,7 +1419,7 @@
       "rank": 90,
       "id": "MNG",
       "name": "Mongolia",
-      "composite": 12.27,
+      "composite": 12.54,
       "raw": {
         "industrial": 4494.93,
         "formations": 2627.44,
@@ -1433,7 +1433,7 @@
       "rank": 91,
       "id": "CMR",
       "name": "Cameroon",
-      "composite": 12.26,
+      "composite": 12.52,
       "raw": {
         "industrial": 5441.52,
         "formations": 1883.04,
@@ -1447,7 +1447,7 @@
       "rank": 92,
       "id": "ECU",
       "name": "Ecuador",
-      "composite": 12.25,
+      "composite": 12.52,
       "raw": {
         "industrial": 5273.58,
         "formations": 2013.3,
@@ -1461,7 +1461,7 @@
       "rank": 93,
       "id": "BHR",
       "name": "Bahrain",
-      "composite": 12.24,
+      "composite": 12.5,
       "raw": {
         "industrial": 1261.69,
         "formations": 5859.72,
@@ -1475,7 +1475,7 @@
       "rank": 94,
       "id": "LBN",
       "name": "Lebanon",
-      "composite": 12.23,
+      "composite": 12.49,
       "raw": {
         "industrial": 1924.15,
         "formations": 3882.75,
@@ -1489,7 +1489,7 @@
       "rank": 95,
       "id": "TKM",
       "name": "Turkmenistan",
-      "composite": 12.22,
+      "composite": 12.48,
       "raw": {
         "industrial": 2820.61,
         "formations": 3841.41,
@@ -1503,7 +1503,7 @@
       "rank": 96,
       "id": "SVN",
       "name": "Slovenia",
-      "composite": 12.2,
+      "composite": 12.46,
       "raw": {
         "industrial": 2251.03,
         "formations": 3882.75,
@@ -1517,7 +1517,7 @@
       "rank": 97,
       "id": "CUB",
       "name": "Cuba",
-      "composite": 12.18,
+      "composite": 12.45,
       "raw": {
         "industrial": 2467.08,
         "formations": 2224.31,
@@ -1531,7 +1531,7 @@
       "rank": 98,
       "id": "GHA",
       "name": "Ghana",
-      "composite": 12.17,
+      "composite": 12.44,
       "raw": {
         "industrial": 5058.24,
         "formations": 753.98,
@@ -1543,9 +1543,23 @@
     },
     {
       "rank": 99,
+      "id": "NPL",
+      "name": "Nepal",
+      "composite": 12.43,
+      "raw": {
+        "industrial": 3821.51,
+        "formations": 2099.13,
+        "research": 27300,
+        "mobility": 23379.95,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 100,
       "id": "CRI",
       "name": "Costa Rica",
-      "composite": 12.14,
+      "composite": 12.4,
       "raw": {
         "industrial": 1732.71,
         "formations": 3528,
@@ -1556,10 +1570,10 @@
       "template": "small_trade_hub"
     },
     {
-      "rank": 100,
+      "rank": 101,
       "id": "SVK",
       "name": "Slovakia",
-      "composite": 12.11,
+      "composite": 12.38,
       "raw": {
         "industrial": 2855.35,
         "formations": 2936.76,
@@ -1570,10 +1584,24 @@
       "template": "landlocked_plains"
     },
     {
-      "rank": 101,
+      "rank": 102,
+      "id": "PRY",
+      "name": "Paraguay",
+      "composite": 12.36,
+      "raw": {
+        "industrial": 2642.68,
+        "formations": 2805.7,
+        "research": 33300,
+        "mobility": 15201.42,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 103,
       "id": "BOL",
       "name": "Bolivia",
-      "composite": 12.08,
+      "composite": 12.34,
       "raw": {
         "industrial": 4868.9,
         "formations": 2099.13,
@@ -1584,10 +1612,10 @@
       "template": "landlocked_highland"
     },
     {
-      "rank": 102,
+      "rank": 104,
       "id": "CIV",
       "name": "Côte d’Ivoire",
-      "composite": 12.07,
+      "composite": 12.33,
       "raw": {
         "industrial": 4745.29,
         "formations": 718.08,
@@ -1598,24 +1626,10 @@
       "template": "small_agrarian"
     },
     {
-      "rank": 103,
-      "id": "NPL",
-      "name": "Nepal",
-      "composite": 12.06,
-      "raw": {
-        "industrial": 3866.51,
-        "formations": 787.34,
-        "research": 27300,
-        "mobility": 23379.95,
-        "resilience": 1
-      },
-      "template": "landlocked_highland"
-    },
-    {
-      "rank": 104,
+      "rank": 105,
       "id": "DOM",
       "name": "Dominican Republic",
-      "composite": 12,
+      "composite": 12.27,
       "raw": {
         "industrial": 3106.62,
         "formations": 787.34,
@@ -1626,24 +1640,10 @@
       "template": "island_state"
     },
     {
-      "rank": 105,
-      "id": "PRY",
-      "name": "Paraguay",
-      "composite": 11.99,
-      "raw": {
-        "industrial": 2687.68,
-        "formations": 1441.44,
-        "research": 33300,
-        "mobility": 15201.42,
-        "resilience": 1
-      },
-      "template": "landlocked_plains"
-    },
-    {
       "rank": 106,
       "id": "URY",
       "name": "Uruguay",
-      "composite": 11.98,
+      "composite": 12.25,
       "raw": {
         "industrial": 1942.55,
         "formations": 1570.8,
@@ -1657,7 +1657,7 @@
       "rank": 107,
       "id": "SEN",
       "name": "Senegal",
-      "composite": 11.94,
+      "composite": 12.21,
       "raw": {
         "industrial": 4779.16,
         "formations": 718.08,
@@ -1671,7 +1671,7 @@
       "rank": 108,
       "id": "ARM",
       "name": "Armenia",
-      "composite": 11.84,
+      "composite": 12.09,
       "raw": {
         "industrial": 1981.03,
         "formations": 3538.28,
@@ -1685,7 +1685,7 @@
       "rank": 109,
       "id": "MDA",
       "name": "Moldova",
-      "composite": 11.77,
+      "composite": 12.03,
       "raw": {
         "industrial": 1078.98,
         "formations": 1852.5,
@@ -1699,7 +1699,7 @@
       "rank": 110,
       "id": "KHM",
       "name": "Cambodia",
-      "composite": 11.73,
+      "composite": 11.99,
       "raw": {
         "industrial": 3273.14,
         "formations": 646.27,
@@ -1711,9 +1711,23 @@
     },
     {
       "rank": 111,
+      "id": "LAO",
+      "name": "Laos",
+      "composite": 11.99,
+      "raw": {
+        "industrial": 2959.87,
+        "formations": 1751.97,
+        "research": 27300,
+        "mobility": 11308.94,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 112,
       "id": "GTM",
       "name": "Guatemala",
-      "composite": 11.72,
+      "composite": 11.97,
       "raw": {
         "industrial": 2964.13,
         "formations": 753.98,
@@ -1724,24 +1738,10 @@
       "template": "small_agrarian"
     },
     {
-      "rank": 112,
-      "id": "LAO",
-      "name": "Laos",
-      "composite": 11.65,
-      "raw": {
-        "industrial": 3004.87,
-        "formations": 674.87,
-        "research": 27300,
-        "mobility": 11308.94,
-        "resilience": 1
-      },
-      "template": "landlocked_highland"
-    },
-    {
       "rank": 113,
       "id": "TJK",
       "name": "Tajikistan",
-      "composite": 11.63,
+      "composite": 11.88,
       "raw": {
         "industrial": 2548.73,
         "formations": 674.87,
@@ -1755,7 +1755,7 @@
       "rank": 114,
       "id": "HND",
       "name": "Honduras",
-      "composite": 11.6,
+      "composite": 11.85,
       "raw": {
         "industrial": 2466.11,
         "formations": 753.98,
@@ -1769,7 +1769,7 @@
       "rank": 115,
       "id": "ALB",
       "name": "Albania",
-      "composite": 11.52,
+      "composite": 11.77,
       "raw": {
         "industrial": 1836.37,
         "formations": 718.08,
@@ -1783,7 +1783,7 @@
       "rank": 116,
       "id": "KGZ",
       "name": "Kyrgyzstan",
-      "composite": 11.51,
+      "composite": 11.77,
       "raw": {
         "industrial": 1840.02,
         "formations": 674.87,
@@ -1797,7 +1797,7 @@
       "rank": 117,
       "id": "SLV",
       "name": "El Salvador",
-      "composite": 11.42,
+      "composite": 11.67,
       "raw": {
         "industrial": 1725.69,
         "formations": 753.98,
@@ -1811,7 +1811,7 @@
       "rank": 118,
       "id": "BIH",
       "name": "Bosnia and Herzegovina",
-      "composite": 11.4,
+      "composite": 11.65,
       "raw": {
         "industrial": 1875.16,
         "formations": 718.08,
@@ -1825,7 +1825,7 @@
       "rank": 119,
       "id": "NIC",
       "name": "Nicaragua",
-      "composite": 11.39,
+      "composite": 11.64,
       "raw": {
         "industrial": 1433.74,
         "formations": 646.27,
@@ -1839,7 +1839,7 @@
       "rank": 120,
       "id": "GUY",
       "name": "Guyana",
-      "composite": 11.33,
+      "composite": 11.57,
       "raw": {
         "industrial": 1253,
         "formations": 753.98,
@@ -1853,11 +1853,11 @@
   "crossChecks": [
     {
       "semantics": "engine",
-      "usComposite": 110.29,
+      "usComposite": 118.34,
       "top10": [
         {
           "id": "USA",
-          "composite": 110.29
+          "composite": 118.34
         },
         {
           "id": "CHN",
@@ -1865,45 +1865,45 @@
         },
         {
           "id": "IND",
-          "composite": 61.74
+          "composite": 62.76
         },
         {
           "id": "RUS",
-          "composite": 51.01
+          "composite": 57.23
         },
         {
           "id": "JPN",
-          "composite": 36.51
+          "composite": 37.06
         },
         {
           "id": "FRA",
-          "composite": 35.37
+          "composite": 35.97
         },
         {
           "id": "GBR",
-          "composite": 34.39
+          "composite": 34.97
         },
         {
           "id": "DEU",
-          "composite": 31.66
+          "composite": 32.21
         },
         {
           "id": "KOR",
-          "composite": 29.73
+          "composite": 30.19
         },
         {
           "id": "BRA",
-          "composite": 28.51
+          "composite": 28.94
         }
       ]
     },
     {
       "semantics": "catalog",
-      "usComposite": 114.37,
+      "usComposite": 116.73,
       "top10": [
         {
           "id": "USA",
-          "composite": 114.37
+          "composite": 116.73
         },
         {
           "id": "CHN",
@@ -1911,35 +1911,35 @@
         },
         {
           "id": "IND",
-          "composite": 69.29
+          "composite": 68.52
         },
         {
           "id": "RUS",
-          "composite": 55.18
+          "composite": 59.04
         },
         {
           "id": "FRA",
-          "composite": 41.97
+          "composite": 40.06
         },
         {
           "id": "JPN",
-          "composite": 41.23
+          "composite": 39.71
         },
         {
           "id": "GBR",
-          "composite": 40.55
+          "composite": 38.74
         },
         {
           "id": "DEU",
-          "composite": 34.12
+          "composite": 32.98
         },
         {
           "id": "BRA",
-          "composite": 32.63
+          "composite": 31.97
         },
         {
           "id": "KOR",
-          "composite": 32.41
+          "composite": 31.21
         }
       ]
     }

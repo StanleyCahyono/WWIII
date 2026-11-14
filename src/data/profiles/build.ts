@@ -217,7 +217,10 @@ function recipeForces(spec: CountrySpec, tpl: TemplateDef, cities: CityWork[], p
   const F = spec.air ?? Math.round(tpl.airPerTier * T);
   if (F > 0) {
     const nStrike = has('avi_strike_fighter') ? Math.round(F * 0.4) : 0;
-    const airCities = cities.filter((c) => c.tier >= 2).slice(0, 2);
+    const airCities = cities
+      .filter((c) => c.tier >= 2)
+      .sort((a, b) => Number(b.def.capital) - Number(a.def.capital) || (b.b.get('air_base') ?? 0) - (a.b.get('air_base') ?? 0) || b.tier - a.tier || (a.def.key < b.def.key ? -1 : 1))
+      .slice(0, 2);
     const bases = airCities.length ? airCities : cities.slice(0, 1);
     place('ftr_air_superiority', F - nStrike, bases, 4, r);
     place('ftr_strike', nStrike, bases, 4, r);
@@ -275,7 +278,10 @@ export function buildProfile(spec: CountrySpec): BuildResult {
   });
   cities.sort((a, b) => Number(b.def.capital) - Number(a.def.capital) || b.tier - a.tier || b.def.population - a.def.population || (a.def.key < b.def.key ? -1 : 1));
   const bySlug = new Map(cities.map((c) => [c.slug, c]));
-  const ports = cities.filter((c) => c.def.port && !landlocked).sort((a, b) => b.tier - a.tier || b.def.population - a.def.population || (a.def.key < b.def.key ? -1 : 1));
+  // Recipe fleets go to the strongest naval bases first, then the largest ports.
+  const ports = cities
+    .filter((c) => c.def.port && !landlocked)
+    .sort((a, b) => (b.b.get('naval_base') ?? 0) - (a.b.get('naval_base') ?? 0) || b.tier - a.tier || b.def.population - a.def.population || (a.def.key < b.def.key ? -1 : 1));
 
   // 3a. tech seeds (before forces so the recipe can see them)
   const licensedSeeds = new Set(spec.licensed ?? []);

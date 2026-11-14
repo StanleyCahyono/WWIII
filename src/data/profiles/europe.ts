@@ -10,7 +10,7 @@ export const EUROPE: CountrySpec[] = [
     difficulty: 'easy',
     summary:
       'The strongest land-force opening on the map: tank armies around Moscow, Rostov and Volgograd, heavy artillery and air defence, energy and rare-material depth in Siberia, and four separate fleets that cannot easily reinforce each other.',
-    intensity: 0.95,
+    intensity: 1.2,
     lift: 8,
     techs: ['land_airmobile', 'land_marines', 'nav_cruiser', 'sup_theatre_defense', 'ind_extraction_1', 'str_missile_complex'],
     cities: {
@@ -47,6 +47,10 @@ export const EUROPE: CountrySpec[] = [
       ['arm_tank_destroyer', 3, 'volgograd', '27th Anti-Armour Brigade'],
       ['arm_mbt', 3, 'yekaterinburg', '90th Guards Tank Division'],
       ['arm_mbt', 3, 'khabarovsk', '5th Eastern Tank Division'],
+      ['arm_mbt', 3, 'saint-petersburg', '2nd Guards Tank Division'],
+      ['arm_mbt', 3, 'kaliningrad', '11th Tank Regiment Group'],
+      ['inf_mechanized', 3, 'volgograd', '19th Motor Rifle Division'],
+      ['inf_mechanized', 3, 'khabarovsk', '35th Motor Rifle Division'],
       ['inf_mechanized', 3, 'saint-petersburg', '6th Army Motor Rifle Division'],
       ['inf_mechanized', 3, 'krasnodar', '58th Motor Rifle Division'],
       ['inf_mechanized', 3, 'novosibirsk', '41st Army Motor Rifle Division'],
@@ -69,6 +73,7 @@ export const EUROPE: CountrySpec[] = [
       ['sup_sam', 3, 'moscow', '1st Air Defence Army'],
       ['sup_sam', 2, 'saint-petersburg', '2nd Air Defence Division'],
       ['sup_sam', 2, 'vladivostok', '93rd Air Defence Division'],
+      ['sup_sam', 3, 'rostov-on-don', '4th Air Defence Division'],
       ['sup_theatre_defense', 1, 'moscow', 'Capital Theatre Defence Battery'],
       ['heli_attack', 2, 'rostov-on-don', '55th Attack Helicopter Regiment'],
       ['heli_attack', 2, 'moscow', '344th Attack Helicopter Regiment'],
@@ -77,10 +82,14 @@ export const EUROPE: CountrySpec[] = [
       ['ftr_air_superiority', 4, 'khabarovsk', '11th Fighter Division'],
       ['ftr_strike', 4, 'krasnodar', '4th Strike Aviation Division'],
       ['ftr_strike', 4, 'novosibirsk', '14th Strike Aviation Division'],
+      ['ftr_air_superiority', 4, 'rostov-on-don', '3rd Fighter Division'],
+      ['ftr_air_superiority', 4, 'kaliningrad', '7th Fighter Division'],
       ['hvy_bomber', 4, 'samara', '22nd Heavy Bomber Division'],
+      ['hvy_bomber', 2, 'irkutsk', '326th Heavy Bomber Division'],
       ['nav_cruiser', 2, 'murmansk', 'Northern Fleet Cruiser Squadron'],
       ['nav_destroyer', 2, 'murmansk', 'Northern Fleet Destroyer Squadron'],
       ['nav_destroyer', 2, 'vladivostok', 'Pacific Fleet Destroyer Squadron'],
+      ['nav_destroyer', 2, 'sevastopol', 'Black Sea Destroyer Squadron'],
       ['nav_frigate', 2, 'sevastopol', 'Black Sea Frigate Squadron'],
       ['nav_frigate', 2, 'novorossiysk', 'Novorossiysk Frigate Squadron'],
       ['nav_frigate', 2, 'kaliningrad', 'Baltic Frigate Squadron'],
@@ -90,6 +99,7 @@ export const EUROPE: CountrySpec[] = [
       ['sub_attack', 4, 'murmansk', 'Northern Fleet Submarine Flotilla'],
       ['sub_attack', 2, 'petropavlovsk-kamchatsky', 'Kamchatka Submarine Flotilla'],
       ['sub_attack', 2, 'vladivostok', 'Pacific Submarine Flotilla'],
+      ['sub_attack', 2, 'saint-petersburg', 'Baltic Submarine Flotilla'],
     ],
     decisions: [
       D('rus-armour', 'forces', 'Commit the tank armies', 'The 1st Guards Tank Army (Moscow) and the Rostov and Volgograd divisions are the strongest land formations on the map, but their fuel upkeep is large. Decide which front keeps full readiness.'),
@@ -102,6 +112,7 @@ export const EUROPE: CountrySpec[] = [
     id: 'DEU',
     template: 'major_industrial',
     doctrine: 'european',
+    difficulty: 'moderate',
     summary: 'Europe’s industrial core: Stuttgart and Munich vehicle and aerospace plants, Frankfurt finance, Hamburg and Kiel shipyards. Excellent industry, a smaller standing army, imported energy.',
     intensity: 1.45,
     tradeNeeds: ['fuel'],
@@ -423,7 +434,7 @@ export const EUROPE: CountrySpec[] = [
     air: 4,
     decisions: [
       D('che-research', 'research', 'Fund Zurich research', 'The Zurich lab is among the best in Europe for its size. Pick a research priority that pays without a navy.'),
-      D('che-neutral', 'diplomacy', 'Stay neutral, trade with all', 'You hold no bloc membership. Trade agreements keep imports flowing through your neighbours.'),
+      D('che-neutral', 'diplomacy', 'Stay neutral, trade with all', 'You hold no bloc membership. Trade agreements with Germany, France, Italy and Austria keep imports flowing.'),
     ],
   },
   {
@@ -679,7 +690,7 @@ export const EUROPE: CountrySpec[] = [
     army: 7,
     decisions: [
       D('srb-arms', 'cities', 'Kragujevac arms', 'Kragujevac is your arms plant. Expanding it raises components; it also raises upkeep.'),
-      D('srb-balance', 'diplomacy', 'Balance between blocs', 'Peace with Moscow and the Compact neighbours: decide which way to trade.'),
+      D('srb-balance', 'diplomacy', 'Balance between blocs', 'Peace with Russia and with Compact neighbours Croatia and Hungary: decide which way to trade.'),
     ],
   },
   {
@@ -766,7 +777,7 @@ export const EUROPE: CountrySpec[] = [
     army: 3,
     air: 0,
     decisions: [
-      D('mda-tiraspol', 'forces', 'Secure Tiraspol', 'Tiraspol holds your only heavy industry and power plant. Keep it garrisoned.'),
+      D('mda-tiraspol', 'forces', 'Secure Tiraspol', 'Tiraspol holds your only heavy industry and power plant. Keep a battalion garrisoned there or move it to defend Chișinău.'),
       D('mda-route', 'diplomacy', 'Keep the Ukrainian route', 'Right of way with Ukraine and peace with Romania are your trade routes.'),
     ],
   },

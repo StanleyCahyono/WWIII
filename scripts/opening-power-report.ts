@@ -237,8 +237,9 @@ export function renderReport(state: GameState, op: OpeningPowerResult, checks: C
     resilience: `mean coverage of essential inputs (supplies, fuel, components) over ${op.constants.resilienceDays} days, capped at ${op.constants.resilienceCap}`,
   };
   for (const d of DIMS) {
-    const holder = state.countryOrder.filter((c) => c !== REFERENCE).find((c) => op.raw[c][d] === op.normalization[d]);
-    lines.push(`| ${d} | ${Math.round(op.weights[d] * 100)} % | ${desc[d]} | ${d === 'resilience' ? f2(op.normalization[d]) : f0(op.normalization[d])} | ${holder ?? '—'} |`);
+    const holders = state.countryOrder.filter((c) => c !== REFERENCE && op.raw[c][d] === op.normalization[d]);
+    const holder = holders.length > 3 ? `${holders.length} seats tied at the cap` : holders.join(', ') || '—';
+    lines.push(`| ${d} | ${Math.round(op.weights[d] * 100)} % | ${desc[d]} | ${d === 'resilience' ? f2(op.normalization[d]) : f0(op.normalization[d])} | ${holder} |`);
   }
   lines.push('');
   lines.push('Reference basket (money per unit): ' + CATALOG.resources.map((r) => `${r.id} ${r.referencePrice}`).join(', ') + '.');

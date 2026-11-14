@@ -11,9 +11,9 @@ export const AMERICAS: CountrySpec[] = [
     difficulty: 'easy',
     summary:
       'Broad continental production, a paid research lead (one node ahead in Systems Integration and Advanced Electronics), carrier-qualified naval aviation, strategic airlift with air refuelling and a heavy maintenance and upkeep load. Imports microelectronics: the opening forecast shows an electronics deficit.',
-    intensity: 2.1,
-    lift: 60,
-    maint: 8,
+    intensity: 2.8,
+    lift: 80,
+    maint: 12,
     tradeNeeds: ['electronics'],
     techs: [
       // Air mobility and support
@@ -44,20 +44,20 @@ export const AMERICAS: CountrySpec[] = [
     ],
     cities: {
       washington: { fn: ['finance', 'research', 'military'], b: { army_base: 3, air_base: 3, research_lab: 2, radar_station: 3, bunker: 2, hospital: 2, recruiting_office: 2, maintenance_depot: 2 } },
-      'new-york': { fn: ['finance', 'port', 'industrial'], b: { arms_industry: 2, naval_base: 2, hospital: 2, logistics_hub: 2, recruiting_office: 2 } },
-      'los-angeles': { fn: ['aerospace', 'port', 'industrial', 'finance'], b: { arms_industry: 3, naval_base: 2, electronics_plant: 2, air_base: 2 } },
+      'new-york': { fn: ['finance', 'port', 'industrial'], b: { arms_industry: 2, naval_base: 2, hospital: 2, logistics_hub: 2, recruiting_office: 2, maintenance_depot: 2 } },
+      'los-angeles': { fn: ['aerospace', 'port', 'industrial', 'finance'], b: { arms_industry: 3, naval_base: 2, electronics_plant: 2, air_base: 2, maintenance_depot: 3 } },
       chicago: { fn: ['industrial', 'logistics', 'finance'], b: { arms_industry: 3, logistics_hub: 3, recruiting_office: 2, maintenance_depot: 2 } },
       'san-francisco': { fn: ['electronics', 'research', 'finance', 'port'], b: { research_lab: 4, electronics_plant: 3 } },
       houston: { fn: ['energy', 'industrial', 'port', 'aerospace'], b: { refinery: 4, arms_industry: 2, naval_base: 2, maintenance_depot: 3 } },
       dallas: { fn: ['industrial', 'aerospace', 'military'], b: { arms_industry: 2, maintenance_depot: 3, army_base: 3 } },
-      philadelphia: { fn: ['industrial', 'shipbuilding', 'port'], b: { arms_industry: 1, naval_base: 2, maintenance_depot: 2 } },
+      philadelphia: { fn: ['industrial', 'shipbuilding', 'port'], b: { arms_industry: 1, naval_base: 2, maintenance_depot: 3 } },
       miami: { fn: ['finance', 'port'] },
       atlanta: { fn: ['logistics', 'finance', 'military'], b: { logistics_hub: 3, army_base: 2 } },
       boston: { fn: ['research', 'electronics', 'finance', 'port'], b: { research_lab: 4, electronics_plant: 2 } },
       seattle: { fn: ['aerospace', 'port', 'electronics'], b: { arms_industry: 2, maintenance_depot: 4, naval_base: 2 } },
       'san-diego': { fn: ['military', 'shipbuilding', 'port'], b: { naval_base: 5, maintenance_depot: 4, air_base: 2 } },
       norfolk: { fn: ['military', 'shipbuilding', 'port'], b: { naval_base: 5, maintenance_depot: 5, air_base: 2 } },
-      detroit: { fn: ['industrial'], b: { arms_industry: 3 } },
+      detroit: { fn: ['industrial'], b: { arms_industry: 3, maintenance_depot: 2 } },
       austin: { fn: ['electronics', 'research'], b: { electronics_plant: 2, research_lab: 3 } },
       phoenix: { fn: ['electronics', 'aerospace'] },
       minneapolis: { fn: ['agriculture', 'industrial'] },
@@ -373,6 +373,7 @@ export const AMERICAS: CountrySpec[] = [
       'ciudad-del-este': { fn: ['energy', 'finance', 'logistics'] },
       encarnacion: { fn: ['agriculture'] },
     },
+    army: 4,
     decisions: [
       D('pry-hydro', 'cities', 'Build on Ciudad del Este', 'Ciudad del Este combines hydro energy and border trade. A logistics hub there speeds exports into Brazil.'),
       D('pry-pact', 'diplomacy', 'Rely on the Southern Cone Pact', 'Right of way with Brazil, Argentina and Uruguay is your outlet to the sea. Offer shared reports to keep trust high.'),
@@ -474,7 +475,7 @@ export const AMERICAS: CountrySpec[] = [
     },
     decisions: [
       D('dom-industry', 'cities', 'Industrialize Santiago', 'Santiago de los Caballeros can take an arms-industry level; Santo Domingo finances it.'),
-      D('dom-trade', 'market', 'Trade for components', 'Buy components with your money surplus rather than building heavy industry.'),
+      D('dom-trade', 'market', 'Trade for components', 'Santo Domingo earns money but makes few components. Buy them on the market rather than building heavy industry in Santiago de los Caballeros.'),
     ],
   },
   {

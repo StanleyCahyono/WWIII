@@ -14,14 +14,14 @@ export const ASIA: CountrySpec[] = [
     lift: 10,
     techs: ['land_marines', 'land_amphibious_armor', 'land_airmobile', 'nav_carrier', 'rec_awacs', 'str_missile_complex', 'str_cruise_missile_1', 'ind_production_1', 'ind_extraction_1', 'mob_sealift_1'],
     cities: {
-      beijing: { fn: ['finance', 'research', 'military', 'industrial'], b: { army_base: 4, air_base: 3, research_lab: 3, radar_station: 3, recruiting_office: 3, arms_industry: 1 } },
-      shanghai: { fn: ['finance', 'industrial', 'port', 'shipbuilding'], b: { arms_industry: 3, naval_base: 3, research_lab: 2 } },
-      shenzhen: { fn: ['electronics', 'industrial', 'finance', 'port'], b: { electronics_plant: 4, arms_industry: 2, research_lab: 2 } },
+      beijing: { fn: ['finance', 'research', 'military', 'industrial'], b: { army_base: 4, air_base: 3, research_lab: 4, radar_station: 3, recruiting_office: 3, arms_industry: 1 } },
+      shanghai: { fn: ['finance', 'industrial', 'port', 'shipbuilding'], b: { arms_industry: 3, naval_base: 3, research_lab: 3 } },
+      shenzhen: { fn: ['electronics', 'industrial', 'finance', 'port'], b: { electronics_plant: 4, arms_industry: 2, research_lab: 3 } },
       guangzhou: { fn: ['industrial', 'port', 'logistics'], b: { arms_industry: 3, naval_base: 2 } },
       'hong-kong': { fn: ['finance', 'port', 'logistics'], b: { logistics_hub: 2 } },
       tianjin: { fn: ['industrial', 'port', 'shipbuilding'], b: { arms_industry: 2, naval_base: 2 } },
       chongqing: { fn: ['industrial', 'military'], b: { arms_industry: 3 } },
-      wuhan: { fn: ['industrial', 'logistics', 'research'], b: { arms_industry: 2, research_lab: 1 } },
+      wuhan: { fn: ['industrial', 'logistics'], b: { arms_industry: 2, logistics_hub: 2 } },
       chengdu: { fn: ['aerospace', 'electronics', 'military'], b: { arms_industry: 2, electronics_plant: 2 } },
       hangzhou: { fn: ['electronics', 'finance', 'port'], b: { electronics_plant: 2 } },
       xian: { fn: ['aerospace', 'research', 'military'], b: { arms_industry: 1 } },
@@ -77,7 +77,6 @@ export const ASIA: CountrySpec[] = [
       ['ftr_air_superiority', 4, 'beijing', '24th Fighter Division'],
       ['ftr_air_superiority', 4, 'shenyang', '1st Fighter Division'],
       ['ftr_air_superiority', 4, 'nanjing', '3rd Fighter Division'],
-      ['ftr_air_superiority', 4, 'guangzhou', '9th Fighter Division'],
       ['ftr_strike', 4, 'chengdu', '33rd Strike Division'],
       ['ftr_strike', 4, 'fuzhou', '32nd Strike Division'],
       ['ftr_uav', 3, 'xian', '1st Drone Brigade'],
@@ -188,6 +187,7 @@ export const ASIA: CountrySpec[] = [
     id: 'KOR',
     template: 'major_industrial',
     doctrine: 'western',
+    difficulty: 'moderate',
     summary: 'Seoul electronics and finance, Ulsan and Busan shipyards and heavy industry, a mobilized army on the northern border and no domestic fuel.',
     intensity: 1.35,
     tradeNeeds: ['fuel'],
@@ -251,8 +251,8 @@ export const ASIA: CountrySpec[] = [
     army: 18,
     personality: { aggression: 0.6, caution: 0.6, trade: 0.2, loyalty: 0.4, expansion: 0.4 },
     decisions: [
-      D('prk-fuel', 'economy', 'Ration fuel', 'Fuel output cannot sustain the army; the forecast shows the deficit. Decide which formations keep readiness.'),
-      D('prk-missile', 'research', 'Missile qualification', 'You hold the ballistic blueprint stage. Qualification is expensive and starves the army of electronics.'),
+      D('prk-fuel', 'economy', 'Ration fuel', 'Fuel output cannot sustain the army around Pyongyang; the forecast shows the deficit. Decide which formations keep readiness.'),
+      D('prk-missile', 'research', 'Missile qualification', 'You hold the ballistic blueprint stage and a Pyongyang missile complex. Qualification is expensive and starves the army of electronics.'),
     ],
   },
   {
@@ -359,7 +359,7 @@ export const ASIA: CountrySpec[] = [
     navy: 4,
     decisions: [
       D('sgp-trade', 'market', 'Import supplies, export services', 'Singapore cannot feed itself: the forecast shows a supplies deficit. Its port, refinery and electronics plant pay for imports.'),
-      D('sgp-strait', 'forces', 'Guard the strait', 'Your frigates and corvettes sit on the Malacca Strait. Patrolling it keeps trade flowing for everyone.'),
+      D('sgp-strait', 'forces', 'Guard the strait', 'Your frigates and corvettes at Singapore sit on the Malacca Strait. Patrolling it keeps trade flowing for everyone.'),
     ],
   },
   {
@@ -423,7 +423,7 @@ export const ASIA: CountrySpec[] = [
     army: 16,
     navy: 5,
     decisions: [
-      D('vnm-coast', 'forces', 'Defend the coast', 'Da Nang and Haiphong face the South China Sea where trust with China is low.'),
+      D('vnm-coast', 'forces', 'Defend the coast', 'Da Nang and Haiphong naval bases face the South China Sea where trust with China is low. Decide where the corvettes and submarines sit.'),
       D('vnm-electronics', 'cities', 'Ho Chi Minh City electronics', 'Upgrade the electronics plant to sell to regional partners.'),
     ],
   },
@@ -462,7 +462,7 @@ export const ASIA: CountrySpec[] = [
     army: 12,
     decisions: [
       D('bgd-textiles', 'market', 'Export from Dhaka', 'Dhaka industry and Chittagong port earn money; buy fuel and electronics with it.'),
-      D('bgd-manpower', 'forces', 'Large manpower pool', 'A dense population gives plenty of recruits; money and components are the limit.'),
+      D('bgd-manpower', 'forces', 'Large manpower pool', 'Dhaka and Chittagong generate plenty of recruits; money and components are the limit on new battalions.'),
     ],
   },
   {
@@ -510,6 +510,7 @@ export const ASIA: CountrySpec[] = [
       savannakhet: { fn: ['logistics', 'mining'] },
       pakse: { fn: ['energy', 'agriculture'] },
     },
+    army: 4,
     decisions: [
       D('lao-hydro', 'market', 'Sell hydro power', 'Vientiane and Pakse produce energy; sell fuel to neighbours.'),
       D('lao-route', 'diplomacy', 'Routes to the sea', 'Right of way with China and peace with Vietnam and Thailand keep trade flowing.'),
@@ -532,7 +533,7 @@ export const ASIA: CountrySpec[] = [
     army: 5,
     decisions: [
       D('mng-gobi', 'market', 'Sell Gobi rare materials', 'Dalanzadgad rare materials are valuable to both neighbours; sell them for components.'),
-      D('mng-balance', 'diplomacy', 'Balance the neighbours', 'Peace with Russia and China, both your only routes to the sea: keep trust with each.'),
+      D('mng-balance', 'diplomacy', 'Balance the neighbours', 'Russia and China are your only routes to the sea: a trade agreement with either keeps Ulaanbaatar supplied with components and fuel.'),
     ],
   },
   {
@@ -547,9 +548,10 @@ export const ASIA: CountrySpec[] = [
       biratnagar: { fn: ['industrial', 'agriculture'] },
       nepalgunj: { fn: ['agriculture'] },
     },
+    army: 4,
     decisions: [
       D('npl-route', 'diplomacy', 'Indian trade route', 'Right of way with India is your lifeline; keep trust high.'),
-      D('npl-hydro', 'cities', 'Pokhara hydro', 'Pokhara energy could support industry in Biratnagar.'),
+      D('npl-hydro', 'cities', 'Pokhara hydro', 'Pokhara energy could support an arms industry in Biratnagar; the money competes with a recruiting office in Kathmandu.'),
     ],
   },
   {
@@ -567,7 +569,7 @@ export const ASIA: CountrySpec[] = [
     },
     army: 8,
     decisions: [
-      D('afg-mountains', 'map', 'Mountain defence', 'Mountain provinces multiply defence; hold the passes around Kabul.'),
+      D('afg-mountains', 'map', 'Mountain defence', 'Mountain provinces multiply defence; keep the Kabul battalions on the passes rather than chasing the open border near Herat.'),
       D('afg-trade', 'diplomacy', 'Find a trade route', 'Trust with Pakistan is low; Iran or the Central Asian states may give access.'),
     ],
   },

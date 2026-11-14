@@ -141,7 +141,7 @@ export const WEST_CENTRAL_ASIA: CountrySpec[] = [
     air: 2,
     decisions: [
       D('qat-gas', 'market', 'Export gas', 'Al Khor and Dukhan give a fuel surplus; sell it to fund modern equipment.'),
-      D('qat-council', 'diplomacy', 'Gulf Council ties', 'Right of way within the Gulf Council protects you; trust with Riyadh is only moderate.'),
+      D('qat-council', 'diplomacy', 'Gulf Council ties', 'Right of way within the Gulf Council protects Doha; trust with Saudi Arabia is only moderate.'),
     ],
   },
   {
@@ -159,7 +159,7 @@ export const WEST_CENTRAL_ASIA: CountrySpec[] = [
     air: 2,
     decisions: [
       D('kwt-oil', 'market', 'Fund defence with oil', 'Al Ahmadi refineries fund imports of components and electronics.'),
-      D('kwt-allies', 'diplomacy', 'Seek protection', 'Gulf Council right of way helps; a stronger partner would help more.'),
+      D('kwt-allies', 'diplomacy', 'Seek protection', 'Gulf Council right of way with Saudi Arabia helps; a shared-reports agreement with the United States would help more.'),
     ],
   },
   {
@@ -354,7 +354,7 @@ export const WEST_CENTRAL_ASIA: CountrySpec[] = [
     army: 6,
     decisions: [
       D('tkm-gas', 'market', 'Sell gas', 'Mary gas gives a fuel surplus; sell it for components.'),
-      D('tkm-neutral', 'diplomacy', 'Neutrality', 'You belong to no bloc; trade with everyone.'),
+      D('tkm-neutral', 'diplomacy', 'Neutrality', 'Ashgabat belongs to no bloc: offer trade to Kazakhstan, Uzbekistan and Iran alike.'),
     ],
   },
   {

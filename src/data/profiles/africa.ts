@@ -60,7 +60,6 @@ export const AFRICA: CountrySpec[] = [
     doctrine: 'western',
     summary: 'Africa’s largest population: Lagos finance and port, Niger Delta oil at Port Harcourt and Warri, Abuja government, a northern security front around Maiduguri.',
     intensity: 0.75,
-    tradeNeeds: ['components'],
     cities: {
       abuja: { fn: ['finance', 'military'] },
       lagos: { fn: ['finance', 'port', 'industrial'], b: { naval_base: 1, arms_industry: 1 } },
@@ -75,7 +74,7 @@ export const AFRICA: CountrySpec[] = [
     decisions: [
       D('nga-delta', 'economy', 'Protect Delta oil', 'Port Harcourt and Warri refineries fund the state. Keep a garrison in the Delta or the revenue is at risk.'),
       D('nga-north', 'forces', 'Secure the north-east', 'Maiduguri is your exposed northern city. Reinforce it from Kaduna or hold the army near Abuja.'),
-      D('nga-components', 'market', 'Import components', 'Lagos industry cannot meet component needs: buy them with oil money.'),
+      D('nga-electronics', 'cities', 'Build an electronics base in Lagos', 'Lagos has no electronics plant; every radar and aircraft depends on imports. Fund one with Delta oil money or keep buying on the market.'),
     ],
   },
   {
@@ -118,7 +117,7 @@ export const AFRICA: CountrySpec[] = [
     army: 8,
     decisions: [
       D('lby-coast', 'map', 'Unify the coast road', 'Tripoli and Benghazi are 1,000 km apart. A logistics hub at Sirte links them.'),
-      D('lby-oil', 'market', 'Sell oil for stability', 'Oil money buys components and keeps morale up.'),
+      D('lby-oil', 'market', 'Sell oil for stability', 'The Sirte refinery and the Benghazi and Tripoli ports earn oil money. Spend it on components and supplies to keep morale up.'),
     ],
   },
   {
@@ -339,7 +338,7 @@ export const AFRICA: CountrySpec[] = [
     },
     decisions: [
       D('sen-dakar', 'cities', 'Dakar port', 'Dakar commands the Atlantic bulge; a naval base level adds a patrol vessel.'),
-      D('sen-south', 'map', 'Reach Ziguinchor', 'Ziguinchor is separated by The Gambia; supply it by sea or along the long road.'),
+      D('sen-south', 'map', 'Reach Ziguinchor', 'Ziguinchor is separated by The Gambia; supply it by sea from Dakar port or send a battalion along the long road.'),
     ],
   },
   {
