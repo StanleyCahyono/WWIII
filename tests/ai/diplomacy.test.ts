@@ -108,3 +108,31 @@ describe('AI diplomacy (A09, SPEC §2 workflow 4)', () => {
     expect(getDecisionLog('DUN').some((e) => e.kind === 'decline_operation' && /exposed/.test(e.reason))).toBe(true);
   });
 });
+
+describe('AI coalition policy', () => {
+  it('leaves a coalition under the explicit rule (lost trust in partners after the commitment window) and says why', () => {
+    const s = newMiniGame({ human: null, seed: 5 });
+    const co = createCoalitionInternal(s, 'BOR', 'Northern League', '', 'star');
+    expect(joinCoalitionInternal(s, co.id, 'DUN', 'test')).toBe(true);
+    decideOnce(s, 'DUN', ['strategic', 'diplomatic']); // records membership start
+    expect(memoryOf(s, 'DUN').coalition?.id).toBe(co.id);
+    s.clock.tick += 11 * 1440; // past the 10-day commitment window
+    s.trust['DUN>BOR'] = { value: -40, history: [] };
+    const { cmds } = decideOnce(s, 'DUN', ['diplomatic']);
+    expect(cmds.some((c) => c.type === 'leaveCoalition')).toBe(true);
+    const note = (s.messages[`co:${co.id}`] ?? []).find((m) => m.from === 'DUN' && m.intent === 'leave_coalition');
+    expect(note?.text).toMatch(/lost trust/);
+    expect(s.coalitions[co.id].departures.some((d) => d.country === 'DUN')).toBe(true);
+  });
+
+  it('stays in the coalition within the commitment window even with low trust', () => {
+    const s = newMiniGame({ human: null, seed: 5 });
+    const co = createCoalitionInternal(s, 'BOR', 'Northern League', '', 'star');
+    joinCoalitionInternal(s, co.id, 'DUN', 'test');
+    decideOnce(s, 'DUN', ['strategic', 'diplomatic']);
+    s.trust['DUN>BOR'] = { value: -40, history: [] };
+    s.clock.tick += 2 * 1440;
+    const { cmds } = decideOnce(s, 'DUN', ['diplomatic']);
+    expect(cmds.some((c) => c.type === 'leaveCoalition')).toBe(false);
+  });
+});

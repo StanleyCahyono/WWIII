@@ -15,7 +15,7 @@ import type { CountryId } from '../engine/data-types';
 import type { Command } from '../engine/commands/types';
 import type { CountryController, PlannerContext, SimHost } from '../engine/ai-host/types';
 import type { CountryView } from '../engine/view/country-view';
-import { Turn } from './turn';
+import { Turn, previewStats } from './turn';
 import { analyse } from './analysis';
 import { loadMemory, pruneMemory } from './memory';
 import { ingestJournal, retargetTrigger, strategicPass } from './strategic';
@@ -33,7 +33,7 @@ const DAY = 1440;
 const OPERATIONAL_MIN = 120;
 
 /** Cumulative wall-clock cost of the planner itself (developer metric; never read by decisions). */
-export const aiPerf = { calls: 0, ms: 0 };
+export const aiPerf = { calls: 0, ms: 0, previewMs: 0, previews: 0, quiet: 0 };
 const nowMs: () => number = typeof performance !== 'undefined' && performance.now ? () => performance.now() : () => 0;
 
 /**
@@ -57,7 +57,10 @@ function quiet(view: CountryView, ctx: PlannerContext): boolean {
 
 function plan(view: CountryView, ctx: PlannerContext): Command[] {
   if (!view.self.alive || view.finished || view.isHuman) return [];
-  if (quiet(view, ctx)) return [];
+  if (quiet(view, ctx)) {
+    aiPerf.quiet++;
+    return [];
+  }
   const mem = loadMemory(ctx);
   const t = new Turn(view, ctx, mem);
   const a = analyse(t);
@@ -102,6 +105,8 @@ export const UtilityController: CountryController = {
     } finally {
       aiPerf.calls++;
       aiPerf.ms += nowMs() - t0;
+      aiPerf.previewMs = previewStats.ms;
+      aiPerf.previews = previewStats.n;
     }
   },
 };

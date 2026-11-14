@@ -16,6 +16,10 @@ import { logDecision } from './log';
 type ResM = Record<Resource, number>;
 type ResourceSummary = CountryView['self']['resources'][number];
 
+/** Developer metric: time spent in validator previews requested by the planner (never read by decisions). */
+export const previewStats = { ms: 0, n: 0 };
+const clock: () => number = typeof performance !== 'undefined' && performance.now ? () => performance.now() : () => 0;
+
 export class Turn {
   readonly me: CountryId;
   readonly geo: Geo;
@@ -107,7 +111,10 @@ export class Turn {
       this.pathLeft--;
     }
     const c = { ...cmd, reason: cmd.reason ?? reason } as Command;
+    const p0 = clock();
     const v = this.ctx.preview(c);
+    previewStats.ms += clock() - p0;
+    previewStats.n++;
     if (!v.ok) {
       this.previewsRejected++;
       return null;

@@ -7,6 +7,7 @@
  *   docs/reports/observer-summary.json the same data (per run and per country)
  *
  * Options: --runs N (default 8)  --days D (default 30)  --workers W (default 4)  --seed0 S (default 1)
+ *          --resume (append to / reuse <out>.runs.jsonl; finished runs are skipped)  --summarize-only
  *          --long N --long-days D  (additionally run N campaigns at a longer horizon, e.g. 180)
  *          --difficulty easy|normal|hard (default normal)  --out <path prefix>
  * A campaign ends at its documented terminal condition (threshold victory or day-180 settlement)
@@ -15,7 +16,7 @@
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 
 interface Job { seed: number; days: number; difficulty: 'easy' | 'normal' | 'hard'; cohort: string }
@@ -336,28 +337,39 @@ async function main() {
   const difficulty = arg('difficulty', 'normal') as Job['difficulty'];
   const here = dirname(fileURLToPath(import.meta.url));
   const out = resolve(here, '..', arg('out', 'docs/reports/observer-summary'));
+  const jsonl = `${out}.runs.jsonl`;
+  mkdirSync(dirname(out), { recursive: true });
+  const resume = process.argv.includes('--resume') || process.argv.includes('--summarize-only');
+  const results: RunRec[] = [];
+  if (resume && existsSync(jsonl)) {
+    for (const line of readFileSync(jsonl, 'utf8').split('\n')) if (line.trim()) results.push(JSON.parse(line) as RunRec);
+  } else if (!resume) writeFileSync(jsonl, '');
+  const have = new Set(results.map((r) => `${r.cohort}:${r.seed}`));
   const jobs: Job[] = [];
   // long runs first so they overlap with the short cohort
   for (let i = 0; i < long; i++) jobs.push({ seed: seed0 + i, days: longDays, difficulty, cohort: `${longDays}d` });
   for (let i = 0; i < runs; i++) jobs.push({ seed: seed0 + i, days, difficulty, cohort: `${days}d` });
-  const buckets: Job[][] = Array.from({ length: workers }, () => []);
-  jobs.forEach((j, i) => buckets[i % workers].push(j));
+  const todo = process.argv.includes('--summarize-only') ? [] : jobs.filter((j) => !have.has(`${j.cohort}:${j.seed}`));
+  const nw = Math.max(1, Math.min(workers, todo.length));
+  const buckets: Job[][] = Array.from({ length: nw }, () => []);
+  todo.forEach((j, i) => buckets[i % nw].push(j));
   const t0 = Date.now();
-  const results: RunRec[] = [];
   let done = 0;
   await Promise.all(
     buckets.map(
       (b) =>
         new Promise<void>((res, rej) => {
           if (!b.length) return res();
+          let left = b.length;
           const w = new Worker(fileURLToPath(import.meta.url), { workerData: b });
           w.on('message', (m: RunRec | { error: string }) => {
             if ('error' in m) { rej(new Error(m.error)); return; }
             results.push(m);
+            appendFileSync(jsonl, JSON.stringify(m) + '\n');
             done++;
             // eslint-disable-next-line no-console
-            console.log(`[observer] ${done}/${jobs.length} seed ${m.seed} ${m.cohort}: ${m.reason}${m.winner ? ` ${m.winner.kind} ${m.winner.id} day ${m.day}` : ''} (${m.daysRun} days, ${m.msPerDay} ms/day, wars ${m.wars}, captures ${m.captures}) ${((Date.now() - t0) / 60000).toFixed(1)} min`);
-            if (b.every((j) => results.some((r) => r.seed === j.seed && r.cohort === j.cohort))) { void w.terminate(); res(); }
+            console.log(`[observer] ${done}/${todo.length} seed ${m.seed} ${m.cohort}: ${m.reason}${m.winner ? ` ${m.winner.kind} ${m.winner.id} day ${m.day}` : ''} (${m.daysRun} days, ${m.msPerDay} ms/day, wars ${m.wars}, captures ${m.captures}) ${((Date.now() - t0) / 60000).toFixed(1)} min`);
+            if (--left === 0) { void w.terminate(); res(); }
           });
           w.on('error', rej);
         }),
@@ -367,7 +379,6 @@ async function main() {
   const cohorts = [...new Set(results.map((r) => r.cohort))];
   const sums = cohorts.map((c) => summarize(results, c)).filter((x): x is NonNullable<typeof x> => !!x);
   const meta = { runs, days, long, longDays, seed0, workers, difficulty, wallMinutes: Math.round((Date.now() - t0) / 600) / 100, generated: 'deterministic seeds; wall time varies' };
-  mkdirSync(dirname(out), { recursive: true });
   writeFileSync(`${out}.json`, JSON.stringify({ meta, summaries: sums.map((s) => ({ ...s })), runs: results.map((r) => ({ ...r, countries: r.countries.map((c) => ({ c: c.c, rank: c.rank, alive: c.alive, frac: c.frac, finalRank: c.finalRank, coalition: c.coalition?.id ?? null, invalid: c.invalid, stallDays: c.stallDays, opening: c.opening })) })) }, null, 1));
   writeFileSync(`${out}.md`, markdown(sums, meta));
   // eslint-disable-next-line no-console
