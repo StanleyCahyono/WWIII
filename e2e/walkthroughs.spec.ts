@@ -57,6 +57,9 @@ test.describe('W08 walkthroughs (desktop)', () => {
     // Research on day 1 (SPEC: start research within the first five minutes): even with its
     // tier-1 package complete, the U.S. has programs it can start immediately.
     await page.getByTestId('rail-research').click();
+    // wait for the research tree query to render before counting (count() does not wait)
+    await expect(page.getByTestId('research-panel').locator('.tech').first()).toBeVisible();
+    await expect(page.locator('.tech[data-status="available"]').first()).toBeVisible();
     expect(await page.locator('.tech[data-status="available"]').count()).toBeGreaterThan(0);
     const sealift = page.getByTestId('tech-mob_sealift_1');
     await expect(sealift).toHaveAttribute('data-status', 'available');

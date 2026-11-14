@@ -4,6 +4,7 @@ import { getHost } from '../sim/host';
 import { ui, select, centerOn, openPanel, toast } from '../state/ui';
 import { NODES, CATALOG, buildingById, unitById, RESOURCE_LABEL, placeName, TERRAIN_LABEL, MAP } from '../data/static';
 import { milli, num, signed, resM, gameTime, duration, cap } from '../format';
+import { effectsText, effectName } from '../effects';
 import { exec } from '../sim/exec';
 import { RESOURCES } from '../../engine/data-types';
 import type { CityState } from '../../engine/index';
@@ -393,7 +394,7 @@ function CitySheet({ cityKey, tab: initialTab }: { cityKey: string; tab?: string
                             <tr key={i}>
                               <td>
                                 {bt?.name ?? b.type} <span className="muted">L{b.level}</span>
-                                <div className="muted" style={{ fontSize: 11.5 }}>{Object.entries(eff).map(([k, v]) => `${k}: ${typeof v === 'object' ? resM(Object.fromEntries(Object.entries(v as Record<string, number>).map(([a, b2]) => [a, b2 * 1000]))) : v}`).join(' · ')}</div>
+                                <div className="muted" style={{ fontSize: 11.5 }} data-testid="building-effects">{effectsText(eff as Record<string, unknown>) || 'No direct effect at this level'}</div>
                               </td>
                               <td className="num">{b.condition}%</td>
                               <td>
@@ -404,7 +405,7 @@ function CitySheet({ cityKey, tab: initialTab }: { cityKey: string; tab?: string
                                     const v = await getHost().preview<{ refund: Record<string, number>; newLevel: number; effectsLost: string[] }>({ type: 'demolish', target: cityKey, building: b.type });
                                     setConfirm({
                                       title: `Demolish ${bt?.name} L${b.level}?`,
-                                      body: v.ok ? <p>Consequence: drops to level {v.preview.newLevel}; effects lost: {v.preview.effectsLost.join(', ') || 'none'}. Refund {resM(v.preview.refund)}.</p> : <p className="bad">{v.reason}</p>,
+                                      body: v.ok ? <p>Consequence: drops to level {v.preview.newLevel}; effects lost: {v.preview.effectsLost.map(effectName).join(', ') || 'none'}. Refund {resM(v.preview.refund)}.</p> : <p className="bad">{v.reason}</p>,
                                       run: () => exec({ type: 'demolish', target: cityKey, building: b.type }, 'Demolished.'),
                                     });
                                   }}

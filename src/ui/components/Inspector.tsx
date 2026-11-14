@@ -320,6 +320,16 @@ export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame:
             </ActionButton>
           )}
         </div>
+        {v.stacks.length > 1 && (
+          <div className="row" style={{ marginTop: 6 }}>
+            <button type="button" className="btn small" onClick={() => cycle('stack', -1)} aria-label="Previous formation">
+              ← Prev formation
+            </button>
+            <button type="button" className="btn small" onClick={() => cycle('stack', 1)} aria-label="Next formation">
+              Next formation →
+            </button>
+          </div>
+        )}
         {deployables.length > 0 && (
           <div className="card" data-testid="deployables">
             <strong>Deployables</strong>

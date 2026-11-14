@@ -88,6 +88,7 @@ export function humanizeIds(text: string, view?: View | null): string {
   t = t.replace(/\bshared[ _]intel\b(?!l)/g, 'shared intelligence');
   t = t.replace(/ gives \[—\] for \[([^\]]*)\]/g, ' asks for $1, offering nothing in return');
   t = t.replace(/ for \[—\]/g, ', asking nothing in return');
+  t = t.replace(/\] for \[/g, '] in exchange for [');
   t = t.replace(/\[([^\]]*)\]/g, '$1');
   t = t.replace(/\bOffer of\d+\b/g, 'An offer').replace(/\boffer of\d+\b/g, 'an offer');
   t = t.replace(/\bat tick (\d+)\b/g, (_, n: string) => gameTime(Number(n)));

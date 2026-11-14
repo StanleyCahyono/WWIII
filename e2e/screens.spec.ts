@@ -458,4 +458,56 @@ test.describe('management screens (desktop)', () => {
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByRole('dialog', { name: 'Settings' }).getByTestId('catchup-toggle')).toBeChecked();
   });
+  test('readable copy: city building effects use plain labels (Hamburg); offer toasts and journal rows name countries, terms and offers, and repeated offers collapse into one toast', async ({ page }) => {
+    test.setTimeout(240_000);
+    await clearStorage(page);
+    await newCampaign(page, 'DEU', 8181);
+    await page.locator('#map-search-input').fill('Hamburg');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('inspector-title')).toHaveText('Hamburg');
+    await page.getByTestId('open-city-sheet').click();
+    await page.getByTestId('city-tab-overview').click();
+    const eff = page.getByTestId('building-effects');
+    await expect(eff.first()).toBeVisible();
+    const texts = await eff.allTextContents();
+    expect(texts).toEqual(expect.arrayContaining(['+10% production · +5% recruiting speed', '+5% defense · +4 HP recovery/day', '9 naval slots · +9 HP recovery/day']));
+    for (const t of texts) expect(t, 'no raw effect key').not.toMatch(/[a-z][A-Z]|:\s*\d/);
+    await page.getByTestId('panel-close').click();
+
+    // offers from computer countries: readable toasts, one collapsed toast for several, readable journal rows
+    const codes = await frame<string[]>(page, 'f => f.view.relations.map(r => r.country)');
+    const raw = (t: string) => [/of_way/, /\bof\d+\b/, /\(co\d+\)/, /\[—\]/, /\[|\]/, ...codes.map((c) => new RegExp(`\\b${c}\\b`))].filter((re) => re.test(t)).map(String);
+    const incoming = 'f => f.view.journal.filter(e => e.kind === "offer_received" && f.view.offers.some(o => o.id === (e.data && e.data.offer) && o.to === f.view.viewer)).length';
+    const waited = await advanceUntil(page, `f => (${incoming})(f) >= 2`, 6 * 24 * 60, 120);
+    expect(waited, 'two offers arrive within six days').toBeGreaterThanOrEqual(0);
+    const toasts = page.getByTestId('toasts');
+    const offerToasts = toasts.locator('.toast').filter({ hasText: /sent an offer|new offers/ });
+    await expect(offerToasts).toHaveCount(1);
+    for (const t of await toasts.locator('.toast').allTextContents()) expect(raw(t), t).toEqual([]);
+    // the collapsed (or single) offer toast opens Diplomacy
+    await offerToasts.getByRole('button', { name: 'Open Diplomacy' }).click();
+    await expect(page.getByTestId('panel-diplomacy')).toBeVisible();
+    await page.getByTestId('panel-close').click();
+    // journal: every diplomacy row is readable; an offer row names the sender and the terms
+    await page.getByTestId('rail-journal').click();
+    const jp = page.getByTestId('journal-panel');
+    await jp.getByTestId('journal-filter-diplomacy').click();
+    const rows = jp.locator('li button[aria-expanded]');
+    await expect(rows.first()).toBeVisible();
+    for (const t of await rows.allTextContents()) expect(raw(t), t).toEqual([]);
+    const sender = await frame<string>(page, 'f => { const e = f.view.journal.find(e => e.kind === "offer_received" && f.view.offers.some(o => o.id === (e.data && e.data.offer) && o.to === f.view.viewer)); return f.view.offers.find(o => o.id === e.data.offer).from; }');
+    const senderName = await wc<string>(page, `wc.countryName(${JSON.stringify(sender)})`);
+    await expect(rows.filter({ hasText: `${senderName} sent an offer: ${senderName} ` }).first()).toBeVisible();
+    // every offer is still listed one by one in the notification history
+    await jp.getByRole('tab', { name: /Notification history/ }).click();
+    expect(await jp.locator('li').filter({ hasText: 'sent an offer:' }).count()).toBeGreaterThanOrEqual(2);
+    await page.getByTestId('panel-close').click();
+    // an unanswered offer expires: "<Country>'s offer expired without an answer."
+    const expired = await advanceUntil(page, 'f => f.view.journal.some(e => e.kind === "offer_expired")', 6 * 24 * 60, 240);
+    expect(expired, 'an offer expires').toBeGreaterThanOrEqual(0);
+    await page.getByTestId('rail-journal').click();
+    await jp.getByTestId('journal-filter-diplomacy').click();
+    await expect(jp.locator('li button[aria-expanded]').filter({ hasText: /^(.+'s offer|Your offer to .+|An offer) expired without an answer\.$/ }).first()).toBeVisible();
+    for (const t of await jp.locator('li button[aria-expanded]').allTextContents()) expect(raw(t), t).toEqual([]);
+  });
 });

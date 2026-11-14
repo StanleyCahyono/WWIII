@@ -468,7 +468,9 @@ async function handle(req: Request): Promise<unknown> {
       const node = pick.pos.node;
       const m = (await A.loadScenario()).map;
       const ll = m.nodes[node].center as [number, number];
-      const table = (state.contacts[viewer] ??= {});
+      // a fresh table object: the engine memoizes per-table derived data (sorted contact ids) and this
+      // hook writes outside the engine's own contact updates
+      const table = (state.contacts[viewer] = { ...(state.contacts[viewer] ?? {}) });
       const domain = pick.moveClass === 'air' ? 'air' : pick.moveClass === 'naval' ? 'sea' : 'land';
       table['kdbg1'] = { id: 'kdbg1', stack: pick.id, level: 'contact', domain, lonlat: [ll[0], ll[1]], node, observedAt: state.clock.tick, firstSeenAt: state.clock.tick, owner: null, count: null, units: null, sources: ['radar'] };
       pushFrame();
