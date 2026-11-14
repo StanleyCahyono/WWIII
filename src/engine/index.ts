@@ -51,3 +51,7 @@ export * as rules from './rules';
 export { RULES } from './rules';
 export * as fixed from './fixed';
 export { formatGameTime, formatDuration, dayOf, FINAL_TICK, dayEndTick } from './time';
+export { bumpEconomy, popManpower, popMoney, multEffect } from './systems/economy';
+export { liftBreakdown, type LiftBreakdown } from './systems/readiness';
+export { CONSUMED_MODIFIERS, UNUSED_MODIFIERS, cmod } from './systems/modifiers';
+export { initialTrust, trustOf } from './systems/diplomacy';

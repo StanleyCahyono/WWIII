@@ -16,6 +16,7 @@ Worker (UI). Every tunable constant is in [`src/engine/rules.ts`](../src/engine/
 | `ids.ts` | Stable string ids from counters in `state.ids` (`u1`, `s1`, `of1`, `e1`, …). |
 | `state.ts` | Runtime state contract (`GameState` and all records). |
 | `derived.ts` | Non-serialized memo of derived data (rates, public slices, indexes). |
+| `systems/modifiers.ts` | Tech modifier semantics (`*_mult` multiplicative, others additive) and the consumed/unused key lists. |
 | `sim.ts` | `advance`, `stepOnce`, step order, day-change processing. |
 | `power.ts` | Opening power index. |
 | `commands/` | `types.ts` (the `Command` union), `forces.ts`, `national.ts`, `index.ts` (validate/submit). |
@@ -46,6 +47,7 @@ validateCommand(state, cmd) / previewCommand(state, cmd) → { ok:true, preview,
 submitCommand(state, cmd) → { ok:true, preview, result, duplicate? } | { ok:false, code, reason, details? }
 // projections
 getCountryView(state, country) : CountryView
+getCountryViews(state, ids) : Map<country, CountryView>   // batch; shares the per-step public slices
 ledgerModel, forecastModel, scoreBreakdown, researchTree, cityList, provinceInspector,
 diplomacyRows, coalitionList, marketView, journal, newspaper(state, day), inbox, forceModel
 // persistence
@@ -107,9 +109,26 @@ are rejected (`foreign_issuer`). A throwing controller is counted (`controller_e
 
 * Quantities are integer milli-units. Production accrues **hourly** using cumulative slicing
   (`floor(rate·(h+1)/24) − floor(rate·h/24)`), so a constant daily rate credits exactly.
-* Output pipeline: base × (1 + Σ productionMult × condition) + flat produces + population manpower/
-  money → × morale factor × city condition → × **territory factor once** (homeland 1, annexed 0.5,
-  occupied 0.25). Rural: deposit output (+ deposit improvements) + population manpower.
+* Building `*Mult` effects use catalog semantics (1 = no change) and combine as
+  `1 + Σ (mult − 1) × condition/100` (`multEffect`): productionMult, recruitSpeedMult,
+  researchSpeedMult, defenseMult, speedMult. Deposit improvements add `deposit × (mult − 1)`.
+  `hpRecoveryPerDay` is percent of max HP per day.
+* Output pipeline: base × multEffect(productionMult) × industrial_output_mult + flat produces +
+  population manpower/money → electronics × electronics_output_mult → × morale factor × city
+  condition → × **territory factor once** (homeland 1, annexed 0.5, occupied 0.25). Rural: deposit
+  output × rural_output_mult (+ improvements) + population manpower × RURAL_POP_FACTOR.
+* Population yields are **sublinear**: manpower/day = 1.5 × √(pop in thousands), money/day = 4 × √pop
+  (a 25 M city ≈ 237 manpower/day instead of 500). `MANPOWER_PER_KPOP`/`MONEY_PER_KPOP` remain
+  exported only for script compatibility (deprecated).
+* Tech modifiers: keys with a `_mult` segment multiply (stacking multiplicatively), others add.
+  Consumed keys and their effects are listed in `CONSUMED_MODIFIERS` (research speed, industrial /
+  electronics / rural output, fuel upkeep, unit electronics cost, radar range, refit speed, naval
+  regen, embark time, own-territory land speed, rebase time, air endurance/range, air/land attack,
+  urban defence, artillery range, officer bonus, missile-defence bonus); `report_age_mult`,
+  `receiving_capacity_mult`, `carrier_ops`, `track_history` are documented as UI-only/unused.
+* Lift = `CountryState.lift` (profile + tech) + Σ building `liftCapacity` (× condition) + Σ
+  `UnitType.liftCapacity` of fielded units, computed on demand (`liftBreakdown`); used by the view
+  (`self.lift`, `self.liftBreakdown`) and the opening-power mobility dimension.
 * Upkeep (units, buildings) and occupation upkeep (per tier) are charged hourly; unpaid portions
   are recorded (`ledger.unpaid`, `country.shortages`); stock never goes negative.
 * Ledger categories: production, upkeep, occupation, construction, recruitment, research,
@@ -180,6 +199,18 @@ city/day). Undefended → rebel control flag (never a new seat); garrisoned → 
 
 ## Visibility model
 
+Incremental implementation (`systems/visibility.ts`): persistent per-stack records in id-sorted
+spatial bins; only stacks whose position/roster/air state changed (or that are moving) are
+re-binned; sensor groups are rebuilt only when a member changed; a country is recomputed only if
+its sensors, its territorial observations or a bin in its sensor footprint changed, or it gained/
+lost territory; each sensor's hit list is reused unless its footprint changed. The merge is
+order-independent (max level, highest-priority domain, unions). Viewers whose detection inputs are
+unchanged are skipped. Results equal a full recompute (`tests/engine/visibility-incremental.test.ts`
+compares against `computeDetections(state, { full: true })` on random ticks of two worlds).
+Current contacts are only rewritten when a visible field changes; the view reports them as
+observed at `clock.lastVisibility` (live HP for identified members). Allied (coalition /
+shared-intel source) stacks are projected live by `getCountryView` and are not stored as contacts.
+
 Per-viewer contact tables (`state.contacts[viewer]`, opaque contact ids — never stack ids in
 views). Sensors: stack sight/radar (co-located stacks of one owner merge), city sight 80 km +
 radar buildings, territory sight. Per-unit detection: visual (subsurface needs ASW; signature 3 only
@@ -219,6 +250,17 @@ offsets; ≤ 60 controller calls per step served round-robin (no starvation; tes
 countries); per-review command budget by difficulty (4/8/14). Wakes on war declared, territory
 change, offer received/answered, coalition application.
 
+## Cache-invalidation contract (incremental systems)
+
+Derived caches never live in the save; they are validated by version counters in `state.ids`
+(saved, deterministic): `relv` (war/peace), `grv` (grants), `cov` (coalition membership), `ownv`
+(ownership, with a per-node change journal), `econv` (territory output inputs), `techv` (unit
+levels), `trustDays`. Every engine path that mutates the corresponding data bumps the counter
+(`bumpEconomy(state, node?)`, `recordOwnerChange`, …). **Code that edits buildings, condition,
+morale, population or ownership directly (tests, tools) must call `bumpEconomy(state)`** — the
+economy additionally guards with a structural fingerprint. Because every memo is a pure function of
+state, a reloaded save (cold caches) continues bit-identically (`stateHash` tests).
+
 ## Save format
 
 ```json
@@ -231,6 +273,9 @@ work has completion events, queue order, scenario version) and throws `SaveError
 parse|format|version|scenario|invalid}` without touching the caller's state. `ui` (planning
 drawings, prefs) is saved but excluded from `stateHash`. `markSaved`/`revisionConflict` support
 single-writer detection across tabs.
+Size reductions (deterministic): relations are sparse (a missing pair = peace, version 0), opening
+trust is derived lazily from the seed + authored profile (`initialTrust`) and stored only once an
+event changes it, and allied contacts are not stored. Opening World 120 save: 2,953 KB → 1,657 KB.
 
 ## Opening power
 
@@ -239,26 +284,39 @@ highest non-reference value, weighted 25/25/20/20/10, rescaled so the best non-r
 = 100; zero denominator throws `OpeningPowerConfigError`. Persisted in `state.openingPower` at
 creation (before any treaty or random event).
 
-## Performance (Node 22, this container)
+## Performance (real World 120 map, Node 22, this container: 4 vCPU)
 
-| Scenario | Engine only (IdleController) | With 119–120 BasicController bots |
+Measured with esbuild-bundled scripts (`node`), 120 seats, 2,363 nodes, ~1,080 stacks at start.
+Other agents were running tests/builds concurrently (load average 3–9 on 4 vCPU), so wall times
+are noisy; CPU times (`process.cpuUsage`) are given where they differ.
+
+| Metric | Before (fd88e62) | After |
 | --- | --- | --- |
-| Synthetic 120 countries, 1,440 provinces, 2,040 stacks, bundled (esbuild) | ≈ 210 ms / game day (peace), ≈ 380 ms (≈40 wars) | ≈ 2.5–3 s / day |
-| Same under Vitest transform | ≈ 340 ms / day | ≈ 2.7 s / day |
-| Real World 120 map (2,363 nodes, ~1,150 stacks, 98 synthesized profiles), bundled | ≈ 375 ms / day | ≈ 3.9 s / day (Vitest) |
+| Peace, engine-only game day (median of 4–6 days) | 402 ms | **65–85 ms** (CPU median 78 ms) |
+| ~40 wars (40 declared neighbour wars + 1 BasicController day of moves), steady day | 915 ms (65 wars, median) | **165–340 ms** (min 163) |
+| Same, first day while ~120 ordered stacks still move/fight | — | 550–1000 ms (incl. cold caches after load) |
+| Heavy war: 69 wars, 650 stacks moving at once (BasicController sends every army) | — | 0.95–1.8 s CPU per day |
+| `getCountryView` (one country, warm) | 0.48 ms median, 9 ms max | **0.3–0.4 ms median**, p90 ≈ 0.9 ms |
+| `getCountryViews` for all 120 | — | 37–47 ms |
+| Opening save size | 2,953 KB | **1,657 KB** |
+| Synthetic 2,040-stack world, peace day | 210 ms | ≈ 70–90 ms |
 
-Visibility (≈40 %) and hourly economy dominate the engine; the AI cost is mostly CountryView
-construction plus the deliberately naive test BasicController. Levers: `VISIBILITY_INTERVAL_MIN`,
-`AI_INTERVALS_MIN`, `AI_CALLS_PER_STEP`.
+Targets: peace ≤ 120 ms ✔; view ≤ 2 ms ✔; save < 2.5 MB ✔; war ≤ 200 ms ✔ only in steady state
+(min 163 ms) — active fighting with hundreds of simultaneous movers is still 0.5–1.8 s.
+Remaining hot spots under heavy war: visibility re-detection around moving stacks (~40 %),
+combat/engagement bookkeeping, hourly economy aggregation after captures.
 
 ## Known gaps / resume notes
 
-* Benchmarked engine-only day is ≈ 210 ms (synthetic) / ≈ 375 ms (real map) — above the "well
-  under 200 ms" target. Next steps: incremental visibility (only re-detect around moved stacks),
-  cache per-node city/province output between day changes, avoid per-viewer allied re-merge.
-* `MapIndex.staticCache` is reserved; static reachability is recomputed by A* on demand.
+* Heavy-war performance (hundreds of simultaneous movers): next levers are coarser visibility for
+  in-transit stacks (re-detect moving targets only at whole hours), a node→stacks index shared by
+  combat/capture, and incremental engagement closing.
+* Route planning first tries the rights-independent optimal path (memoized per state, keyed by
+  class/owner/roster/versions) and falls back to constrained A* only if that path is now illegal.
+  `MapIndex.staticCache` keeps its field but the memo is per state (a shared memo could leak between
+  different games with equal version counters).
+* Emergency diversion now respects airfield/carrier capacity (`nearestBase(..., need)`).
 * Helicopters share ground movement; no separate air-mobile embark rules.
-* Airfield capacity is enforced on rebase only (not when diverting).
 * Agents' "corruption" drains money only; officers apply one bonus per officer type.
 * `BasicController` is a test bot; the real planner belongs in `src/ai/` (consumes CountryView).
 * Real-scenario tests (`tests/engine/world120.test.ts`) run when `src/data` is present and print
