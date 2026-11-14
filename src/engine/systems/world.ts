@@ -86,7 +86,7 @@ export function atWar(state: GameState, a: CountryId, b: CountryId): boolean {
   const s = enemyMap(state).get(a);
   return !!s && s.has(b);
 }
-const grantCache = new WeakMap<GameState, { v: number; g: object; m: Map<CountryId, Map<CountryId, DiploLevel>> }>();
+const grantCache = new WeakMap<GameState, { v: number; g: object; m: Map<CountryId, Map<CountryId, DiploLevel>>; touch: Map<CountryId, number>; lineage: object }>();
 /** Level granted by `from` to `to` (peace if none). Cached; keyed by the relations version counter. */
 export function grantLevel(state: GameState, from: CountryId, to: CountryId): DiploLevel {
   return grantIndex(state).get(from)?.get(to) ?? 'peace';
@@ -108,10 +108,44 @@ function grantIndex(state: GameState): Map<CountryId, Map<CountryId, DiploLevel>
       const [a, b] = k.split('>');
       (m.get(a) ?? m.set(a, new Map()).get(a)!).set(b, state.grants[k].level);
     }
-    c = { v, g: state.grants, m };
+    // per-country touch versions: both sides of every grant that appeared, changed or vanished
+    let touch: Map<CountryId, number>;
+    let lineage: object;
+    if (c && c.g === state.grants) {
+      touch = c.touch;
+      lineage = c.lineage;
+      const old = c.m;
+      for (const [a, ma] of m) {
+        const oa = old.get(a);
+        for (const [b, l] of ma) if (!oa || oa.get(b) !== l) {
+          touch.set(a, v);
+          touch.set(b, v);
+        }
+      }
+      for (const [a, oa] of old) {
+        const ma = m.get(a);
+        for (const b of oa.keys()) if (!ma || !ma.has(b)) {
+          touch.set(a, v);
+          touch.set(b, v);
+        }
+      }
+    } else {
+      touch = new Map();
+      lineage = {};
+    }
+    c = { v, g: state.grants, m, touch, lineage };
     grantCache.set(state, c);
   }
   return c.m;
+}
+/**
+ * Change marker of the grants involving `c` (either direction): equal results between two calls
+ * (same `lineage` object and touch value) mean no grant from or to `c` changed in between.
+ */
+export function grantTouch(state: GameState, c: CountryId): { lineage: object; touch: number } {
+  grantIndex(state);
+  const e = grantCache.get(state)!;
+  return { lineage: e.lineage, touch: e.touch.get(c) ?? -1 };
 }
 export function grantLevelUncached(state: GameState, from: CountryId, to: CountryId): DiploLevel {
   const g = state.grants[dirKey(from, to)];
@@ -137,7 +171,9 @@ const NO_COALITIONS: ReadonlyMap<CountryId, string> = new Map();
 /** Country → id of its (live) coalition; shared, read-only. Keyed by the membership counter `cov`. */
 export function coalitionIndex(state: GameState): ReadonlyMap<CountryId, string> {
   if (!hasAnyKey(state.coalitions)) return NO_COALITIONS;
-  return derived(state, `coMember:${state.ids.cov ?? 0}`, () => {
+  // membership, leader and dissolution change only with a `cov` bump (systems/coalitions.ts), so
+  // the index survives commands and steps (cross-step memo keyed by `cov` + the coalitions object)
+  return memoByVersion(state, 'coMember', `${state.ids.cov ?? 0}`, [state.coalitions], () => {
     const m = new Map<CountryId, string>();
     for (const id of Object.keys(state.coalitions).sort()) {
       const co = state.coalitions[id];
@@ -168,12 +204,13 @@ export function isFriendlyTerritory(state: GameState, c: CountryId, owner: Count
   return sameCoalition(state, c, owner) || levelAtLeast(grantLevel(state, owner, c), 'right_of_way');
 }
 /** Countries whose sensors `viewer` sees through (self, coalition, shared_intel grantors). Sorted. */
-const visionCache = new WeakMap<GameState, { key: string; m: Map<CountryId, CountryId[]> }>();
+const visionCache = new WeakMap<GameState, { grv: number; relv: number; cov: number; co: object; g: object; m: Map<CountryId, CountryId[]> }>();
 export function visionSources(state: GameState, viewer: CountryId): CountryId[] {
-  const key = `${state.ids.grv ?? 0}|${state.ids.relv ?? 0}|${state.ids.cov ?? 0}|${Object.keys(state.coalitions).length}`;
+  // keyed by the grant / relation / coalition counters and container identities (no allocation per call)
+  const grv = state.ids.grv ?? 0, relv = state.ids.relv ?? 0, cov = state.ids.cov ?? 0;
   let c = visionCache.get(state);
-  if (!c || c.key !== key) {
-    c = { key, m: new Map() };
+  if (!c || c.grv !== grv || c.relv !== relv || c.cov !== cov || c.co !== state.coalitions || c.g !== state.grants) {
+    c = { grv, relv, cov, co: state.coalitions, g: state.grants, m: new Map() };
     visionCache.set(state, c);
   }
   let v = c.m.get(viewer);
@@ -323,9 +360,8 @@ function appendNewStacks(state: GameState, prev: Stack[], c0: number, c1: number
     out.push(s);
     last = n;
   }
-  let total = 0;
-  for (const _ in state.stacks) total++;
-  return total === out.length ? out : null;
+  // every stack is created with a counter id `s<n>` (nextId), so survivors + the new range are complete
+  return out;
 }
 function sortStacks(state: GameState): Stack[] {
   return Object.values(state.stacks)
@@ -334,22 +370,31 @@ function sortStacks(state: GameState): Stack[] {
     .map((x) => x[1]);
 }
 /**
- * Stacks of one owner in `stacksReadonly` order. Memoized per step (derived '@' key: cleared at
- * step boundaries and by commands that can create/remove stacks) and re-validated against the
- * stack-id counter and the stacks object, so stacks created directly are picked up. Removed stacks
- * may linger in the memo: callers must skip entries with `state.stacks[s.id] !== s`.
+ * Stacks of one owner in `stacksReadonly` order. Keyed by the stack-id counter and the stacks
+ * object (every stack is created with a counter id; a stack's owner never changes), so the index
+ * survives steps and commands. Removed stacks may linger until the next stack is created: callers
+ * must skip entries with `state.stacks[s.id] !== s`. The returned arrays are shared: never mutate.
  */
+const byOwnerCache = new WeakMap<GameState, { counter: number; obj: object; m: Map<CountryId, Stack[]> }>();
+const NO_STACKS: readonly Stack[] = Object.freeze([]);
 export function stacksOfOwner(state: GameState, c: CountryId): readonly Stack[] {
-  const e = derived(state, '@stacksByOwner', () => ({ counter: -1, obj: null as object | null, m: new Map<CountryId, Stack[]>() }));
   const counter = state.ids.stack ?? 0;
-  if (e.counter !== counter || e.obj !== state.stacks) {
+  let e = byOwnerCache.get(state);
+  if (!e || e.counter !== counter || e.obj !== state.stacks) {
     const m = new Map<CountryId, Stack[]>();
-    for (const s of stacksReadonly(state)) (m.get(s.owner) ?? m.set(s.owner, []).get(s.owner)!).push(s);
-    e.counter = counter;
-    e.obj = state.stacks;
-    e.m = m;
+    for (const s of currentSorted(state)) (m.get(s.owner) ?? m.set(s.owner, []).get(s.owner)!).push(s);
+    // keep the previous array of every owner whose list is unchanged (identity-keyed memos downstream)
+    if (e && e.obj === state.stacks) for (const [o, l] of m) {
+      const p = e.m.get(o);
+      if (!p || p.length !== l.length) continue;
+      let same = true;
+      for (let i = 0; i < l.length; i++) if (p[i] !== l[i]) { same = false; break; }
+      if (same) m.set(o, p);
+    }
+    e = { counter, obj: state.stacks, m };
+    byOwnerCache.set(state, e);
   }
-  return e.m.get(c) ?? [];
+  return e.m.get(c) ?? NO_STACKS;
 }
 /** Nodes and city keys owned by a country (memoized per step / ownership change). */
 export function territoryOf(state: GameState, c: CountryId): { nodes: NodeId[]; cities: string[] } {

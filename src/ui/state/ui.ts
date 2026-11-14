@@ -44,6 +44,10 @@ export interface Toast {
   kind: string;
   level: 'info' | 'warn' | 'alert' | 'success';
   eventId?: string;
+  /** Optional button on the toast that opens a screen (e.g. Diplomacy for collapsed offers). */
+  action?: { label: string; panel: Panel };
+  /** Number of notifications collapsed into this toast. */
+  count?: number;
 }
 
 export interface CameraRequest {
@@ -153,6 +157,25 @@ export function toast(t: Omit<Toast, 'id' | 'at'> & { id?: string }) {
   const full: Toast = { id: t.id ?? `t${toastSeq++}`, at: Date.now(), ...t } as Toast;
   if (s.toasts.some((x) => x.id === full.id)) return;
   ui.patch({ toasts: [...s.toasts, full].slice(-5), toastHistory: [full, ...s.toastHistory].slice(0, 200) });
+}
+/**
+ * Incoming offers: the first shows as an ordinary toast; further ones collapse into one summary
+ * ("3 new offers — open Diplomacy") instead of stacking over the map. Every offer still goes to the
+ * notification history individually.
+ */
+export function offerToast(t: Omit<Toast, 'id' | 'at'> & { id: string }) {
+  const s = ui.get();
+  const full: Toast = { ...t, at: Date.now(), action: { label: 'Open Diplomacy', panel: 'diplomacy' } } as Toast;
+  if (s.toasts.some((x) => x.id === full.id) || s.toastHistory.some((x) => x.id === full.id)) return;
+  const history = [full, ...s.toastHistory].slice(0, 200);
+  const prior = s.toasts.filter((x) => x.kind === 'offer_received' || x.kind === 'offers_summary');
+  if (!prior.length) {
+    ui.patch({ toasts: [...s.toasts, full].slice(-5), toastHistory: history });
+    return;
+  }
+  const n = prior.reduce((a, x) => a + (x.count ?? 1), 0) + 1;
+  const summary: Toast = { id: `offers-${full.id}`, at: Date.now(), text: `${n} new offers — open Diplomacy to answer them.`, node: null, kind: 'offers_summary', level: 'info', count: n, action: { label: 'Open Diplomacy', panel: 'diplomacy' } };
+  ui.patch({ toasts: [...s.toasts.filter((x) => !prior.includes(x)), summary].slice(-5), toastHistory: history });
 }
 export function dismissToast(id: string) {
   ui.patch({ toasts: ui.get().toasts.filter((t) => t.id !== id) });

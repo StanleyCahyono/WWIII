@@ -57,6 +57,8 @@ export interface Hit {
   ids: string[];
   node?: number;
   label: string;
+  /** Off-screen selection locator arrow: activating it brings the object into view. */
+  locate?: boolean;
 }
 
 interface FillGroup {
@@ -82,6 +84,9 @@ export class MapRenderer {
   mono = false;
   hits: Hit[] = [];
   lasso: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  /** Screen rectangles (canvas pixels) covered by DOM overlays (toolbar, legend, search…); the
+   *  off-screen locator arrow is placed outside them so it stays visible and clickable. */
+  overlayRects: (() => { x: number; y: number; w: number; h: number }[]) | null = null;
   hover: { x: number; y: number } | null = null;
   onFrame: ((ms: number) => void) | null = null;
 
@@ -269,7 +274,7 @@ export class MapRenderer {
   hitsInRect(x0: number, y0: number, x1: number, y1: number): Hit[] {
     const [ax, bx] = [Math.min(x0, x1), Math.max(x0, x1)];
     const [ay, by] = [Math.min(y0, y1), Math.max(y0, y1)];
-    return this.hits.filter((h) => h.x + h.w / 2 >= ax && h.x + h.w / 2 <= bx && h.y + h.h / 2 >= ay && h.y + h.h / 2 <= by);
+    return this.hits.filter((h) => !h.locate && h.x + h.w / 2 >= ax && h.x + h.w / 2 <= bx && h.y + h.h / 2 >= ay && h.y + h.h / 2 <= by);
   }
 
   // ───────────────────────── basemap cache ─────────────────────────
@@ -1026,6 +1031,19 @@ export class MapRenderer {
     ctx.fillText(s, x, y - 1);
   }
 
+  /** Move an edge marker out from under DOM overlays, staying as close as possible to its spot. */
+  private clearOfOverlays(ex: number, ey: number): [number, number] {
+    const rects = (this.overlayRects?.() ?? []).map((r) => ({ x: r.x - 16, y: r.y - 16, w: r.w + 32, h: r.h + 32 }));
+    const blocked = (x: number, y: number) => rects.some((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+    if (!blocked(ex, ey)) return [ex, ey];
+    const clampX = (x: number) => Math.max(28, Math.min(this.w - 28, x));
+    const clampY = (y: number) => Math.max(28, Math.min(this.h - 28, y));
+    const cands: [number, number][] = [];
+    for (const r of rects) cands.push([ex, clampY(r.y - 1)], [ex, clampY(r.y + r.h + 1)], [clampX(r.x - 1), ey], [clampX(r.x + r.w + 1), ey]);
+    const free = cands.filter(([x, y]) => !blocked(x, y)).sort((a, b) => Math.hypot(a[0] - ex, a[1] - ey) - Math.hypot(b[0] - ex, b[1] - ey));
+    return free[0] ?? [ex, ey];
+  }
+
   private drawLocator(input: MapInput) {
     // off-screen selection locator: arrow at the viewport edge pointing to the selected object
     const sel = input.objects.filter((o) => input.selected.has(o.id));
@@ -1035,8 +1053,9 @@ export class MapRenderer {
       if (x >= 0 && x <= this.w && y >= 0 && y <= this.h) continue;
       const cx = this.w / 2, cy = this.h / 2;
       const ang = Math.atan2(y - cy, x - cx);
-      const ex = Math.max(28, Math.min(this.w - 28, cx + Math.cos(ang) * this.w));
-      const ey = Math.max(28, Math.min(this.h - 28, cy + Math.sin(ang) * this.h));
+      let ex = Math.max(28, Math.min(this.w - 28, cx + Math.cos(ang) * this.w));
+      let ey = Math.max(28, Math.min(this.h - 28, cy + Math.sin(ang) * this.h));
+      [ex, ey] = this.clearOfOverlays(ex, ey);
       ctx.save();
       ctx.translate(ex, ey);
       ctx.rotate(ang);
@@ -1053,7 +1072,7 @@ export class MapRenderer {
       ctx.stroke();
       ctx.restore();
       this.text(o.label.slice(0, 22), ex - Math.cos(ang) * 22, ey - Math.sin(ang) * 22 + 4, { size: 11, color: this.theme.select });
-      this.hits.push({ x: ex - 12, y: ey - 12, w: 24, h: 24, kind: 'object', ids: [o.id], label: `Locate ${o.label}` });
+      this.hits.push({ x: ex - 12, y: ey - 12, w: 24, h: 24, kind: 'object', ids: [o.id], label: `Locate ${o.label}`, locate: true });
     }
   }
 

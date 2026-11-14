@@ -131,9 +131,11 @@ export type Request =
   | { op: 'debugEnable' }
   | { op: 'debugContact' }
   | { op: 'debugMissileSetup'; missile?: string }
-  | { op: 'debugEngage' }
+  | { op: 'debugEngage'; stack?: string; strongest?: boolean }
   /** Test-only: a computer country submits an ordinary validated market order (same command path as every bot). */
-  | { op: 'debugMarketOrder'; side: 'buy' | 'sell'; resource: string; qty: number; price: number };
+  | { op: 'debugMarketOrder'; side: 'buy' | 'sell'; resource: string; qty: number; price: number }
+  /** Test-only: computer country `by` submits an ordinary validated `declareWar` on the human once the running clock reaches tick+inMinutes. */
+  | { op: 'debugScheduleWar'; by: string; inMinutes: number };
 
 export type QueryName =
   | 'cityList'

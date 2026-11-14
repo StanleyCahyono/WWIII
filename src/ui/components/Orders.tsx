@@ -92,12 +92,26 @@ export function CommandDialog({ title, build, describe, onClose, onDone, childre
   const frame = useFrame();
   const [v, setV] = useState<V | null>(null);
   const [war, setWar] = useState(false);
+  // The act-of-war requirement of the current target, remembered once the plain preview reports it:
+  // after the player ticks the box the re-preview (with confirmation) succeeds and no longer lists it,
+  // but the committed command must still carry the confirmation.
+  const [warFor, setWarFor] = useState<{ key: string; list: string[]; reason: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const mode = useStore(ui, (s) => s.mode);
   const cmd = build(undefined);
   const key = JSON.stringify(cmd);
   const aow = v && !v.ok && v.code === 'act_of_war' ? (((v.details as { actOfWar?: string[] | string } | undefined)?.actOfWar ?? []) as string[] | string) : [];
-  const aowList = Array.isArray(aow) ? aow : aow ? [aow] : [];
+  const aowNow = Array.isArray(aow) ? aow : aow ? [aow] : [];
+  const sticky = warFor && warFor.key === key ? warFor : null;
+  const aowList = aowNow.length ? aowNow : sticky?.list ?? [];
+  useEffect(() => {
+    if (v && !v.ok && v.code === 'act_of_war' && aowNow.length) setWarFor({ key, list: aowNow, reason: v.reason });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v]);
+  useEffect(() => {
+    // a different target never inherits an earlier war confirmation
+    setWar(false);
+  }, [key]);
   useEffect(() => {
     let alive = true;
     if (!cmd) {
@@ -167,7 +181,7 @@ export function CommandDialog({ title, build, describe, onClose, onDone, childre
         {needWar && (
           <div className="card" style={{ borderColor: 'var(--bad)', marginTop: 8 }} role="alert">
             <strong className="bad">Act of war</strong>
-            <p style={{ margin: '4px 0' }}>{(v as { reason: string }).reason}</p>
+            <p style={{ margin: '4px 0' }}>{v && !v.ok && v.code === 'act_of_war' ? v.reason : sticky?.reason}</p>
             <label className="row" style={{ gap: 6 }}>
               <input type="checkbox" checked={war} onChange={(e) => setWar(e.target.checked)} data-testid={testid ? `${testid}-war` : undefined} /> I accept going to war with {aowList.map(countryName).join(', ')}
             </label>

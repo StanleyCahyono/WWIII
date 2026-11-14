@@ -22,7 +22,7 @@ import type { CountryId, Domain, NodeId } from '../data-types';
 import type { Contact, ContactLevel, GameState, Stack } from '../state';
 import { CITY_SIGHT_KM, IDENTIFY_FRACTION, STALE_KEEP_MIN, STEALTH_VISUAL_FRACTION } from '../rules';
 import { S } from '../scenario/registry';
-import { distKm, fineBin as vbin, fineCover as visCover } from './mapindex';
+import { distKm, FINE_BIN_DEG, fineBin as vbin, fineCover as visCover } from './mapindex';
 import { hash32 } from '../rng';
 import { cmpId, idNum, sortedStacks, stacksOfOwner, stacksReadonly, stackLL, takeOwnerChanges, ustats, utype, visionSources } from './world';
 import { econChangesSince, sumEffect } from './economy';
@@ -199,13 +199,20 @@ interface TRec {
   n: number;
   pr: StackProfile;
   ll: [number, number];
+  /** Math.cos of ll's latitude in radians (the per-point factor of distKm, cached) */
+  cl: number;
   bin: number;
   moving: boolean;
   group: string | null;
+  /** the group object of `group` (set while the record is a member) */
+  g: Group | null;
   terr: CountryId | null;
   terrNode: NodeId | null;
 }
 interface Group {
+  key: string;
+  /** sensor slot of `key` */
+  slot: number;
   owner: CountryId;
   recs: TRec[];
   sensor: Sensor | null;
@@ -232,8 +239,8 @@ interface VisCache {
   gen: number;
   recs: Map<string, TRec>;
   list: readonly Stack[] | null;
-  bins: Map<number, TRec[]>;
-  binOwners: Map<number, Map<CountryId, number>>;
+  /** dense cell index (`cellIx`) → records in the cell (sorted by stack id) + per-owner counts */
+  cells: (Cell | undefined)[];
   groups: Map<string, Group>;
   /** economy version the city sensors reflect (-1 = never built) */
   cityEconv: number;
@@ -241,12 +248,21 @@ interface VisCache {
   rm: Map<CountryId, number | undefined>;
   /** city key → current city sensor */
   citySensors: Map<string, Sensor>;
-  /** current sensor snapshot per sensor key (groups and cities) */
-  cur: Map<string, Sensor>;
-  /** evaluated sensors (hits + covered cells) */
-  sensors: Map<string, SensorEntry>;
-  /** cell → sensor keys whose cover includes it */
-  binSensors: Map<number, Set<string>>;
+  /**
+   * Sensor slots: every sensor key (group key or `city:<key>`) is interned once to a small integer
+   * (never released); the per-sensor tables below are arrays indexed by slot.
+   */
+  slotOf: Map<string, number>;
+  keyOf: string[];
+  /** per slot: stamp of the last run that marked the sensor invalid */
+  stamp: number[];
+  epoch: number;
+  /** current sensor snapshot per slot (groups and cities) */
+  cur: (Sensor | undefined)[];
+  /** evaluated sensors (hits + covered cells) per slot */
+  sensors: (SensorEntry | undefined)[];
+  /** dense cell index → slots of the sensors whose cover includes the cell */
+  cellSensors: (Set<number> | undefined)[];
   /** country → target → source key → contribution */
   contrib: Map<CountryId, Map<string, Map<string, Contribution>>>;
   /** country → target → merged detection (persistent; Det objects replaced when they change) */
@@ -274,8 +290,33 @@ function sameSensor(a: Sensor | undefined, b: Sensor): boolean {
   }
   return true;
 }
+function slotFor(vc: VisCache, key: string): number {
+  let n = vc.slotOf.get(key);
+  if (n === undefined) {
+    n = vc.keyOf.length;
+    vc.keyOf.push(key);
+    vc.stamp.push(-1);
+    vc.cur.push(undefined);
+    vc.sensors.push(undefined);
+    vc.slotOf.set(key, n);
+  }
+  return n;
+}
 function newCache(): VisCache {
-  return { gen: ++cacheGen, recs: new Map(), list: null, bins: new Map(), binOwners: new Map(), groups: new Map(), cityEconv: -1, rm: new Map(), citySensors: new Map(), cur: new Map(), sensors: new Map(), binSensors: new Map(), contrib: new Map(), dets: new Map(), detBy: new Map(), touched: new Map(), ownv: -1 };
+  return { gen: ++cacheGen, recs: new Map(), list: null, cells: new Array(CELL_COUNT), groups: new Map(), cityEconv: -1, rm: new Map(), citySensors: new Map(), slotOf: new Map(), keyOf: [], stamp: [], epoch: 0, cur: [], sensors: [], cellSensors: new Array(CELL_COUNT), contrib: new Map(), dets: new Map(), detBy: new Map(), touched: new Map(), ownv: -1 };
+}
+interface Cell {
+  recs: TRec[];
+  owners: Map<CountryId, number>;
+}
+/**
+ * Fine-cell keys are `lonIndex * 1000 + latIndex` (lonIndex < 360 / FINE_BIN_DEG, latIndex ≤
+ * 180 / FINE_BIN_DEG); they map 1:1 onto a dense array index.
+ */
+const LAT_SLOTS = Math.round(180 / FINE_BIN_DEG) + 1;
+const CELL_COUNT = Math.round(360 / FINE_BIN_DEG) * LAT_SLOTS;
+function cellIx(k: number): number {
+  return ((k / 1000) | 0) * LAT_SLOTS + (k % 1000);
 }
 const idCache = new Map<string, number>();
 function idn(id: string): number {
@@ -290,11 +331,13 @@ function idn(id: string): number {
   return n;
 }
 function binInsert(vc: VisCache, r: TRec): void {
-  let l = vc.bins.get(r.bin);
-  if (!l) {
-    l = [];
-    vc.bins.set(r.bin, l);
+  const ix = cellIx(r.bin);
+  let cell = vc.cells[ix];
+  if (!cell) {
+    cell = { recs: [], owners: new Map() };
+    vc.cells[ix] = cell;
   }
+  const l = cell.recs;
   const n = r.n;
   let lo = 0, hi = l.length;
   while (lo < hi) {
@@ -303,23 +346,21 @@ function binInsert(vc: VisCache, r: TRec): void {
     else hi = mid;
   }
   l.splice(lo, 0, r);
-  const oc = vc.binOwners.get(r.bin) ?? vc.binOwners.set(r.bin, new Map()).get(r.bin)!;
+  const oc = cell.owners;
   oc.set(r.s.owner, (oc.get(r.s.owner) ?? 0) + 1);
 }
 function binRemove(vc: VisCache, r: TRec): void {
-  const l = vc.bins.get(r.bin);
-  if (l) {
-    const i = l.indexOf(r);
-    if (i >= 0) l.splice(i, 1);
-    if (!l.length) vc.bins.delete(r.bin);
-  }
-  const oc = vc.binOwners.get(r.bin);
-  if (oc) {
-    const v = (oc.get(r.s.owner) ?? 0) - 1;
-    if (v > 0) oc.set(r.s.owner, v);
-    else oc.delete(r.s.owner);
-    if (!oc.size) vc.binOwners.delete(r.bin);
-  }
+  const ix = cellIx(r.bin);
+  const cell = vc.cells[ix];
+  if (!cell) return;
+  const l = cell.recs;
+  const i = l.indexOf(r);
+  if (i >= 0) l.splice(i, 1);
+  const oc = cell.owners;
+  const v = (oc.get(r.s.owner) ?? 0) - 1;
+  if (v > 0) oc.set(r.s.owner, v);
+  else oc.delete(r.s.owner);
+  if (!l.length) vc.cells[ix] = undefined;
 }
 /** Co-located stacks of one owner form one sensor group; a stack in transit is its own group. */
 function groupKey(r: TRec): string | null {
@@ -393,20 +434,32 @@ function citySensorFor(state: GameState, k: string): Sensor | null {
   return sen;
 }
 
+const TO_RAD = Math.PI / 180;
+const EARTH_KM = 6371;
 function detectFrom(state: GameState, c: CountryId, sen: Sensor, vc: VisCache, keys: number[]): Hit[] {
   const r = Math.max(sen.sight, sen.radar);
   const m = S(state).map;
   const hits: Hit[] = [];
+  const slon = sen.ll[0], slat = sen.ll[1];
+  const scl = Math.cos(slat * TO_RAD);
   for (const k of keys) {
-    const l = vc.bins.get(k);
-    if (!l) continue;
-    const os = vc.binOwners.get(k)!;
+    const cell = vc.cells[cellIx(k)];
+    if (!cell) continue;
+    const os = cell.owners;
     if (os.size === 1 && os.has(c)) continue; // only own stacks there
-    for (const tg of l) {
+    for (const tg of cell.recs) {
       const s = tg.s;
       if (s.owner === c) continue;
-      if (Math.abs(tg.ll[1] - sen.ll[1]) * 111 > r + 1) continue; // cheap latitude reject
-      const d = distKm(sen.ll[0], sen.ll[1], tg.ll[0], tg.ll[1]);
+      const tlat = tg.ll[1];
+      if (Math.abs(tlat - slat) * 111 > r + 1) continue; // cheap latitude reject
+      // = distKm(slon, slat, tlon, tlat), with both cosines cached (same operations and order)
+      const dLat = (tlat - slat) * TO_RAD;
+      let dLon = tg.ll[0] - slon;
+      if (dLon > 180) dLon -= 360;
+      if (dLon < -180) dLon += 360;
+      dLon *= TO_RAD;
+      const a = Math.sin(dLat / 2) ** 2 + scl * tg.cl * Math.sin(dLon / 2) ** 2;
+      const d = 2 * EARTH_KM * Math.asin(Math.min(1, Math.sqrt(a)));
       if (d > r) continue;
       const vis: number[] = [];
       let radHit = false;
@@ -446,19 +499,26 @@ function sameHit(a: Hit, b: Hit): boolean {
   return true;
 }
 /** Update the cell → sensor index from one sorted cover to another (only the differences). */
-function diffCells(idx: Map<number, Set<string>>, key: string, a: number[], b: number[]): void {
+function diffCells(idx: (Set<number> | undefined)[], key: number, a: number[], b: number[]): void {
   if (a === b) return;
   let i = 0, j = 0;
   while (i < a.length || j < b.length) {
     if (j >= b.length || (i < a.length && a[i] < b[j])) {
-      const ks = idx.get(a[i]);
+      const x = cellIx(a[i]);
+      const ks = idx[x];
       if (ks) {
         ks.delete(key);
-        if (!ks.size) idx.delete(a[i]);
+        if (!ks.size) idx[x] = undefined;
       }
       i++;
     } else if (i >= a.length || b[j] < a[i]) {
-      (idx.get(b[j]) ?? idx.set(b[j], new Set()).get(b[j])!).add(key);
+      const x = cellIx(b[j]);
+      let ks = idx[x];
+      if (!ks) {
+        ks = new Set();
+        idx[x] = ks;
+      }
+      ks.add(key);
       j++;
     } else {
       i++;
@@ -523,7 +583,7 @@ function runDetections(state: GameState, full: boolean): VisCache {
   const V = vc;
   V.ownv = ownv;
   const changedBins = new Set<number>();
-  const dirtyGroups = new Set<string>();
+  const dirtyGroups = new Set<Group>();
   const dirtyPairs = new Map<CountryId, Set<string>>();
   const moved: string[] = [];
   const setContrib = (c: CountryId, sid: string, key: string, x: Contribution | null) => {
@@ -549,9 +609,9 @@ function runDetections(state: GameState, full: boolean): VisCache {
   const touchGroup = (r: TRec, add: boolean) => {
     const gk = r.group;
     if (!gk) return;
-    let g = V.groups.get(gk);
+    let g = add ? V.groups.get(gk) : r.g ?? V.groups.get(gk);
     if (!g) {
-      g = { owner: r.s.owner, recs: [], sensor: null };
+      g = { key: gk, slot: slotFor(V, gk), owner: r.s.owner, recs: [], sensor: null };
       V.groups.set(gk, g);
     }
     if (add) {
@@ -559,11 +619,13 @@ function runDetections(state: GameState, full: boolean): VisCache {
       let i = 0;
       while (i < g.recs.length && g.recs[i].n < n) i++;
       g.recs.splice(i, 0, r);
+      r.g = g;
     } else {
       const i = g.recs.indexOf(r);
       if (i >= 0) g.recs.splice(i, 1);
+      r.g = null;
     }
-    dirtyGroups.add(gk);
+    dirtyGroups.add(g);
   };
   const terrOf = (r: TRec): [CountryId | null, NodeId | null] => {
     const s = r.s;
@@ -584,7 +646,7 @@ function runDetections(state: GameState, full: boolean): VisCache {
   const addRec = (s: Stack, pr: StackProfile) => {
     const ll: [number, number] = s.pos.kind === 'node' ? (pr.ll ??= [mm.lon[s.pos.node], mm.lat[s.pos.node]]) : stackLL(state, s);
     const bin = s.pos.kind === 'node' ? (pr.bin ??= vbin(ll[0], ll[1])) : vbin(ll[0], ll[1]);
-    const r: TRec = { s, n: idn(s.id), pr, ll, bin, moving: s.pos.kind !== 'node', group: null, terr: null, terrNode: null };
+    const r: TRec = { s, n: idn(s.id), pr, ll, cl: Math.cos(ll[1] * TO_RAD), bin, moving: s.pos.kind !== 'node', group: null, g: null, terr: null, terrNode: null };
     r.group = groupKey(r);
     [r.terr, r.terrNode] = terrOf(r);
     V.recs.set(s.id, r);
@@ -625,8 +687,9 @@ function runDetections(state: GameState, full: boolean): VisCache {
           binInsert(V, r);
         }
         r.ll = ll;
+        r.cl = Math.cos(ll[1] * TO_RAD);
         changedBins.add(bin);
-        if (r.group) dirtyGroups.add(r.group);
+        if (r.g) dirtyGroups.add(r.g);
         moved.push(s.id);
       } else {
         removeRec(r);
@@ -657,22 +720,26 @@ function runDetections(state: GameState, full: boolean): VisCache {
       V.rm.set(c, rm);
     }
   }
-  if (rmChanged) for (const [gk, g] of V.groups) if (rmChanged.has(g.owner)) dirtyGroups.add(gk);
-  // sensors whose snapshot changed / appeared / disappeared
-  const invalid = new Set<string>();
-  for (const gk of dirtyGroups) {
-    const g = V.groups.get(gk)!;
+  if (rmChanged) for (const g of V.groups.values()) if (rmChanged.has(g.owner)) dirtyGroups.add(g);
+  // sensors whose snapshot changed / appeared / disappeared: a list of slots in first-marking order
+  // (exactly the iteration order of a set of keys), deduplicated by a per-run stamp
+  const ep = ++V.epoch;
+  const stamp = V.stamp;
+  const invalid: number[] = [];
+  for (const g of dirtyGroups) {
+    const gk = g.key;
+    const slot = g.slot;
     rebuildGroup(state, g, gk);
-    if (!g.recs.length) V.groups.delete(gk);
-    const prev = V.cur.get(gk);
+    if (!g.recs.length && V.groups.get(gk) === g) V.groups.delete(gk);
+    const prev = V.cur[slot];
     if (!g.sensor) {
       if (prev) {
-        V.cur.delete(gk);
-        invalid.add(gk);
+        V.cur[slot] = undefined;
+        if (stamp[slot] !== ep) { stamp[slot] = ep; invalid.push(slot); }
       }
     } else if (!sameSensor(prev, g.sensor)) {
-      V.cur.set(gk, g.sensor);
-      invalid.add(gk);
+      V.cur[slot] = g.sensor;
+      if (stamp[slot] !== ep) { stamp[slot] = ep; invalid.push(slot); }
     }
   }
   // city sensors: re-derived only at locations announced by the economy journal (buildings,
@@ -692,13 +759,15 @@ function runDetections(state: GameState, full: boolean): VisCache {
       const prev = V.citySensors.get(k);
       if (prev === (sen ?? undefined)) return;
       if (prev) {
-        V.cur.delete(prev.key);
-        invalid.add(prev.key);
+        const slot = slotFor(V, prev.key);
+        V.cur[slot] = undefined;
+        if (stamp[slot] !== ep) { stamp[slot] = ep; invalid.push(slot); }
       }
       if (sen) {
+        const slot = slotFor(V, sen.key);
         V.citySensors.set(k, sen);
-        V.cur.set(sen.key, sen);
-        invalid.add(sen.key);
+        V.cur[slot] = sen;
+        if (stamp[slot] !== ep) { stamp[slot] = ep; invalid.push(slot); }
       } else V.citySensors.delete(k);
     };
     if (nodes === 'all') {
@@ -712,14 +781,15 @@ function runDetections(state: GameState, full: boolean): VisCache {
     V.cityEconv = econv;
   }
   for (const b of changedBins) {
-    const ks = V.binSensors.get(b);
-    if (ks) for (const k of ks) invalid.add(k);
+    const ks = V.cellSensors[cellIx(b)];
+    if (ks) for (const slot of ks) if (stamp[slot] !== ep) { stamp[slot] = ep; invalid.push(slot); }
   }
   // re-evaluate invalid sensors (order-independent: contributions are keyed by sensor); only
   // hits that differ from the previous evaluation touch the targets' contributions
-  for (const key of invalid) {
-    const old = V.sensors.get(key);
-    const sen = V.cur.get(key);
+  for (const slot of invalid) {
+    const key = V.keyOf[slot];
+    const old = V.sensors[slot];
+    const sen = V.cur[slot];
     const r = sen ? Math.max(sen.sight, sen.radar) : 0;
     const keys = sen && r > 0 ? visCover(sen.ll[0], sen.ll[1], r, !sen.moving) : NO_UNITS;
     const hits = sen && r > 0 ? detectFrom(state, sen.owner, sen, V, keys) : [];
@@ -743,14 +813,14 @@ function runDetections(state: GameState, full: boolean): VisCache {
       if (old) for (const h of old.hits) setContrib(old.owner, h.sid, key, null);
       if (sen) for (const h of hits) setContrib(sen.owner, h.sid, key, h);
     }
-    diffCells(V.binSensors, key, old ? old.keys : NO_UNITS, keys);
-    if (!sen) V.sensors.delete(key);
+    diffCells(V.cellSensors, slot, old ? old.keys : NO_UNITS, keys);
+    if (!sen) V.sensors[slot] = undefined;
     else if (old) {
       old.snap = sen;
       old.owner = sen.owner;
       old.hits = hits;
       old.keys = keys;
-    } else V.sensors.set(key, { snap: sen, owner: sen.owner, hits, keys });
+    } else V.sensors[slot] = { snap: sen, owner: sen.owner, hits, keys };
   }
   // rebuild the merged detections of targets whose contributions changed
   const touch = (c: CountryId, sid: string) => (V.touched.get(c) ?? V.touched.set(c, new Set()).get(c)!).add(sid);
@@ -1050,21 +1120,45 @@ export function forEachAlliedStack(state: GameState, viewer: CountryId, visit: (
   const srcs = visionSources(state, viewer);
   if (srcs.length <= 1) return;
   const ids = cidCache(state, viewer);
-  // per-owner lists are each in sortedStacks order (cmpId); with several sources k-way merge them
-  const lists: (readonly Stack[])[] = [];
-  for (const src of srcs) if (src !== viewer) lists.push(stacksOfOwner(state, src));
-  const list: Stack[] = lists.length === 1 ? (lists[0] as Stack[]) : mergeById(lists);
-  for (const s of list) {
+  // per-owner lists are each in sortedStacks order (cmpId); with several sources k-way merge them.
+  // The merge is memoized per viewer (its memoized `srcs` array) while every source list is the
+  // same array (stacksOfOwner lists are replaced whenever a stack is added or removed).
+  let mc = alliedMerge.get(srcs);
+  let fresh = !mc;
+  if (mc) for (let i = 0, k = 0; i < srcs.length; i++) {
+    if (srcs[i] === viewer) continue;
+    if (mc.lists[k++] !== stacksOfOwner(state, srcs[i])) {
+      fresh = true;
+      break;
+    }
+  }
+  if (fresh) {
+    const lists: (readonly Stack[])[] = [];
+    for (const src of srcs) if (src !== viewer) lists.push(stacksOfOwner(state, src));
+    mc = { lists, list: lists.length === 1 ? lists[0] : mergeById(lists) };
+    alliedMerge.set(srcs, mc);
+  }
+  const m = S(state).map;
+  for (const s of mc!.list) {
     if (state.stacks[s.id] !== s || s.aboard) continue;
     let cid = ids.get(s.id);
     if (!cid) {
       cid = contactId(state, viewer, s.id);
       ids.set(s.id, cid);
     }
-    const ll = stackLL(state, s);
-    visit(s, cid, [round4(ll[0]), round4(ll[1])], unitDomain(state, s, 0));
+    let lon: number, lat: number;
+    if (s.pos.kind === 'node') {
+      lon = m.lon[s.pos.node];
+      lat = m.lat[s.pos.node];
+    } else {
+      const ll = stackLL(state, s);
+      lon = ll[0];
+      lat = ll[1];
+    }
+    visit(s, cid, [round4(lon), round4(lat)], unitDomain(state, s, 0));
   }
 }
+const alliedMerge = new WeakMap<readonly CountryId[], { lists: (readonly Stack[])[]; list: readonly Stack[] }>();
 /** Merge lists that are each sorted by `cmpId` into one sorted list (numeric ids computed once). */
 function mergeById(lists: (readonly Stack[])[]): Stack[] {
   const pos = lists.map(() => 0);

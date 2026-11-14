@@ -203,6 +203,13 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
       setZs(r.zoomState);
     };
     setSymbolReadyCallback(() => r.requestDraw());
+    r.overlayRects = () => {
+      const cb = c.getBoundingClientRect();
+      return [...(wrapRef.current?.querySelectorAll<HTMLElement>('.map-tools, .legend, .map-search, .scalebar, .dpad, .layers-pop') ?? [])].map((el) => {
+        const b = el.getBoundingClientRect();
+        return { x: b.left - cb.left, y: b.top - cb.top, w: b.width, h: b.height };
+      });
+    };
     const ro = new ResizeObserver(() => {
       const b = wrapRef.current!.getBoundingClientRect();
       r.resize(b.width, b.height, window.devicePixelRatio);
@@ -297,6 +304,12 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     }
     const h = r.hitAt(x, y);
     if (h) {
+      if (h.kind === 'object' && h.locate) {
+        // locator arrow at the viewport edge: bring the off-screen selection into view
+        const o = objects.find((ob) => ob.id === h.ids[0]);
+        if (o) centerOn(o.lonlat[0], o.lonlat[1], r.cam.z);
+        return;
+      }
       if (h.kind === 'object') return selectObjectIds(h.ids, shift || ctrl);
       if (h.kind === 'cluster') {
         if (shift || ctrl) return selectObjectIds(h.ids, true);

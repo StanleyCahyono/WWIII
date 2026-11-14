@@ -407,7 +407,7 @@ export function revalidateRoute(state: GameState, s: Stack): void {
 }
 
 /** Advance all moving ground/naval stacks by one step. */
-export function moveStep(state: GameState, stacks: Stack[], hooks: MoveHooks): void {
+export function moveStep(state: GameState, stacks: readonly Stack[], hooks: MoveHooks): void {
   const m = S(state).map;
   // node → stacks standing there (same membership rule as world.stacksAt), kept current as stacks move
   let atNode: Map<NodeId, Set<Stack>> | null = null;

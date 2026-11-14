@@ -334,12 +334,14 @@ export function debugMissileSetup(state: GameState, viewer: string, missile = 'm
   if (city && !city.buildings.some((b) => b.type === 'missile_complex')) city.buildings.push({ type: 'missile_complex', level: 1, condition: 100 });
   return { missile, inv: state.countries[viewer].missiles[missile] ?? null, site: city?.name ?? null };
 }
-export function debugEngage(state: GameState, viewer: string) {
+export function debugEngage(state: GameState, viewer: string, opts: { stack?: string; strongest?: boolean } = {}) {
   const sc = E.scenarioOf(state);
-  const mine = Object.values(state.stacks).find((s) => s.owner === viewer && s.moveClass === 'ground' && s.pos.kind === 'node');
-  if (!mine || mine.pos.kind !== 'node') throw new Error('No ground stack');
+  const mine = opts.stack ? state.stacks[opts.stack] : Object.values(state.stacks).find((s) => s.owner === viewer && s.moveClass === 'ground' && s.pos.kind === 'node');
+  if (!mine || mine.owner !== viewer || mine.pos.kind !== 'node') throw new Error('No ground stack');
   const node = mine.pos.node;
-  const foe = Object.values(state.stacks).find((s) => s.owner !== viewer && s.moveClass === 'ground' && s.pos.kind === 'node' && s.units.length > 0);
+  const foes = Object.values(state.stacks).filter((s) => s.owner !== viewer && s.moveClass === 'ground' && s.pos.kind === 'node' && s.units.length > 0);
+  // `strongest`: the largest foreign ground formation (by units, then id) — used to make a loss certain
+  const foe = opts.strongest ? [...foes].sort((a, b) => b.units.length - a.units.length || (a.id < b.id ? -1 : 1))[0] : foes[0];
   if (!foe) throw new Error('No foreign ground stack');
   declareWarInternal(state, foe.owner, viewer, 'test engagement');
   foe.pos = { kind: 'node', node };

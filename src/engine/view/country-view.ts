@@ -41,7 +41,7 @@ import { S } from '../scenario/registry';
 import { formatGameTime, dayOf } from '../time';
 import { resourceSummary, type ResourceSummary } from '../systems/economy';
 import { researchSlots } from '../systems/research';
-import { coalitionIndex, coalitionOf, enemyMap, grantLevel, grantMap, visionSources, stacksOfOwner, territoryOf } from '../systems/world';
+import { coalitionIndex, coalitionOf, enemyMap, grantLevel, grantMap, grantTouch, visionSources, stacksOfOwner, territoryOf } from '../systems/world';
 import { trustRow } from '../systems/diplomacy';
 import { bookView, ordersOf, type BookLevel } from '../systems/market';
 import { countryScores, thresholdFor } from '../systems/score';
@@ -349,20 +349,8 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
   const myCo = coalitionOf(state, viewer);
   const relations = relationRows(state, viewer, myOffers, myCo);
   const offers = myOffers.map((o) => plainClone(o));
-  const coalitions = Object.values(state.coalitions).map((co) => ({
-    id: co.id,
-    name: co.name,
-    description: co.description,
-    emblem: co.emblem,
-    leader: co.leader,
-    createdAt: co.createdAt,
-    dissolvedAt: co.dissolvedAt,
-    members: co.members.map((m) => m.country),
-    joinedAt: Object.fromEntries(co.members.map((m) => [m.country, m.joinedAt])),
-    departures: co.departures.map((d) => ({ ...d })),
-    applications: co.leader === viewer ? co.applications.map((a) => ({ ...a })) : undefined,
-    score: co.members.reduce((a, m) => a + (pub.scores[m.country] ?? 0), 0),
-  }));
+  const coalitions: CountryView['coalitions'] = [];
+  for (const id in state.coalitions) coalitions.push(coalitionEntry(state.coalitions[id], viewer, pub.scores));
   const messages: Record<string, Message[]> = {};
   for (const th of threadIndex(state).get(viewer) ?? []) messages[th] = state.messages[th].map(messageCopy);
   if (myCo && state.messages[`co:${myCo.id}`]) messages[`co:${myCo.id}`] = state.messages[`co:${myCo.id}`].map(messageCopy);
@@ -377,9 +365,9 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
     viewer,
     tick: t,
     day: dayOf(t),
-    time: formatGameTime(t, state.meta.startDate),
+    time: gameTimeText(t, state.meta.startDate),
     finished: !!state.score.result,
-    result: state.score.result ? JSON.parse(JSON.stringify(state.score.result)) : null,
+    result: state.score.result ? jsonCopy(state.score.result) : null,
     humanRun: state.meta.humanRun,
     isHuman: cs.controller === 'human',
     self: {
@@ -396,7 +384,7 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
       research: cs.research.map((r) => ({ ...r, cost: { ...r.cost } })),
       researchSlots: researchSlots(state, viewer),
       unitLevels: { ...cs.unitLevels },
-      missiles: JSON.parse(JSON.stringify(cs.missiles)),
+      missiles: jsonCopy(cs.missiles),
       jobs: plainClone(cs.jobs),
       lift: lite ? 0 : liftBreakdown(state, viewer).total,
       liftBreakdown: lite ? { ...EMPTY_LIFT } : liftBreakdown(state, viewer),
@@ -433,6 +421,90 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: ViewOp
     rules: RULES,
     ...(lite ? { lite: true as const } : {}),
   };
+}
+
+let timeMemo = { t: -1, start: '', text: '' };
+/** `formatGameTime` memoized for the last (tick, start date) — every view of a step shares it. */
+function gameTimeText(t: number, start: string | undefined): string {
+  const st = start ?? '';
+  if (timeMemo.t !== t || timeMemo.start !== st) timeMemo = { t, start: st, text: formatGameTime(t, start) };
+  return timeMemo.text;
+}
+
+type CoalitionEntry = CountryView['coalitions'][number];
+interface CoalitionMemo {
+  members: object;
+  nMembers: number;
+  departures: object;
+  nDepartures: number;
+  leader: CountryId;
+  dissolvedAt: number | null;
+  name: string;
+  description: string;
+  emblem: string;
+  createdAt: number;
+  scores: object;
+  entry: CoalitionEntry;
+}
+const coalitionMemos = new WeakMap<Coalition, CoalitionMemo>();
+/**
+ * Public part of one coalition (frozen, shared by every view) — rebuilt when any field it copies
+ * changes (members, departures: compared by array identity and length — they are only appended to
+ * or replaced; leader, dissolution, texts, the frozen score table). Only the leader additionally
+ * sees the applications (a fresh copy per view).
+ */
+function coalitionEntry(co: Coalition, viewer: CountryId, scores: Record<CountryId, number>): CoalitionEntry {
+  let e = coalitionMemos.get(co);
+  if (!e || e.members !== co.members || e.nMembers !== co.members.length || e.departures !== co.departures || e.nDepartures !== co.departures.length || e.leader !== co.leader || e.dissolvedAt !== co.dissolvedAt || e.name !== co.name || e.description !== co.description || e.emblem !== co.emblem || e.createdAt !== co.createdAt || e.scores !== scores) {
+    const entry: CoalitionEntry = {
+      id: co.id,
+      name: co.name,
+      description: co.description,
+      emblem: co.emblem,
+      leader: co.leader,
+      createdAt: co.createdAt,
+      dissolvedAt: co.dissolvedAt,
+      members: Object.freeze(co.members.map((m) => m.country)) as CountryId[],
+      joinedAt: Object.freeze(Object.fromEntries(co.members.map((m) => [m.country, m.joinedAt]))),
+      departures: Object.freeze(co.departures.map((d) => Object.freeze({ ...d }))) as Coalition['departures'],
+      applications: undefined,
+      score: co.members.reduce((a, m) => a + (scores[m.country] ?? 0), 0),
+    };
+    e = { members: co.members, nMembers: co.members.length, departures: co.departures, nDepartures: co.departures.length, leader: co.leader, dissolvedAt: co.dissolvedAt, name: co.name, description: co.description, emblem: co.emblem, createdAt: co.createdAt, scores, entry: Object.freeze(entry) };
+    coalitionMemos.set(co, e);
+  }
+  if (co.leader !== viewer) return e.entry;
+  return { ...e.entry, applications: co.applications.map((a) => ({ ...a })) };
+}
+
+/**
+ * Deep copy with exactly `JSON.parse(JSON.stringify(v))` semantics for plain data: object members
+ * that are undefined/functions are dropped, such array items become null, non-finite numbers
+ * become null and -0 becomes 0.
+ */
+function jsonCopy<T>(v: T): T {
+  return jsonVal(v) as T;
+}
+function jsonVal(v: unknown): unknown {
+  if (v === null) return null;
+  const t = typeof v;
+  if (t === 'number') return Number.isFinite(v as number) ? ((v as number) === 0 ? 0 : v) : null;
+  if (t !== 'object') return t === 'string' || t === 'boolean' ? v : undefined;
+  if (Array.isArray(v)) {
+    const out = new Array(v.length);
+    for (let i = 0; i < v.length; i++) {
+      const x = jsonVal(v[i]);
+      out[i] = x === undefined ? null : x;
+    }
+    return out;
+  }
+  const out: Record<string, unknown> = {};
+  for (const k in v as Record<string, unknown>) {
+    if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+    const x = jsonVal((v as Record<string, unknown>)[k]);
+    if (x !== undefined) out[k] = x;
+  }
+  return out;
 }
 
 const messageCopies = new WeakMap<Message, Message>();
@@ -492,9 +564,39 @@ function countryList(state: GameState): GameState['countries'][string][] {
 /**
  * Diplomacy rows of `viewer` toward every other seat, from the shared version-keyed indexes
  * (war sets by `relv`, grant maps by `grv`, coalition membership by `cov`); trust is read live.
+ *
+ * Rows are reused between calls (frozen, shared by consecutive views of the same viewer): the
+ * per-viewer memo is valid while the war and coalition indexes, the viewer's coalition and the
+ * seat order are the same objects and no grant from or to the viewer changed (`grantTouch`); each row is then re-checked against the live inputs that no
+ * counter covers (trust value, trust entry identity + history length + newest history item —
+ * direct `state.trust` edits included — pending offers, name/controller/alive) and rebuilt alone
+ * if any differs. Results equal a fresh build field for field.
  */
+interface RelMemo {
+  em: object;
+  /** grant lineage + touch version of the viewer (no grant to/from it changed while equal) */
+  gl: object;
+  gt: number;
+  ci: object;
+  co: Coalition | null;
+  order: readonly CountryId[];
+  rows: DiplomacyRow[];
+  /** per seat index: trust entry, its history length and newest history item at build time */
+  entries: (TrustState | undefined)[];
+  hlen: number[];
+  hlast: unknown[];
+}
+const relMemos = new WeakMap<GameState, Map<CountryId, RelMemo>>();
+const NO_IDS: string[] = Object.freeze([]) as unknown as string[];
+function samePending(a: readonly string[], b: readonly string[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
 function relationRows(state: GameState, viewer: CountryId, myOffers: Offer[], myCo: Coalition | null): DiplomacyRow[] {
-  const enemies = enemyMap(state).get(viewer);
+  const em = enemyMap(state);
+  const enemies = em.get(viewer);
   const grants = grantMap(state);
   const mineOut = grants.get(viewer);
   const pending = new Map<CountryId, string[]>();
@@ -509,28 +611,67 @@ function relationRows(state: GameState, viewer: CountryId, myOffers: Offer[], my
   const order = state.countryOrder;
   const others = countryList(state);
   const coIdx = coalitionIndex(state);
-  const rows: DiplomacyRow[] = [];
+  let memos = relMemos.get(state);
+  if (!memos) {
+    memos = new Map();
+    relMemos.set(state, memos);
+  }
+  const memo = memos.get(viewer);
+  const gtv = grantTouch(state, viewer);
+  const reuse = !!memo && memo.em === em && memo.gl === gtv.lineage && memo.gt === gtv.touch && memo.ci === coIdx && memo.co === myCo && memo.order === order;
+  let rows: DiplomacyRow[] | null = reuse ? memo!.rows : null;
+  const hlen: number[] = reuse ? memo!.hlen : [];
+  const hlast: unknown[] = reuse ? memo!.hlast : [];
+  let changed = !reuse;
+  let k = 0;
   for (let i = 0; i < order.length; i++) {
     const c = order[i];
     if (c === viewer) continue;
     const other = others[i];
+    const en = entries[i];
+    const pend = pending.get(c) ?? NO_IDS;
+    if (reuse) {
+      const r = memo!.rows[k];
+      if (r.trust === trust[i] && memo!.entries[i] === en && (!en || (en.history.length === hlen[i] && en.history[en.history.length - 1] === hlast[i])) && r.name === other.name && r.controller === other.controller && r.alive === other.alive && samePending(r.pendingOffers, pend)) {
+        k++;
+        continue;
+      }
+      if (!changed) {
+        rows = memo!.rows.slice();
+        changed = true;
+      }
+    }
     const war = !!enemies && enemies.has(c);
-    rows.push({
+    let theirs: DiploStatus = 'peace';
+    if (war) theirs = 'war';
+    else {
+      const g = grants.get(c);
+      if (g !== undefined) theirs = g.get(viewer) ?? 'peace';
+    }
+    const row: DiplomacyRow = {
       country: c,
       name: other.name,
       controller: other.controller,
       alive: other.alive,
       myStatusToThem: war ? 'war' : mineOut?.get(c) ?? 'peace',
-      theirStatusToMe: war ? 'war' : grants.get(c)?.get(viewer) ?? 'peace',
+      theirStatusToMe: theirs,
       war,
       trust: trust[i],
       coalition: coIdx.get(c) ?? null,
       sameCoalition: !!coMembers && coMembers.has(c),
-      pendingOffers: pending.get(c) ?? [],
-      ...(entries[i] ? { trustHistory: entries[i]!.history.map((h) => ({ at: h.at, kind: h.kind, delta: h.delta })) } : {}),
-    });
+      pendingOffers: pend === NO_IDS ? NO_IDS : (Object.freeze(pend) as string[]),
+    };
+    if (en) row.trustHistory = Object.freeze(en.history.map((h) => Object.freeze({ at: h.at, kind: h.kind, delta: h.delta }))) as DiplomacyRow['trustHistory'];
+    hlen[i] = en ? en.history.length : 0;
+    hlast[i] = en ? en.history[en.history.length - 1] : undefined;
+    if (!rows) rows = [];
+    rows[k++] = Object.freeze(row);
   }
-  return rows;
+  if (changed) {
+    Object.freeze(rows);
+    memos.set(viewer, { em, gl: gtv.lineage, gt: gtv.touch, ci: coIdx, co: myCo, order, rows: rows!, entries, hlen, hlast });
+  } else memo!.entries = entries;
+  return rows!;
 }
 
 function cloneBuildings(l: CityState['buildings']): CityState['buildings'] {
@@ -590,7 +731,7 @@ function cloneStack(s: Stack): Stack {
     units: s.units.map((u) => ({ ...u })),
     pos: s.pos.kind === 'air' ? { ...s.pos, from: [s.pos.from[0], s.pos.from[1]], to: [s.pos.to[0], s.pos.to[1]] } : { ...s.pos },
     order: s.order ? (s.order.kind === 'move' ? { ...s.order, route: s.order.route.map((r) => ({ ...r })), waypoints: [...s.order.waypoints], warConfirmed: [...s.order.warConfirmed], attack: s.order.attack ? { ...s.order.attack } : undefined } : { ...s.order, warConfirmed: [...s.order.warConfirmed] }) : null,
-    air: s.air ? JSON.parse(JSON.stringify(s.air)) : null,
+    air: s.air ? jsonCopy(s.air) : null,
   };
 }
 

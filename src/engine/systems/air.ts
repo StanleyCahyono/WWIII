@@ -24,7 +24,7 @@ import {
 } from '../rules';
 import { S } from '../scenario/registry';
 import { distKm, nodeLL } from './mapindex';
-import { cmpId, isFriendlyTerritory, sameCoalition, stackLL, ustats, utype , sortedStacks, stacksReadonly } from './world';
+import { cmpId, isFriendlyTerritory, sameCoalition, stackLL, ustats, utype, sortedStacks, stacksReadonly } from './world';
 import { emit, toAll } from './events';
 import { sumEffect } from './economy';
 import { cmod } from './modifiers';
@@ -233,7 +233,8 @@ function divert(state: GameState, s: Stack, why: string, onLost: (st: GameState,
 /** Per-step air update. */
 export function airStep(state: GameState, onLost: (st: GameState, s: Stack) => void): void {
   const t = state.clock.tick;
-  for (const s of sortedStacks(state)) {
+  // the read-only sorted list is a snapshot: stacks lost during the loop do not change it
+  for (const s of stacksReadonly(state)) {
     if (s.moveClass !== 'air' || !s.air || !state.stacks[s.id]) continue;
     const air = s.air;
     const airborne = air.state === 'outbound' || air.state === 'on_station' || air.state === 'returning' || air.state === 'rebasing';

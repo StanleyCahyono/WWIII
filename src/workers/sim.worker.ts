@@ -24,6 +24,8 @@ let dirty = false;
 let lastSaveWall = 0;
 let seq = 0;
 let debugEnabled = false;
+/** Test-only (?e2e=1): a pending declaration of war by a computer country, submitted through the validator when the clock reaches `at`. */
+let debugWar: { at: number; by: string } | null = null;
 
 const clock: ClockState = { paused: true, speed: 1, effective: 0, behind: false };
 let interrupts: InterruptPrefs = { war: true, capital: true, end: true, other: false };
@@ -173,7 +175,13 @@ function runFor(minutes: number) {
   if (!state) return;
   const host = hostCache;
   const start = state.events.length;
-  A.advance(state, minutes, host ?? undefined);
+  if (debugWar && viewer && state.clock.tick + minutes >= debugWar.at) {
+    const pre = Math.max(0, debugWar.at - state.clock.tick);
+    A.advance(state, pre, host ?? undefined);
+    A.submit(state, { type: 'declareWar', country: debugWar.by, target: viewer, reason: 'test: scheduled declaration' });
+    debugWar = null;
+    A.advance(state, minutes - pre, host ?? undefined);
+  } else A.advance(state, minutes, host ?? undefined);
   dirty = true;
   const hit = checkInterrupts(start);
   eventsSeen = state.events.length;
@@ -237,6 +245,7 @@ async function ensureScenario() {
 }
 
 function resetSession() {
+  debugWar = null;
   clock.paused = true;
   clock.effective = 0;
   acc = 0;
@@ -431,7 +440,7 @@ async function handle(req: Request): Promise<unknown> {
     }
     case 'debugEngage': {
       if (!debugEnabled || !state || !viewer) throw new Error('Debug operations are disabled.');
-      const r = A.debugEngage(state, viewer);
+      const r = A.debugEngage(state, viewer, { stack: req.stack, strongest: req.strongest });
       pushFrame();
       return r;
     }
@@ -440,6 +449,12 @@ async function handle(req: Request): Promise<unknown> {
       const r = A.debugMarketOrder(state, viewer, req.side, req.resource, req.qty, req.price);
       pushFrame();
       return r;
+    }
+    case 'debugScheduleWar': {
+      if (!debugEnabled || !state || !viewer) throw new Error('Debug operations are disabled.');
+      if (!state.countries[req.by] || req.by === viewer) throw new Error('Unknown country.');
+      debugWar = { at: state.clock.tick + Math.max(1, Math.floor(req.inMinutes)), by: req.by };
+      return { ...debugWar };
     }
     case 'debugEnable':
       debugEnabled = true;

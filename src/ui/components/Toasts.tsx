@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useStore } from '../state/store';
-import { ui, dismissToast, centerOn, select } from '../state/ui';
+import { ui, dismissToast, centerOn, select, openPanel } from '../state/ui';
+import { humanizeIds } from '../eventText';
 import { getHost } from '../sim/host';
 import { NODES, cityByNode } from '../data/static';
 import { Modal } from './common';
@@ -28,6 +29,11 @@ export function Toasts() {
       {toasts.map((t) => (
         <div key={t.id} className={`toast ${t.level}`}>
           <div className="grow">{t.text}</div>
+          {t.action && (
+            <button type="button" className="btn small" onClick={() => { openPanel(t.action!.panel); dismissToast(t.id); }}>
+              {t.action.label}
+            </button>
+          )}
           {t.node !== null && (
             <button type="button" className="btn small" onClick={() => jump(t.node)} aria-label="Jump to location">
               Go
@@ -67,7 +73,7 @@ export function InterruptDialog() {
         </>
       }
     >
-      <p role="alert" style={{ fontSize: 15 }}>{e.text}</p>
+      <p role="alert" style={{ fontSize: 15 }}>{humanizeIds(e.text, host.store.get().frame?.view)}</p>
       <p className="muted">Interruptions can be changed in Settings. {items.length > 1 ? `${items.length - 1} more pending.` : ''}</p>
     </Modal>
   );

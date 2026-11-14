@@ -5,6 +5,7 @@ import { ui, centerOn, select } from '../state/ui';
 import { NODES, cityByNode, countryName, placeName } from '../data/static';
 import { gameTime, dayOf, hourLabel, relWall, cap } from '../format';
 import { exec } from '../sim/exec';
+import { readableEventText } from '../eventText';
 
 interface J { id: string; at: number; kind: string; category: string; node: number | null; text: string; data?: Record<string, unknown>; interrupt: boolean; routine: boolean }
 
@@ -19,6 +20,7 @@ function goto(node: number | null) {
 }
 
 export function JournalPanel() {
+  const frame = useFrame();
   const [cat, setCat] = useState('');
   const [tab, setTab] = useState<'journal' | 'notifications'>('journal');
   const [open, setOpen] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export function JournalPanel() {
                       <span className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 12, minWidth: 44 }}>{hourLabel(e.at)}</span>
                       <span className="tag">{e.category}</span>
                       <button type="button" className="btn ghost small grow" style={{ justifyContent: 'flex-start', textAlign: 'left', whiteSpace: 'normal', minHeight: 0 }} aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>
-                        {e.text}
+                        {readableEventText(e, frame)}
                       </button>
                       {e.node !== null && (
                         <button type="button" className="btn small" onClick={() => goto(e.node)} aria-label={`Go to ${placeName(e.node)}`}>

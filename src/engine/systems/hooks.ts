@@ -12,13 +12,14 @@ import { canSee } from './visibility';
 import { emit, toAll } from './events';
 import { joinCoalitionInternal, removeMember } from './coalitions';
 import { cancelOrderInternal, openOrdersOf } from './market';
-import { coalitionOf, cmpId, utype , sortedStacks } from './world';
+import { coalitionOf, cmpId, utype, stacksOfOwner, stacksReadonly } from './world';
 
 export function destroyStack(state: GameState, s: Stack, by: CountryId | null): void {
   if (!state.stacks[s.id]) return;
   delete state.stacks[s.id];
-  // aircraft aboard a destroyed carrier are lost with it
-  for (const a of sortedStacks(state)) {
+  // aircraft aboard a destroyed carrier are lost with it (the read-only sorted list is a snapshot:
+  // deleting entries of state.stacks inside the loop does not change it)
+  for (const a of stacksReadonly(state)) {
     if (a.aboard === s.id) {
       delete state.stacks[a.id];
       emit(state, { kind: 'aircraft_lost', category: 'combat', private: toAll([a.owner], `Aircraft lost: ${a.name} went down with its carrier ${s.name}.`, { stack: a.id }) });
@@ -67,7 +68,7 @@ export function checkEliminations(state: GameState): void {
   for (const c of state.countryOrder) {
     const cs = state.countries[c];
     if (!cs.alive || owns.has(c)) continue;
-    const recovery = Object.values(state.stacks).some((s) => s.owner === c && s.moveClass === 'ground' && s.units.some((u) => utype(state, u.type).capture));
+    const recovery = stacksOfOwner(state, c).some((s) => state.stacks[s.id] === s && s.moveClass === 'ground' && s.units.some((u) => utype(state, u.type).capture));
     if (recovery) continue;
     cs.alive = false;
     cs.eliminatedAt = state.clock.tick;

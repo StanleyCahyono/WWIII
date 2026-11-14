@@ -43,7 +43,7 @@ import {
 import { S } from '../scenario/registry';
 import { streamRng } from '../rng';
 import { nextId } from '../ids';
-import { cmpId, stackLL, ustats, utype, hostileStacks as hostileStacksW, sortedStacks, enemyMap, unitRange } from './world';
+import { cmpId, stackLL, ustats, utype, hostileStacks as hostileStacksW, stacksReadonly, enemyMap, unitRange } from './world';
 import { distKm, fineBin, fineCover } from './mapindex';
 import { awardXp, emit, toAll } from './events';
 import { sumEffect, bumpEconomy, multEffect } from './economy';
@@ -167,19 +167,31 @@ function variance(state: GameState, eng: string, round: number, stack: string): 
   return 1 + VARIANCE * (2 * r.next() - 1);
 }
 
-function openEngagementAt(state: GameState, node: NodeId, kind: Engagement['kind']): Engagement | null {
-  for (const id of Object.keys(state.engagements)) {
+/**
+ * First open engagement (in `state.engagements` key order) per (kind, node), built once per combat
+ * round: engagements are neither closed nor removed during a round (closeEngagements runs at its
+ * end) and a new one is appended after every existing key, so the index stays exact while
+ * `engagementFor` records the engagements it creates.
+ */
+type EngIndex = Map<string, Engagement>;
+function openEngagementIndex(state: GameState): EngIndex {
+  const idx: EngIndex = new Map();
+  for (const id in state.engagements) {
     const e = state.engagements[id];
-    if (e.open && e.node === node && e.kind === kind) return e;
+    if (!e.open) continue;
+    const k = `${e.kind}:${e.node}`;
+    if (!idx.has(k)) idx.set(k, e);
   }
-  return null;
+  return idx;
 }
 
-function engagementFor(state: GameState, node: NodeId, kind: Engagement['kind']): Engagement {
-  let e = openEngagementAt(state, node, kind);
+function engagementFor(state: GameState, node: NodeId, kind: Engagement['kind'], idx: EngIndex): Engagement {
+  const k = `${kind}:${node}`;
+  let e = idx.get(k);
   if (!e) {
     e = { id: nextId(state, 'engagement'), node, kind, startedAt: state.clock.tick, lastRoundAt: -1, rounds: 0, participants: {}, losses: {}, damage: {}, tables: {}, open: true, closedAt: null, outcome: null };
     state.engagements[e.id] = e;
+    idx.set(k, e);
   }
   return e;
 }
@@ -234,7 +246,8 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
   const fired = new Set<string>();
   const pending: Pending = new Map();
   const m = S(state).map;
-  const all = sortedStacks(state);
+  const all = stacksReadonly(state); // read-only snapshot (never mutated in place)
+  const engIdx = openEngagementIndex(state);
 
   // ── 1. node combat
   const byNode = new Map<NodeId, Stack[]>();
@@ -252,7 +265,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     let hostile = false;
     for (let i = 0; i < owners.length && !hostile; i++) for (let j = i + 1; j < owners.length; j++) if (atWar(owners[i], owners[j])) { hostile = true; break; }
     if (!hostile) continue;
-    const eng = engagementFor(state, node, 'node');
+    const eng = engagementFor(state, node, 'node', engIdx);
     if (eng.lastRoundAt >= tick) continue; // never apply the same round twice
     eng.lastRoundAt = tick;
     eng.rounds++;
@@ -337,7 +350,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     }
     if (target) {
       const anchor = target.pos.kind === 'node' ? target.pos.node : A.pos.node;
-      const eng = engagementFor(state, anchor, 'ranged');
+      const eng = engagementFor(state, anchor, 'ranged', engIdx);
       if (eng.lastRoundAt === tick && eng.participants[A.owner]?.includes(A.id)) continue;
       eng.lastRoundAt = tick;
       eng.rounds++;
@@ -394,7 +407,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     }
     if (!target) continue;
     const anchor = target.pos.kind === 'node' ? target.pos.node : (P.air.patrol.node ?? 0);
-    const eng = engagementFor(state, anchor, 'air');
+    const eng = engagementFor(state, anchor, 'air', engIdx);
     eng.lastRoundAt = tick;
     eng.rounds++;
     addParticipant(eng, P);
@@ -419,7 +432,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
       const d = distKm(ll[0], ll[1], ...stackLL(state, P));
       if (d > maxR || !hooks.canSee(state, A.owner, P.id)) continue;
       const anchor = A.pos.kind === 'node' ? A.pos.node : 0;
-      const eng = engagementFor(state, anchor, 'air');
+      const eng = engagementFor(state, anchor, 'air', engIdx);
       eng.lastRoundAt = tick;
       addParticipant(eng, A);
       addParticipant(eng, P);
@@ -470,13 +483,24 @@ function stillHostile(state: GameState, e: Engagement, atNode: () => Map<NodeId,
 
 export function closeEngagements(state: GameState): void {
   const m = S(state).map;
-  if (!Object.values(state.engagements).some((e) => e.open)) return;
+  // open engagements in id order (closing one never changes another's state, so collecting them
+  // first visits exactly the engagements a scan of every id would act on, in the same order)
+  const open: Engagement[] = [];
+  let nClosed = 0;
+  for (const id in state.engagements) {
+    const e = state.engagements[id];
+    if (e.open) open.push(e);
+    else nClosed++;
+  }
+  if (!open.length) return;
+  open.sort(cmpId);
   // ground/naval stacks per node (same filter and order as a scan of state.stacks), built lazily
   let idx: Map<NodeId, Stack[]> | null = null;
   const atNode = () => {
     if (idx) return idx;
     idx = new Map();
-    for (const s of Object.values(state.stacks)) {
+    // (stillHostile only tests for the existence of a hostile pair: list order is irrelevant)
+    for (const s of stacksReadonly(state)) {
       if (s.pos.kind !== 'node' || s.aboard || s.moveClass === 'air') continue;
       const l = idx.get(s.pos.node);
       if (l) l.push(s);
@@ -484,9 +508,9 @@ export function closeEngagements(state: GameState): void {
     }
     return idx;
   };
-  for (const id of Object.keys(state.engagements).sort((a, b) => cmpId({ id: a }, { id: b }))) {
-    const e = state.engagements[id];
-    if (!e.open || stillHostile(state, e, atNode)) continue;
+  for (const e of open) {
+    if (stillHostile(state, e, atNode)) continue;
+    nClosed++;
     e.open = false;
     e.closedAt = state.clock.tick;
     const sides = Object.keys(e.participants).sort();
@@ -505,6 +529,7 @@ export function closeEngagements(state: GameState): void {
     emit(state, { kind: 'battle_report', category: 'combat', node: e.node, private: priv, public: e.kind === 'node' ? { headline: `Fighting reported near ${where} (${sides.join(' vs ')})`, countries: sides } : null });
   }
   // prune old closed engagements (keep 200 most recent)
+  if (nClosed <= 200) return;
   const closed = Object.values(state.engagements).filter((e) => !e.open).sort(cmpId);
   for (let i = 0; i < closed.length - 200; i++) delete state.engagements[closed[i].id];
 }

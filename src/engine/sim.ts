@@ -39,7 +39,7 @@ import { combatHooks, destroyStack, diploHooks, govHooks, moveHooks, productionH
 import { collectWakes, getDefaultHost, runAi } from './ai-host/scheduler';
 import type { SimHost } from './ai-host/types';
 import { emit } from './systems/events';
-import { cmpId, sortedStacks } from './systems/world';
+import { cmpId, sortedStacks, stacksReadonly } from './systems/world';
 import { invalidateViewCache } from './view/country-view';
 
 function processScheduled(state: GameState, T: number): void {
@@ -159,7 +159,7 @@ export function runStep(state: GameState, T: number, host: SimHost): void {
   state.clock.tick = T;
   invalidateViewCache(state);
   airStep(state, (st, s) => destroyStack(st, s, null));
-  moveStep(state, sortedStacks(state), moveHooks);
+  moveStep(state, stacksReadonly(state), moveHooks);
   if (isHour(T)) {
     refreshAttackOrders(state);
     combatRound(state, combatHooks);

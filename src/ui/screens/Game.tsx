@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { useStore } from '../state/store';
-import { ui, toast, closePanel, select, openPanel, centerOn, type Panel } from '../state/ui';
+import { ui, toast, offerToast, closePanel, select, openPanel, centerOn, type Panel } from '../state/ui';
+import { readableEventText } from '../eventText';
+import type { Frame } from '../sim/protocol';
 import { getHost } from '../sim/host';
 import { prefs } from '../persist/prefs';
 import { MapView, mapRef, useObjects, selectionIds } from '../map/MapView';
@@ -18,6 +20,13 @@ import { PanelHost } from '../panels/PanelHost';
 import { useFrame, isTypingTarget, isModalOpen, useIsMobile } from '../components/common';
 import { placeName } from '../data/static';
 import { cycle } from '../actions';
+
+/** An offer addressed to the viewer (not one the viewer sent). */
+function isIncomingOffer(e: { kind: string; data?: Record<string, unknown> }, frame: Frame): boolean {
+  if (e.kind !== 'offer_received') return false;
+  const o = frame.view.offers.find((x) => x.id === e.data?.offer);
+  return !!o && o.to === frame.view.viewer;
+}
 
 export function Game() {
   const frame = useFrame();
@@ -47,9 +56,11 @@ export function Game() {
     for (const e of fresh) {
       seen.current.add(e.id);
       const where = e.node !== null ? ` — ${placeName(e.node)}` : '';
+      const text = readableEventText(e, frame) + where;
       const level = e.interrupt ? 'alert' : e.category === 'combat' ? 'warn' : e.kind.includes('completed') || e.kind.includes('concluded') ? 'success' : 'info';
-      if (e.routine) ui.patch({ toastHistory: [{ id: e.id, at: Date.now(), text: e.text + where, node: e.node, kind: e.kind, level: 'info' as const, eventId: e.id }, ...ui.get().toastHistory].slice(0, 200) });
-      else toast({ id: e.id, text: e.text + where, node: e.node, kind: e.kind, level, eventId: e.id });
+      if (e.routine) ui.patch({ toastHistory: [{ id: e.id, at: Date.now(), text, node: e.node, kind: e.kind, level: 'info' as const, eventId: e.id }, ...ui.get().toastHistory].slice(0, 200) });
+      else if (isIncomingOffer(e, frame)) offerToast({ id: e.id, text, node: e.node, kind: e.kind, level, eventId: e.id });
+      else toast({ id: e.id, text, node: e.node, kind: e.kind, level, eventId: e.id });
     }
     if (frame.view.finished && !endShown.current) {
       endShown.current = true;
