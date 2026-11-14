@@ -91,10 +91,11 @@ export function loadSource(tolDeg: number): SourceData {
     }
   });
 
+  let useRaw = false;
   const buildRing = (r: number[]): Ring => {
     const out: Ring = [];
     for (const ai of r) {
-      let a = simp[ai < 0 ? ~ai : ai];
+      let a = (useRaw ? raw : simp)[ai < 0 ? ~ai : ai];
       if (ai < 0) a = a.slice().reverse();
       for (let k = out.length ? 1 : 0; k < a.length; k++) out.push([a[k][0], a[k][1]]);
     }
@@ -116,7 +117,7 @@ export function loadSource(tolDeg: number): SourceData {
     return out;
   };
 
-  const features: SourceFeature[] = geoms.map((g, gi) => {
+  const buildParts = (g: TopoGeom): SourcePart[] => {
     const polys = (g.type === 'Polygon' ? [g.arcs] : g.arcs) as number[][][];
     const parts: SourcePart[] = [];
     for (const p of polys) {
@@ -133,6 +134,16 @@ export function loadSource(tolDeg: number): SourceData {
       parts.push({ poly, areaKm2, centroid: geoCentroid({ type: 'Polygon', coordinates: poly }) as Pt });
     }
     parts.sort((a, b) => b.areaKm2 - a.areaKm2);
+    return parts;
+  };
+  const features: SourceFeature[] = geoms.map((g, gi) => {
+    let parts = buildParts(g);
+    if (!parts.length) {
+      // micro-states (e.g. Vatican) can degenerate under simplification: keep their raw geometry
+      useRaw = true;
+      parts = buildParts(g);
+      useRaw = false;
+    }
     return { index: gi, name: g.properties.name, num: g.id ?? null, parts };
   });
 

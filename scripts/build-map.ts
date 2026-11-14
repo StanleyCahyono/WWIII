@@ -25,7 +25,7 @@ import { buildOwner, provinceCenterForPoly, type ProvinceDraft, type CityPlaced 
 import { buildSea, zoneNear, zonesNear, type SeaResult, W as SEA_W, H as SEA_H, RES as SEA_RES } from './map/sea';
 import { clipBox } from './map/clip';
 import { STRAITS, CANALS, SEA_LINKS, RASTER_BARRIERS } from './map/crossings';
-import { POPULATION_M, TERRAIN_BOXES, DEPOSIT_BIAS, NAMED_SEAS, KEY_DEPOSITS, ISLAND_NAMES, oceanName } from './map/regions';
+import { POPULATION_M, TERRAIN_BOXES, DEPOSIT_BIAS, NAMED_SEAS, KEY_DEPOSITS, ISLAND_NAMES, REGION_NAMES, oceanName } from './map/regions';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, 'src/data/generated');
@@ -37,10 +37,10 @@ const CONFIG = {
   popCoef: 1.4,
   smallCountryKm2: 25000,
   sea: {
-    coastSpacingKm: 470,
-    offshoreSlope: 1.2,
-    maxSpacingKm: 1500,
-    polarSouthSpacingKm: 950,
+    coastSpacingKm: 390,
+    offshoreSlope: 1.8,
+    maxSpacingKm: 2000,
+    polarSouthSpacingKm: 1200,
     minForcedComponentKm2: 2000,
     lloydIterations: 2,
     dilateCells: 6,
@@ -460,8 +460,17 @@ for (const m of MANIFEST) {
       const radius = Math.min(900, Math.max(320, 0.3 * Math.sqrt(areaByOwner.get(m.id)!)));
       if (best && bd <= radius && best.part === p.part) name = `${compass8(bearing([normLon(best.placed[0]), best.placed[1]], c0))} ${best.name}`;
       else {
-        const region = p.territory?.name ?? manifestName.get(m.id)!;
-        name = `${region} — ${compass8(bearing([normLon(anchor[0]), anchor[1]], c0))}`;
+        let reg: [string, number, number] | null = null, rd = 650;
+        for (const [o, nm, lon, lat] of REGION_NAMES) {
+          if (o !== m.id) continue;
+          const d = haversineKm(c0, [lon, lat]);
+          if (d < rd) { rd = d; reg = [nm, lon, lat]; }
+        }
+        if (reg) name = rd < 120 ? reg[0] : `${compass8(bearing([reg[1], reg[2]], c0))} ${reg[0]}`;
+        else {
+          const region = p.territory?.name ?? manifestName.get(m.id)!;
+          name = `${region} — ${compass8(bearing([normLon(anchor[0]), anchor[1]], c0))}`;
+        }
       }
     }
     const k = used.get(name) ?? 0;

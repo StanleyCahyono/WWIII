@@ -422,4 +422,40 @@ export const ISLAND_NAMES: readonly [string, number, number][] = [
   ['Caviana', -50.0, 0.1], ['Gurupá', -51.4, -1.0], ['Tiburón', -112.3, 29.0], ['Ángel de la Guarda', -113.3, 29.3], ['Cozumel', -86.9, 20.4],
   ['Cedros', -115.2, 28.2], ['Roatán', -86.5, 16.33], ['Coiba', -81.75, 7.45], ['Isla del Rey', -78.95, 8.4], ['Santa Catarina Island', -48.5, -27.6],
   ['Ilha Grande', -44.25, -23.15], ['São Sebastião', -45.35, -23.8], ['Isla Grande de Chiloé', -73.9, -42.6],
+  // smaller remote islands
+  ['Chonos Archipelago', -74.2, -44.8], ['Hanover Island', -74.7, -51.9], ['Juan Fernández Islands', -78.9, -33.6],
+  ['Guadalupe Island', -118.3, 29.0], ['Islas Marías', -106.6, 21.6], ['Revillagigedo Islands', -111.0, 18.8],
+  ['Andreanof Islands', -174.2, 52.3], ['St. Matthew Island', -172.8, 60.4], ['Rat Islands', 178.9, 51.6], ['Pribilof Islands', -169.6, 56.6],
+  ['La Tortuga', -65.3, 10.9], ['Kvitøya', 32.5, 80.1], ['Prince Edward Islands', 37.7, -46.9], ['Nicobar Islands', 93.4, 7.9],
+  ['Car Nicobar', 92.8, 9.2], ['Laut Island', 116.2, -3.7], ['Salawati', 130.9, -1.1], ['Pagai Islands', 100.3, -3.0],
+  ['Babar Islands', 129.7, -7.9], ['Enggano', 102.3, -5.4], ['Kangean', 115.3, -6.9], ['Leti Islands', 128.0, -8.2],
+  ['Sawu', 121.9, -10.5], ['Anambas', 105.8, 2.9], ['Romang', 128.6, -7.1], ['Bawean', 112.7, -5.8], ['Serasan', 108.9, 2.9],
+  ['Hachijō-jima', 139.8, 33.1], ['Ogasawara Islands', 142.2, 26.6], ['Tawi-Tawi', 120.2, 5.3], ['Batanes', 122.0, 20.4],
+  ['Ulleungdo', 130.9, 37.5], ['Kinmen', 118.4, 24.5], ['Côn Đảo', 106.6, 8.7], ['Macquarie Island', 158.9, -54.6],
+  ['Auckland Islands', 166.1, -50.7], ['Campbell Island', 169.1, -52.5], ['Mussau', 149.7, -1.5], ['Franz Josef Land', 57.5, 80.7],
+  ['Ushakov Island', 79.6, 80.9], ['Vize Island', 76.9, 79.5], ['Sergei Kirov Islands', 89.4, 77.3], ['Sverdrup Island', 79.5, 74.5],
+  ['Stolbovoy Island', 136.0, 74.0], ['Bennett Island', 149.0, 76.7], ['De Long Islands', 152.7, 76.1], ['Sable Island', -60.0, 43.9],
+  ['Magdalen Islands', -61.8, 47.4], ['Ottawa Islands', -80.0, 59.8], ['Sleeper Islands', -79.8, 57.5], ['Meighen Island', -99.5, 80.0],
+  ['Moresby Island', -131.9, 52.6], ['Prince Charles Island', -76.2, 67.7], ['Moneron Island', 141.2, 46.25], ['Kharimkotan', 154.5, 49.1],
+];
+
+/**
+ * Regional names for mainland provinces far from any authored city: [owner, name, lon, lat].
+ * The nearest anchor of the same owner within 650 km names the province.
+ */
+export const REGION_NAMES: readonly [string, string, number, number][] = [
+  ['ARG', 'Corrientes', -57.8, -28.5], ['BOL', 'Chiquitania', -60.5, -17.5], ['CAN', 'Labrador', -62.5, 53.8], ['CAN', 'Nunavik', -73.0, 57.5],
+  ['CAN', 'James Bay', -75.5, 51.8], ['CAN', 'Kivalliq', -93.0, 64.0], ['CAN', 'North Baffin', -81.0, 71.3], ['CHL', 'Aysén', -73.2, -47.5],
+  ['COL', 'Guainía', -69.0, 2.9], ['COL', 'Caquetá', -74.2, 1.0], ['COL', 'Arauca–Casanare', -70.8, 5.8], ['COL', 'Amazonas (Colombia)', -71.5, -0.8],
+  ['COL', 'Guaviare', -72.0, 2.4], ['MEX', 'Chiapas', -93.2, 16.7], ['MEX', 'Sierra Tarahumara', -107.2, 27.5], ['MEX', 'Campeche', -90.3, 18.8],
+  ['PRY', 'Chaco Boreal', -61.3, -21.5], ['PRY', 'Alto Paraguay', -59.2, -20.4], ['PER', 'Huánuco', -75.5, -9.4], ['PER', 'Loreto–San Martín', -76.4, -5.5],
+  ['VEN', 'Amazonas (Venezuela)', -65.8, 2.8], ['VEN', 'Gran Sabana', -62.3, 5.4], ['ITA', 'Calabria', 16.4, 39.0],
+  ['RUS', 'Tunguska', 103.0, 62.0], ['DZA', 'Tanezrouft', 0.5, 23.5], ['AGO', 'Cuando Cubango', 20.5, -16.5], ['AGO', 'Cunene', 16.5, -16.0],
+  ['AGO', 'Moxico', 20.0, -13.0], ['CMR', 'Sangha', 15.0, 2.8], ['EGY', 'Gilf Kebir', 26.0, 23.3], ['EGY', 'Great Sand Sea', 26.0, 26.5],
+  ['EGY', 'Bahariya', 29.0, 28.0], ['EGY', 'Tushka', 30.5, 23.0], ['LBY', 'Rebiana Sand Sea', 21.0, 24.5], ['LBY', 'Calanshio Sand Sea', 22.0, 28.0],
+  ['NGA', 'Taraba', 11.0, 8.0], ['ZAF', 'Kalahari', 21.0, -27.0], ['ZAF', 'Namaqualand', 18.5, -30.0], ['ZAF', 'Great Karoo', 23.0, -31.0],
+  ['ZAF', 'Griqualand West', 23.0, -28.3], ['SDN', 'Wadi Howar', 25.5, 18.0], ['SDN', 'Blue Nile', 34.0, 11.3], ['IRN', 'Tabas', 56.9, 33.6],
+  ['KAZ', 'Tarbagatai', 82.5, 47.5], ['SAU', 'Rub’ al Khali', 50.5, 20.5], ['SAU', 'Nafud', 41.0, 28.2], ['ARE', 'Al Dhafra', 53.0, 23.4],
+  ['CHN', 'Ngari', 81.0, 32.5], ['MNG', 'Gobi-Altai', 96.0, 45.0], ['PHL', 'Cagayan Valley', 121.6, 17.5], ['PHL', 'Bicol', 123.5, 13.4],
+  ['MAR', 'Saguia el-Hamra', -12.5, 26.8], ['MAR', 'Río de Oro', -15.0, 23.5], ['JPN', 'Tōhoku', 140.6, 40.0],
 ];

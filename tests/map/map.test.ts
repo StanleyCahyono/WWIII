@@ -349,6 +349,11 @@ describe('map: territory, disputes and geometry', () => {
     expect(playable).toEqual([...MANIFEST_IDS].sort());
     for (const t of TERRITORY_MANIFEST.filter((x) => x.role === 'dependent')) expect(MANIFEST_IDS).toContain(t.owner);
     expect(geo.outlines).toHaveLength(241);
+    for (const o of geo.outlines) expect(o.polygons.length, o.code).toBeGreaterThan(0);
+    // every non-playable feature (incl. micro-states such as the Vatican) has its own outside node
+    for (const t of TERRITORY_MANIFEST.filter((x) => x.role !== 'playable' && x.role !== 'dependent')) {
+      expect(nodeByKey(`x:${t.code}:0`, idx), t.name).toBeDefined();
+    }
   });
 
   it('dependent territories are tagged and outside territories keep their own names', () => {
