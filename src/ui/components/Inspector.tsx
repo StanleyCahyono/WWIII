@@ -210,11 +210,15 @@ export function StackSheet({ s, o, frame, layout = 'panel' }: { s: StackView; o:
   const [split, setSplit] = useState(false);
   const [dlg, setDlg] = useState<null | 'delay'>(null);
   // orders with a map target run in the targeting bar (OrderHost): the map stays live, hover previews, click sets the target
-  const orderBtn = (kind: 'attack' | 'patrol' | 'rebase' | 'embark' | 'retreat' | 'launch') => (e: React.MouseEvent) => startOrder(kind === 'launch' ? { kind } : { kind, stack: s.id }, e);
+  const orderBtn = (kind: 'attack' | 'patrol' | 'rebase' | 'embark' | 'retreat' | 'launch') => (e: React.MouseEvent) => startOrder({ kind, stack: s.id }, e);
   const [more, setMore] = useState(false);
   const isAir = s.moveClass === 'air' && !!s.air;
   const deployables = s.units.filter((u) => !!unitById.get(u.type)?.deployable);
-  const canLaunch = s.units.some((u) => ['missile_launcher', 'naval', 'heavy', 'submarine'].includes(unitById.get(u.type)?.family ?? '')) && Object.values(frame.view.self.missiles).some((m) => m.ready > 0);
+  const isLauncher = s.units.some((u) => unitById.get(u.type)?.family === 'missile_launcher');
+  const anyReady = Object.values(frame.view.self.missiles).some((m) => m.ready > 0);
+  // dedicated launchers always show the button (greyed out with the reason); ships/bombers/subs only when stock is ready
+  const canLaunch = isLauncher || (anyReady && s.units.some((u) => ['naval', 'heavy', 'submarine'].includes(unitById.get(u.type)?.family ?? '')));
+  const launchReason = anyReady ? null : 'No ready missiles. Research the missile programme (Research → Strategic), then produce a batch in Forces → Strategic inventory.';
   const v = frame.view;
   const { frac } = hpOf(s);
   const node = s.pos.kind === 'node' ? s.pos.node : null;
@@ -289,7 +293,7 @@ export function StackSheet({ s, o, frame, layout = 'panel' }: { s: StackView; o:
         </ActionButton>
       )}
       {canLaunch && (
-        <ActionButton className="btn act" disabledReason={RO} onClick={orderBtn('launch')} data-testid="action-launch">
+        <ActionButton className="btn act" disabledReason={RO ?? launchReason} onClick={orderBtn('launch')} data-testid="action-launch">
           <Icon name="launch" size={20} />
           Launch missile…
         </ActionButton>

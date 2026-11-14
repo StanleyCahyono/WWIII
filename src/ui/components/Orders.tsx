@@ -828,7 +828,7 @@ export function useMissileInfo() {
 
 /** `target` pre-selects a sector (e.g. from a contact or report sheet); the engine still validates
  *  range, inventory, war status and eligibility on every preview and on commit. */
-export function LaunchDialog({ missile: initial, target: initialTarget, onClose }: { missile?: string; target?: number | null; onClose: () => void }) {
+export function LaunchDialog({ missile: initial, target: initialTarget, stack, onClose }: { missile?: string; target?: number | null; stack?: string; onClose: () => void }) {
   const frame = useFrame()!;
   const q = useMissileInfo();
   const [missile, setMissile] = useState<string>(initial ?? '');
@@ -840,6 +840,20 @@ export function LaunchDialog({ missile: initial, target: initialTarget, onClose 
   const froms = t ? [...t.sites.map((x) => ({ from: x.from as { node: number } | { stack: string }, name: `${x.name} (missile complex)`, ll: NODES[x.from.node].center })), ...t.platforms.map((p) => ({ from: p.from as { node: number } | { stack: string }, name: `${p.name} (launch platform)`, ll: frame.view.stacks.find((s) => s.id === p.from.stack)?.lonlat ?? [0, 0] }))] : [];
   const from = fromIdx !== null ? froms[fromIdx] : null;
   const ready = (q.data?.types ?? []).filter((x) => (x.inv?.ready ?? 0) > 0);
+  // started from a selected launcher: pre-pick the first ready missile this launcher can fire, and the launcher itself
+  const autoPicked = useRef(false);
+  useEffect(() => {
+    if (!stack || autoPicked.current || !q.data) return;
+    const fits = (x: (typeof ready)[number]) => x.platforms.some((p) => (p.from as { stack?: string }).stack === stack);
+    const m = initial && ready.find((x) => x.id === initial && fits(x)) ? initial : ready.find(fits)?.id;
+    autoPicked.current = true;
+    if (m) setMissile(m);
+  }, [stack, q.data, ready, initial]);
+  useEffect(() => {
+    if (!stack || fromIdx !== null) return;
+    const i = froms.findIndex((f) => (f.from as { stack?: string }).stack === stack);
+    if (i >= 0) setFromIdx(i);
+  }, [stack, froms, fromIdx]);
   const spec: TargetingSpec = {
     id: 'launch-node',
     prompt: !missile || !from ? 'Choose the missile and launch facility, then click the target sector' : `Click a target sector within ${mt?.rangeKm ?? '—'} km`,

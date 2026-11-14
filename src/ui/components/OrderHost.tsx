@@ -46,7 +46,7 @@ export function OrderHost() {
     case 'airmobile':
       return <AirmobileDialog key={k} s={s!} onClose={close} />;
     case 'launch':
-      return <LaunchDialog key={k} missile={req.missile} target={req.target ?? null} onClose={close} />;
+      return <LaunchDialog key={k} missile={req.missile} target={req.target ?? null} stack={req.stack} onClose={close} />;
     case 'rally':
       return req.city ? <RallyDialog key={k} city={req.city} onClose={close} /> : null;
     default:
