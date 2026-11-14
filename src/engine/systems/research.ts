@@ -18,6 +18,7 @@ import { schedule, unschedule } from './queue';
 import { awardXp, emit, toAll } from './events';
 import { sumEffect } from './economy';
 import { dayOf } from '../time';
+import { derived } from '../derived';
 
 export type TechStatus =
   | 'completed'
@@ -50,11 +51,17 @@ function ownedResearchCities(state: GameState, c: CountryId) {
   });
 }
 export function researchSlots(state: GameState, c: CountryId): number {
+  return derived(state, `~rslots:${c}`, () => computeResearchSlots(state, c));
+}
+function computeResearchSlots(state: GameState, c: CountryId): number {
   let s = 0;
   for (const ci of ownedResearchCities(state, c)) s += sumEffect(state, ci.buildings, 'researchSlots', false);
   return RESEARCH_BASE_SLOTS + Math.floor(s);
 }
 export function researchSpeed(state: GameState, c: CountryId): number {
+  return derived(state, `~rspeed:${c}`, () => computeResearchSpeed(state, c));
+}
+function computeResearchSpeed(state: GameState, c: CountryId): number {
   let s = 0;
   for (const ci of ownedResearchCities(state, c)) s += sumEffect(state, ci.buildings, 'researchSpeedMult');
   return 1 + s + (state.countries[c].modifiers['research_speed'] ?? 0);
@@ -137,6 +144,7 @@ export function grantTech(state: GameState, c: CountryId, techId: TechId, lineag
     const prev = cs.unitLevels[ul.unit] ?? 1;
     if (ul.level > prev) {
       cs.unitLevels[ul.unit] = ul.level;
+      state.ids.techv = (state.ids.techv ?? 0) + 1;
       const ut = st.cat.units.get(ul.unit);
       if (ut) {
         const ns = unitStats(ut, ul.level);

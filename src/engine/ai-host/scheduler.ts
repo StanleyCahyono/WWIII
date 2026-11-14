@@ -122,7 +122,7 @@ function invoke(state: GameState, host: SimHost, c: CountryId, reviews: ReviewKi
   };
   let cmds: Command[] = [];
   try {
-    cmds = ctl.decide(getCountryView(state, c, { journalLimit: 15 }), ctx) ?? [];
+    cmds = ctl.decide(getCountryView(state, c, { journalLimit: 15, journalScan: 1500 }), ctx) ?? [];
   } catch (e) {
     cmds = [];
     const cs = state.countries[c];

@@ -23,7 +23,7 @@ import {
 } from '../rules';
 import { S } from '../scenario/registry';
 import { streamRng } from '../rng';
-import { atWar, cmpId, hostileStacks, ustats, utype } from './world';
+import { atWar, cmpId, hostileStacks, stacksReadonly, ustats, utype } from './world';
 import { awardXp, emit, toAll } from './events';
 import { nodeDist, other } from './mapindex';
 import { sumEffect } from './economy';
@@ -45,10 +45,20 @@ export interface GovHooks {
 /** Capture pass (every step after movement and combat). */
 export function captureStep(state: GameState, hooks: GovHooks): void {
   const m = S(state).map;
+  // candidate nodes: a ground stack stands on a land node it does not own
+  const cand = new Set<NodeId>();
+  const all = stacksReadonly(state);
+  for (const s of all) {
+    if (s.pos.kind !== 'node' || s.aboard || s.moveClass !== 'ground') continue;
+    const n = s.pos.node;
+    if (!m.isLand[n]) continue;
+    const p = state.provinces[n];
+    if (p && p.owner !== s.owner && p.control !== 'outside') cand.add(n);
+  }
+  if (!cand.size) return;
   const byNode = new Map<NodeId, Stack[]>();
-  for (const s of Object.values(state.stacks)) {
-    if (s.pos.kind !== 'node' || s.aboard || s.moveClass === 'air') continue;
-    if (!m.isLand[s.pos.node]) continue;
+  for (const s of all) {
+    if (s.pos.kind !== 'node' || s.aboard || s.moveClass === 'air' || !cand.has(s.pos.node)) continue;
     const l = byNode.get(s.pos.node) ?? [];
     l.push(s);
     byNode.set(s.pos.node, l);

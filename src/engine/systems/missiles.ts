@@ -24,7 +24,7 @@ import { streamRng } from '../rng';
 import { nextId } from '../ids';
 import { schedule } from './queue';
 import { distKm } from './mapindex';
-import { atWar, cmpId, sameCoalition, stackLL, utype } from './world';
+import { atWar, cmpId, sameCoalition, stackLL, utype , sortedStacks } from './world';
 import { emit, toAll } from './events';
 import { sumEffect } from './economy';
 import { allocateDamage } from './combat';
@@ -60,7 +60,7 @@ export function defenseRating(state: GameState, attacker: CountryId, target: Nod
   const m = S(state).map;
   const owner = state.provinces[target]?.owner ?? null;
   let r = 0;
-  for (const s of Object.values(state.stacks).sort(cmpId)) {
+  for (const s of sortedStacks(state)) {
     if (s.owner === attacker || s.aboard) continue;
     if (!(s.owner === owner || atWar(state, s.owner, attacker) || (owner && sameCoalition(state, s.owner, owner)))) continue;
     const ll = stackLL(state, s);
@@ -187,7 +187,7 @@ export function resolveLaunch(state: GameState, id: string): void {
     }
     const p = state.provinces[l.target];
     if (p) for (const b of p.buildings) b.condition = Math.max(0, Math.round(b.condition - mt.effect.buildingDamage * f));
-    for (const s of Object.values(state.stacks).sort(cmpId)) {
+    for (const s of sortedStacks(state)) {
       if (s.pos.kind !== 'node' || s.pos.node !== l.target || s.owner === l.country || s.aboard) continue;
       const dmg = Math.round(mt.effect.unitDamage * f * 100);
       allocateDamage(state, s.units, { unarmored: dmg, armored: dmg, ship: dmg, building: dmg, airplane: dmg, helicopter: dmg });

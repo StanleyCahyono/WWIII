@@ -16,7 +16,7 @@ import { MAX_PENDING_OFFERS_PER_PAIR, OFFER_DEFAULT_EXPIRY_MIN, OFFER_EFFECT_DEL
 import { dirKey, nextId, pairKey } from '../ids';
 import { schedule } from './queue';
 import { emit, toAll } from './events';
-import { atWar, coalitionOf, grantLevel, levelAtLeast, sameCoalition } from './world';
+import { atWar, bumpRelations, coalitionOf, grantLevel, levelAtLeast, sameCoalition } from './world';
 import { charge, credit } from './ledger';
 import { zero, fmtVec } from '../fixed';
 
@@ -58,6 +58,7 @@ export function declareWarInternal(state: GameState, by: CountryId, target: Coun
   if (by === target || atWar(state, by, target)) return;
   const r = rel(state, by, target);
   r.war = true;
+  bumpRelations(state);
   r.since = state.clock.tick;
   r.version++;
   r.warDeclaredBy = by;
@@ -87,6 +88,7 @@ export function makePeace(state: GameState, a: CountryId, b: CountryId): void {
   const r = rel(state, a, b);
   if (!r.war) return;
   r.war = false;
+  bumpRelations(state);
   r.since = state.clock.tick;
   r.version++;
   r.warDeclaredBy = null;

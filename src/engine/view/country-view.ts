@@ -203,28 +203,45 @@ export function journalFor(state: GameState, c: CountryId, limit = 40, scan = 40
   return out;
 }
 
-export function getCountryView(state: GameState, viewer: CountryId, opts: { journalLimit?: number } = {}): CountryView {
+export function getCountryView(state: GameState, viewer: CountryId, opts: { journalLimit?: number; journalScan?: number } = {}): CountryView {
   const cs = state.countries[viewer];
   if (!cs) throw new Error(`Unknown country ${viewer}`);
   const pub = publicSlice(state);
   const t = state.clock.tick;
   const stacks: StackView[] = [];
-  for (const id of Object.keys(state.stacks)) {
+  const byOwner = derived(state, 'stacksByOwner', () => {
+    const m = new Map<CountryId, string[]>();
+    for (const id of Object.keys(state.stacks)) {
+      const o = state.stacks[id].owner;
+      const l = m.get(o) ?? [];
+      l.push(id);
+      m.set(o, l);
+    }
+    return m;
+  });
+  for (const id of byOwner.get(viewer) ?? []) {
     const s = state.stacks[id];
-    if (s.owner !== viewer) continue;
+    if (!s || s.owner !== viewer) continue;
     stacks.push({ ...JSON.parse(JSON.stringify(s)), eta: routeEtaTick(state, s), lonlat: lonlatOf(state, s) });
   }
   stacks.sort((a, b) => (a.id < b.id ? -1 : 1));
   const cities: CityState[] = [];
   const provinces: ProvinceState[] = [];
-  for (const p of state.provinces) {
-    if (!p || p.owner !== viewer) continue;
-    provinces.push(JSON.parse(JSON.stringify(p)));
-  }
-  for (const k of Object.keys(state.cities).sort()) {
-    const ci = state.cities[k];
-    if (state.provinces[ci.node]?.owner === viewer) cities.push(JSON.parse(JSON.stringify(ci)));
-  }
+  const terr = derived(state, '~territoryByOwner', () => {
+    const m = new Map<CountryId, { nodes: number[]; cities: string[] }>();
+    for (const p of state.provinces) {
+      if (!p || !p.owner) continue;
+      (m.get(p.owner) ?? m.set(p.owner, { nodes: [], cities: [] }).get(p.owner)!).nodes.push(p.node);
+    }
+    for (const k of Object.keys(state.cities).sort()) {
+      const o = state.provinces[state.cities[k].node]?.owner;
+      if (o) (m.get(o) ?? m.set(o, { nodes: [], cities: [] }).get(o)!).cities.push(k);
+    }
+    return m;
+  });
+  const mine = terr.get(viewer) ?? { nodes: [], cities: [] };
+  for (const n of mine.nodes) provinces.push(JSON.parse(JSON.stringify(state.provinces[n])));
+  for (const k of mine.cities) cities.push(JSON.parse(JSON.stringify(state.cities[k])));
   const contacts: ContactView[] = [];
   const table = state.contacts[viewer] ?? {};
   for (const k of Object.keys(table).sort()) contacts.push(projectContact(table[k], t));
@@ -330,7 +347,7 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
     },
     launches,
     scores: { denominator: state.score.denominator, byCountry: { ...pub.scores }, soloThreshold: thresholdFor(state.score.denominator, 1), coalitionThresholds: { 2: thresholdFor(state.score.denominator, 2), 3: thresholdFor(state.score.denominator, 3), 4: thresholdFor(state.score.denominator, 4), 5: thresholdFor(state.score.denominator, 5) }, lastSettledDay: state.score.lastSettledDay },
-    journal: journalFor(state, viewer, opts.journalLimit ?? 40),
+    journal: journalFor(state, viewer, opts.journalLimit ?? 40, opts.journalScan ?? 4000),
     openingPower: state.openingPower,
     rules: RULES,
   };

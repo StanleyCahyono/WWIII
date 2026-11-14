@@ -43,10 +43,11 @@ import {
 import { S } from '../scenario/registry';
 import { streamRng } from '../rng';
 import { nextId } from '../ids';
-import { cmpId, stackLL, ustats, utype, hostileStacks as hostileStacksW } from './world';
+import { cmpId, stackLL, ustats, utype, hostileStacks as hostileStacksW, sortedStacks, enemyMap } from './world';
 import { distKm } from './mapindex';
 import { awardXp, emit, toAll } from './events';
 import { sumEffect } from './economy';
+import { derived } from '../derived';
 
 export function stackEfficiency(n: number): number {
   if (n <= OVERSTACK_LIMIT) return 1;
@@ -210,17 +211,7 @@ function defenderCtx(state: GameState, s: Stack, node: NodeId, isDefender: boole
   return { table: isDefender ? 'defense' : 'attack', node, entrenched, defenseMult: dm };
 }
 
-/** Map of country → countries it is at war with (only countries with at least one war). */
-export function enemyMap(state: GameState): Map<CountryId, Set<CountryId>> {
-  const m = new Map<CountryId, Set<CountryId>>();
-  for (const k of Object.keys(state.relations)) {
-    if (!state.relations[k].war) continue;
-    const [a, b] = k.split('|');
-    (m.get(a) ?? m.set(a, new Set()).get(a)!).add(b);
-    (m.get(b) ?? m.set(b, new Set()).get(b)!).add(a);
-  }
-  return m;
-}
+export { enemyMap };
 
 /** Resolve one combat round (call on whole hours). */
 export function combatRound(state: GameState, hooks: CombatHooks): void {
@@ -235,7 +226,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
   const fired = new Set<string>();
   const pending: Pending = new Map();
   const m = S(state).map;
-  const all = Object.values(state.stacks).sort(cmpId);
+  const all = sortedStacks(state);
 
   // ── 1. node combat
   const byNode = new Map<NodeId, Stack[]>();

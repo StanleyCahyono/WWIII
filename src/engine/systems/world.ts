@@ -20,10 +20,30 @@ export function cityKeyAt(state: GameState, node: NodeId): string | null {
 export function relation(state: GameState, a: CountryId, b: CountryId) {
   return state.relations[pairKey(a, b)];
 }
+const enemyCache = new WeakMap<GameState, { v: number; rel: object; m: Map<CountryId, Set<CountryId>> }>();
+/** Map of country → countries it is at war with. Cached; keyed by the relations version counter. */
+export function enemyMap(state: GameState): Map<CountryId, Set<CountryId>> {
+  const v = state.ids.relv ?? 0;
+  const c = enemyCache.get(state);
+  if (c && c.v === v && c.rel === state.relations) return c.m;
+  const m = new Map<CountryId, Set<CountryId>>();
+  for (const k of Object.keys(state.relations)) {
+    if (!state.relations[k].war) continue;
+    const [a, b] = k.split('|');
+    (m.get(a) ?? m.set(a, new Set()).get(a)!).add(b);
+    (m.get(b) ?? m.set(b, new Set()).get(b)!).add(a);
+  }
+  enemyCache.set(state, { v, rel: state.relations, m });
+  return m;
+}
+/** Bump whenever any PairRelation.war changes (keeps enemyMap caches valid). */
+export function bumpRelations(state: GameState): void {
+  state.ids.relv = (state.ids.relv ?? 0) + 1;
+}
 export function atWar(state: GameState, a: CountryId, b: CountryId): boolean {
   if (a === b) return false;
-  const r = state.relations[pairKey(a, b)];
-  return !!r && r.war;
+  const s = enemyMap(state).get(a);
+  return !!s && s.has(b);
 }
 /** Level granted by `from` to `to` (peace if none). */
 export function grantLevel(state: GameState, from: CountryId, to: CountryId): DiploLevel {
@@ -41,11 +61,17 @@ export function levelAtLeast(l: DiploLevel, min: DiploLevel): boolean {
 export function coalitionOf(state: GameState, c: CountryId): Coalition | null {
   const ids = Object.keys(state.coalitions);
   if (!ids.length) return null;
-  for (const id of ids.sort()) {
-    const co = state.coalitions[id];
-    if (!co.dissolvedAt && co.members.some((m) => m.country === c)) return co;
-  }
-  return null;
+  const idx = derived(state, '~coMember', () => {
+    const m = new Map<CountryId, string>();
+    for (const id of ids.sort()) {
+      const co = state.coalitions[id];
+      if (co.dissolvedAt) continue;
+      for (const mem of co.members) if (!m.has(mem.country)) m.set(mem.country, id);
+    }
+    return m;
+  });
+  const id = idx.get(c);
+  return id ? state.coalitions[id] : null;
 }
 export function sameCoalition(state: GameState, a: CountryId, b: CountryId): boolean {
   if (a === b) return true;
@@ -151,8 +177,40 @@ export function idNum(id: string): number {
   while (i > 0 && id.charCodeAt(i - 1) >= 48 && id.charCodeAt(i - 1) <= 57) i--;
   return Number(id.slice(i)) || 0;
 }
+/** Stacks sorted by numeric id (memoized; refreshed when stacks are added or removed). */
+const sortedCache = new WeakMap<GameState, { list: Stack[]; counter: number; obj: object }>();
+/** Read-only (do not mutate) sorted stack list without copying. */
+export function stacksReadonly(state: GameState): readonly Stack[] {
+  sortedStacks(state);
+  return sortedCache.get(state)!.list;
+}
 export function sortedStacks(state: GameState): Stack[] {
-  return Object.values(state.stacks).sort(cmpId);
+  const counter = state.ids.stack ?? 0;
+  let cached = sortedCache.get(state);
+  if (!cached || cached.obj !== state.stacks) {
+    cached = { list: sortStacks(state), counter, obj: state.stacks };
+    sortedCache.set(state, cached);
+    return cached.list.slice();
+  }
+  if (cached.counter !== counter) {
+    cached.list = sortStacks(state);
+    cached.counter = counter;
+    return cached.list.slice();
+  }
+  const out: Stack[] = [];
+  let changed = false;
+  for (const s of cached.list) {
+    if (state.stacks[s.id] === s) out.push(s);
+    else changed = true;
+  }
+  if (changed) cached.list = out.slice();
+  return out;
+}
+function sortStacks(state: GameState): Stack[] {
+  return Object.values(state.stacks)
+    .map((s) => [idNum(s.id), s] as const)
+    .sort((a, b) => a[0] - b[0] || (a[1].id < b[1].id ? -1 : 1))
+    .map((x) => x[1]);
 }
 export function ownedNodes(state: GameState, c: CountryId): NodeId[] {
   const out: NodeId[] = [];

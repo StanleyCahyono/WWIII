@@ -97,9 +97,18 @@ export function provinceAdjustedOutput(state: GameState, p: ProvinceState): ResM
   out.manpower += toMilli(p.population * MANPOWER_PER_KPOP);
   return mul(out, moraleFactor(p.morale));
 }
+const provCache = new WeakMap<ProvinceState, { sig: number; owner: string | null; bl: number; out: ResM }>();
+const STATUS_CODE: Record<string, number> = { homeland: 1, annexed: 2, occupied: 3 };
 export function provinceOutput(state: GameState, p: ProvinceState): ResM {
   if (p.control !== 'country' || !p.owner) return zero();
-  return applyTerritoryFactor(provinceAdjustedOutput(state, p), p.status);
+  let bsig = 0;
+  for (const b of p.buildings) bsig += b.level * 1000 + b.condition + b.type.length * 7;
+  const sig = p.changedAt * 1e7 + p.morale * 1e4 + STATUS_CODE[p.status] * 1e3 + p.population;
+  const c = provCache.get(p);
+  if (c && c.sig === sig && c.owner === p.owner && c.bl === bsig) return c.out;
+  const out = applyTerritoryFactor(provinceAdjustedOutput(state, p), p.status);
+  provCache.set(p, { sig, owner: p.owner, bl: bsig, out });
+  return out;
 }
 
 export interface CountryRates {

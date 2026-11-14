@@ -24,7 +24,7 @@ import {
 } from '../rules';
 import { S } from '../scenario/registry';
 import { distKm, nodeLL } from './mapindex';
-import { cmpId, isFriendlyTerritory, sameCoalition, stackLL, ustats, utype } from './world';
+import { cmpId, isFriendlyTerritory, sameCoalition, stackLL, ustats, utype , sortedStacks } from './world';
 import { emit, toAll } from './events';
 import { sumEffect } from './economy';
 
@@ -116,7 +116,7 @@ export function nearestBase(state: GameState, c: CountryId, ll: [number, number]
     bd = d;
     best = { node: p.node };
   }
-  for (const s of Object.values(state.stacks).sort(cmpId)) {
+  for (const s of sortedStacks(state)) {
     if (s.moveClass !== 'naval' || exclude === s.id) continue;
     if (!checkBase(state, c, { stack: s.id }).ok) continue;
     const sl = stackLL(state, s);
@@ -203,7 +203,7 @@ function divert(state: GameState, s: Stack, why: string, onLost: (st: GameState,
 /** Per-step air update. */
 export function airStep(state: GameState, onLost: (st: GameState, s: Stack) => void): void {
   const t = state.clock.tick;
-  for (const s of Object.values(state.stacks).sort(cmpId)) {
+  for (const s of sortedStacks(state)) {
     if (s.moveClass !== 'air' || !s.air || !state.stacks[s.id]) continue;
     const air = s.air;
     const airborne = air.state === 'outbound' || air.state === 'on_station' || air.state === 'returning' || air.state === 'rebasing';

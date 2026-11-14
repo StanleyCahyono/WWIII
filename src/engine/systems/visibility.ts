@@ -24,7 +24,7 @@ import { CITY_SIGHT_KM, IDENTIFY_FRACTION, STALE_KEEP_MIN, STEALTH_VISUAL_FRACTI
 import { S } from '../scenario/registry';
 import { binKey, binsAround, distKm } from './mapindex';
 import { hash32 } from '../rng';
-import { cmpId, stackLL, ustats, utype, visionSources } from './world';
+import { cmpId, sortedStacks, stackLL, ustats, utype, visionSources } from './world';
 import { sumEffect } from './economy';
 
 const LEVEL_RANK: Record<ContactLevel, number> = { stale: 0, contact: 1, unidentified: 2, identified: 3 };
@@ -59,55 +59,172 @@ interface Sensor {
   id: string;
 }
 
-function buildSensors(state: GameState): Map<CountryId, Sensor[]> {
+interface TypeInfo {
+  sight: number;
+  radar: number;
+  sens: number;
+  detects: Domain[];
+  recon: boolean;
+  asw: boolean;
+  sig: number;
+  baseDomain: Domain;
+  airplane: boolean;
+  terrainSight: Partial<Record<string, number>>;
+}
+const typeInfoCache = new WeakMap<object, Map<string, TypeInfo[]>>();
+let lastScenario: object | null = null;
+let lastMap: Map<string, TypeInfo[]> | null = null;
+function typeInfo(state: GameState, type: string, level: number): TypeInfo {
+  const st0 = S(state);
+  let m: Map<string, TypeInfo[]> | undefined | null = lastScenario === st0.scenario ? lastMap : typeInfoCache.get(st0.scenario);
+  if (!m) {
+    m = new Map();
+    typeInfoCache.set(st0.scenario, m);
+  }
+  lastScenario = st0.scenario;
+  lastMap = m;
+  let arr = m.get(type);
+  if (!arr) {
+    arr = [];
+    m.set(type, arr);
+  }
+  let ti = arr[level];
+  if (ti) return ti;
+  const t = utype(state, type);
+  const st = ustats(state, { type, level } as never);
+  const ts: Partial<Record<string, number>> = {};
+  for (const [terr, v] of Object.entries(t.terrain)) if (v?.sight !== undefined) ts[terr] = v.sight;
+  ti = {
+    sight: st.sightKm,
+    radar: st.radarKm,
+    sens: st.radarSensitivity ?? (st.radarKm > 0 ? 1 : 0),
+    detects: (st.radarDetects ?? (st.radarKm > 0 ? ['air'] : [])) as Domain[],
+    recon: t.family === 'recon',
+    asw: (st.attack.submarine ?? 0) > 0,
+    sig: st.signature,
+    baseDomain: t.family === 'helicopter' ? 'air' : t.domain === 'strategic' ? 'land' : t.domain,
+    airplane: t.domain === 'air' && t.family !== 'helicopter',
+    terrainSight: ts,
+  };
+  arr[level] = ti;
+  return ti;
+}
+
+interface StackProfile {
+  pos: object;
+  units: object;
+  len: number;
+  techv: number;
+  air: string | null;
+  sight: number;
+  radar: number;
+  sens: number;
+  detects: Domain[];
+  recon: boolean;
+  asw: boolean;
+  dom: Domain[];
+  sig: number[];
+}
+const profileCache = new WeakMap<Stack, StackProfile>();
+/** Sensor/target profile of a stack, cached until its position, roster, air state or tech levels change. */
+function profileOf(state: GameState, s: Stack): StackProfile {
+  const techv = state.ids.techv ?? 0;
+  const air = s.air ? s.air.state : null;
+  const c = profileCache.get(s);
+  if (c && c.pos === s.pos && c.units === s.units && c.len === s.units.length && c.techv === techv && c.air === air) return c;
+  let sight = 0, radar = 0, sens = 0, recon = false, asw = false;
+  let det: Domain[] = [];
+  const terr = s.pos.kind === 'node' ? S(state).map.terrain[s.pos.node] : null;
+  const landedAir = s.moveClass === 'air' && (air === 'landed' || air === 'refueling');
+  const dom: Domain[] = [];
+  const sig: number[] = [];
+  for (const u of s.units) {
+    const ti = typeInfo(state, u.type, u.level);
+    dom.push(ti.airplane && landedAir ? 'land' : ti.baseDomain);
+    sig.push(ti.sig);
+    if (u.hp <= 0) continue;
+    const sm = terr ? ti.terrainSight[terr] ?? 1 : 1;
+    if (ti.sight * sm > sight) sight = ti.sight * sm;
+    if (ti.radar > radar) radar = ti.radar;
+    if (ti.sens > sens) sens = ti.sens;
+    if (ti.detects.length) det = det.length ? [...new Set([...det, ...ti.detects])] : ti.detects;
+    if (ti.recon) recon = true;
+    if (ti.asw) asw = true;
+  }
+  const p: StackProfile = { pos: s.pos, units: s.units, len: s.units.length, techv, air, sight, radar, sens, detects: det, recon, asw, dom, sig };
+  profileCache.set(s, p);
+  return p;
+}
+
+function buildSensors(state: GameState, stacks: Stack[], lls: Map<string, [number, number]>): Map<CountryId, Sensor[]> {
   const out = new Map<CountryId, Sensor[]>();
   const push = (c: CountryId, s: Sensor) => {
-    const l = out.get(c) ?? [];
-    l.push(s);
-    out.set(c, l);
+    const l = out.get(c);
+    if (l) l.push(s);
+    else out.set(c, [s]);
   };
-  for (const s of Object.values(state.stacks).sort(cmpId)) {
-    if (s.aboard) continue;
-    let sight = 0, radar = 0, sens = 0, recon = false, asw = false;
-    const det = new Set<Domain>();
-    const ll = stackLL(state, s);
-    const terr = s.pos.kind === 'node' ? S(state).map.terrain[s.pos.node] : null;
-    for (const u of s.units) {
-      if (u.hp <= 0) continue;
-      const t = utype(state, u.type);
-      const st = ustats(state, u);
-      const sm = terr ? t.terrain[terr]?.sight ?? 1 : 1;
-      sight = Math.max(sight, st.sightKm * sm);
-      if (st.radarKm > radar) radar = st.radarKm;
-      sens = Math.max(sens, st.radarSensitivity ?? (st.radarKm > 0 ? 1 : 0));
-      for (const d of st.radarDetects ?? (st.radarKm > 0 ? ['air'] : [])) det.add(d as Domain);
-      if (t.family === 'recon') recon = true;
-      if ((st.attack.submarine ?? 0) > 0) asw = true;
+  // co-located stacks of one owner form a single merged sensor (same recon/ASW class)
+  const merged = new Map<string, Sensor>();
+  for (const s of stacks) {
+    const pr = profileOf(state, s);
+    const { sight, radar, sens, recon, asw } = pr;
+    const det = pr.detects;
+    if (sight <= 0 && radar <= 0) continue;
+    const ll = lls.get(s.id)!;
+    const key = `${s.owner}|${s.pos.kind === 'node' ? s.pos.node : ll.join(',')}|${recon ? 1 : 0}${asw ? 1 : 0}`;
+    const prev = merged.get(key);
+    if (!prev) {
+      const sen: Sensor = { owner: s.owner, ll, sight, radar, sens, detects: det, recon, asw, id: s.id };
+      merged.set(key, sen);
+      push(s.owner, sen);
+    } else {
+      if (sight > prev.sight) prev.sight = sight;
+      if (radar > prev.radar) prev.radar = radar;
+      if (sens > prev.sens) prev.sens = sens;
+      if (det.length) prev.detects = [...new Set([...prev.detects, ...det])];
     }
-    push(s.owner, { owner: s.owner, ll, sight, radar, sens, detects: [...det], recon, asw, id: s.id });
   }
   const m = S(state).map;
   for (const k of Object.keys(state.cities).sort()) {
     const c = state.cities[k];
     const o = state.provinces[c.node]?.owner;
     if (!o) continue;
-    const radar = sumEffect(state, c.buildings, 'radarKm');
-    const sens = Math.max(radar > 0 ? 1 : 0, Math.floor(sumEffect(state, c.buildings, 'radarSensitivity', false)));
+    const radar = c.buildings.length ? sumEffect(state, c.buildings, 'radarKm') : 0;
+    const sens = radar > 0 ? Math.max(1, Math.floor(sumEffect(state, c.buildings, 'radarSensitivity', false))) : 0;
     push(o, { owner: o, ll: [m.lon[c.node], m.lat[c.node]], sight: CITY_SIGHT_KM, radar, sens, detects: radar > 0 ? ['air', 'sea', 'land'] : [], recon: false, asw: false, id: `city:${k}` });
   }
   return out;
 }
 
+interface Target {
+  s: Stack;
+  ll: [number, number];
+  dom: Domain[];
+  sig: number[];
+}
+
 export function computeDetections(state: GameState): Map<CountryId, Map<string, Det>> {
-  const sensors = buildSensors(state);
-  const stacks = Object.values(state.stacks).filter((s) => !s.aboard).sort(cmpId);
-  const bins = new Map<string, { s: Stack; ll: [number, number] }[]>();
+  const stacks = sortedStacks(state).filter((s) => !s.aboard);
+  const lls = new Map<string, [number, number]>();
+  for (const s of stacks) lls.set(s.id, stackLL(state, s));
+  const sensors = buildSensors(state, stacks, lls);
+  const bins = new Map<number, Target[]>();
+  const binOwners = new Map<number, Set<CountryId>>();
+  const targetOf = new Map<string, Target>();
   for (const s of stacks) {
-    const ll = stackLL(state, s);
+    const ll = lls.get(s.id)!;
+    const pr = profileOf(state, s);
+    const dom = pr.dom;
+    const sig = pr.sig;
+    const tg: Target = { s, ll, dom, sig };
+    targetOf.set(s.id, tg);
     const k = binKey(ll[0], ll[1]);
-    const l = bins.get(k) ?? [];
-    l.push({ s, ll });
-    bins.set(k, l);
+    const l = bins.get(k);
+    if (l) l.push(tg);
+    else bins.set(k, [tg]);
+    const os = binOwners.get(k);
+    if (os) os.add(s.owner);
+    else binOwners.set(k, new Set([s.owner]));
   }
   const m = S(state).map;
   const result = new Map<CountryId, Map<string, Det>>();
@@ -140,45 +257,44 @@ export function computeDetections(state: GameState): Map<CountryId, Map<string, 
       for (const k of binsAround(sen.ll[0], sen.ll[1], r)) {
         const l = bins.get(k);
         if (!l) continue;
-        for (const { s, ll } of l) {
+        const os = binOwners.get(k)!;
+        if (os.size === 1 && os.has(c)) continue; // only own stacks there
+        for (const tg of l) {
+          const s = tg.s;
           if (s.owner === c) continue;
-          const d = distKm(sen.ll[0], sen.ll[1], ll[0], ll[1]);
+          const d = distKm(sen.ll[0], sen.ll[1], tg.ll[0], tg.ll[1]);
           if (d > r) continue;
           const vis: number[] = [];
-          const rad: number[] = [];
+          let radHit = false;
           let radDomain: Domain | 'land' = 'land';
-          for (let i = 0; i < s.units.length; i++) {
-            const u = s.units[i];
-            const st = ustats(state, u);
-            const dom = unitDomain(state, s, i);
-            if (d <= sen.sight) {
-              const subOk = dom !== 'subsurface' || sen.asw;
-              const stealthOk = st.signature < 3 || d <= sen.sight * STEALTH_VISUAL_FRACTION;
-              if (subOk && stealthOk) vis.push(i);
-            }
-            if (d <= sen.radar && sen.detects.includes(dom) && st.signature <= sen.sens) {
-              rad.push(i);
+          for (let i = 0; i < tg.dom.length; i++) {
+            const dom = tg.dom[i];
+            const sg = tg.sig[i];
+            if (d <= sen.sight && (dom !== 'subsurface' || sen.asw) && (sg < 3 || d <= sen.sight * STEALTH_VISUAL_FRACTION)) vis.push(i);
+            if (d <= sen.radar && sg <= sen.sens && sen.detects.includes(dom)) {
+              radHit = true;
               radDomain = dom;
             }
           }
           if (vis.length) {
             const inCity = s.pos.kind === 'node' && state.provinces[s.pos.node]?.owner === c && m.cityByNode.has(s.pos.node);
             const ident = sen.recon || d <= sen.sight * IDENTIFY_FRACTION || inCity;
-            upd(s.id, ident ? 'identified' : 'unidentified', vis, unitDomain(state, s, vis[0]), sen.id);
-          } else if (rad.length) upd(s.id, 'contact', [], radDomain, sen.id);
+            upd(s.id, ident ? 'identified' : 'unidentified', vis, tg.dom[vis[0]], sen.id);
+          } else if (radHit) upd(s.id, 'contact', [], radDomain, sen.id);
         }
       }
     }
     // territory sight: stacks standing on nodes this country owns
     for (const { s, node } of terrBy.get(c) ?? []) {
+      const tg = targetOf.get(s.id)!;
       const vis: number[] = [];
-      for (let i = 0; i < s.units.length; i++) {
-        const dom = unitDomain(state, s, i);
+      for (let i = 0; i < tg.dom.length; i++) {
+        const dom = tg.dom[i];
         if (dom === 'subsurface' || dom === 'air') continue;
-        if (ustats(state, s.units[i]).signature >= 3) continue;
+        if (tg.sig[i] >= 3) continue;
         vis.push(i);
       }
-      if (vis.length) upd(s.id, m.cityByNode.has(node) ? 'identified' : 'unidentified', vis, unitDomain(state, s, vis[0]), `territory:${node}`);
+      if (vis.length) upd(s.id, m.cityByNode.has(node) ? 'identified' : 'unidentified', vis, tg.dom[vis[0]], `territory:${node}`);
     }
     result.set(c, dets);
   }
@@ -190,7 +306,7 @@ export function updateVisibility(state: GameState): void {
   const dets = computeDetections(state);
   const t = state.clock.tick;
   const byOwner = new Map<CountryId, Stack[]>();
-  for (const s of Object.values(state.stacks).sort(cmpId)) {
+  for (const s of sortedStacks(state)) {
     if (s.aboard) continue;
     const l = byOwner.get(s.owner) ?? [];
     l.push(s);

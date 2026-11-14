@@ -24,13 +24,16 @@ import {
 } from '../rules';
 import { S } from '../scenario/registry';
 import { hopDistances } from './mapindex';
-import { cmpId, isFriendlyTerritory, utype } from './world';
+import { cmpId, isFriendlyTerritory, utype , sortedStacks } from './world';
 import { sumEffect } from './economy';
 import { unitCost } from './production';
 import { valueAt } from '../fixed';
 import { derived } from '../derived';
 
 export function maintenanceCapacity(state: GameState, c: CountryId): number {
+  return derived(state, `~maint:${c}`, () => computeMaintenance(state, c));
+}
+function computeMaintenance(state: GameState, c: CountryId): number {
   let s = state.countries[c].maintenanceSlots + BASE_MAINTENANCE_SLOTS;
   for (const k of Object.keys(state.cities)) {
     const city = state.cities[k];
@@ -65,7 +68,7 @@ export function readinessDay(state: GameState): void {
     return d;
   };
   const used = new Map<CountryId, number>();
-  for (const s of Object.values(state.stacks).sort(cmpId)) {
+  for (const s of sortedStacks(state)) {
     const sup = supplyOf(state, s, s.moveClass === 'ground' ? friendlyNodes(s.owner) : undefined);
     s.supply = sup;
     const shortage = (state.countries[s.owner]?.shortages ?? []).some((r) => ESSENTIAL.includes(r));

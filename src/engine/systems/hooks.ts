@@ -12,13 +12,13 @@ import { canSee } from './visibility';
 import { emit, toAll } from './events';
 import { joinCoalitionInternal, removeMember } from './coalitions';
 import { cancelOrderInternal } from './market';
-import { coalitionOf, cmpId, utype } from './world';
+import { coalitionOf, cmpId, utype , sortedStacks } from './world';
 
 export function destroyStack(state: GameState, s: Stack, by: CountryId | null): void {
   if (!state.stacks[s.id]) return;
   delete state.stacks[s.id];
   // aircraft aboard a destroyed carrier are lost with it
-  for (const a of Object.values(state.stacks).sort(cmpId)) {
+  for (const a of sortedStacks(state)) {
     if (a.aboard === s.id) {
       delete state.stacks[a.id];
       emit(state, { kind: 'aircraft_lost', category: 'combat', private: toAll([a.owner], `Aircraft lost: ${a.name} went down with its carrier ${s.name}.`, { stack: a.id }) });

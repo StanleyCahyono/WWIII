@@ -2,6 +2,7 @@
  * PUBLIC ENGINE API — World Command: World 120.
  * Pure TypeScript, deterministic, JSON state. Safe in Node and Web Workers. See docs/ENGINE.md.
  */
+export * from './data-types';
 export * from './state';
 export type { Scenario, Catalog } from './scenario/types';
 export { registerScenario, getScenarioById, getStatic, scenarioOf } from './scenario/registry';

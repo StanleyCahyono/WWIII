@@ -201,6 +201,7 @@ export function createCampaign(opts: CreateOptions): GameState {
       const pr = state.relations[pairKey(a, rel.with)];
       pr.war = true;
       pr.warDeclaredBy = a;
+      state.ids.relv = (state.ids.relv ?? 0) + 1;
     } else if (rel.status !== 'peace') state.grants[dirKey(a, rel.with)] = { level: rel.status, since: 0 };
   }
   state.score.denominator = computeDenominator(sc);

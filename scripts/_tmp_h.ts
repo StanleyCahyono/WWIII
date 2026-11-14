@@ -1,0 +1,10 @@
+import { buildWorld120Scenario, createCampaign } from '../src/engine/index';
+import { loadMapData } from '../src/data/map-index';
+import { CATALOG } from '../src/data/catalog/index';
+import { MANIFEST } from '../src/data/countries';
+const t0 = Date.now();
+const sc = buildWorld120Scenario({ map: loadMapData(), catalog: CATALOG as any, manifest: MANIFEST });
+const st = createCampaign({ seed: 120, humanCountry: null, scenario: sc });
+const op = st.openingPower!;
+console.log(Date.now() - t0, 'ms', op.rank.slice(0, 10).map((c) => c + ':' + op.composite[c]).join(' '));
+console.log(op.normalization, op.raw.USA, op.raw.CHN);

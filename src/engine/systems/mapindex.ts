@@ -20,7 +20,7 @@ export interface MapIndex {
   terrain: Terrain[];
   cityByNode: Map<NodeId, CityKey>;
   portNodes: Set<NodeId>;
-  nodeBins: Map<string, NodeId[]>;
+  nodeBins: Map<number, NodeId[]>;
   /** Playable land node ids. */
   playable: NodeId[];
   /** Cache of static (ownership-independent) reachability by class: `${class}:${from}:${to}` */
@@ -38,15 +38,15 @@ export function distKm(lon1: number, lat1: number, lon2: number, lat2: number): 
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
 }
-export function binKey(lon: number, lat: number): string {
+export function binKey(lon: number, lat: number): number {
   let l = lon;
   while (l < -180) l += 360;
   while (l >= 180) l -= 360;
-  return `${Math.floor(l / SPATIAL_BIN_DEG)},${Math.floor(lat / SPATIAL_BIN_DEG)}`;
+  return (Math.floor(l / SPATIAL_BIN_DEG) + 500) * 1000 + (Math.floor(lat / SPATIAL_BIN_DEG) + 500);
 }
-const aroundCache = new Map<string, string[]>();
+const aroundCache = new Map<string, number[]>();
 /** All bin keys whose cells may contain points within `km` of (lon,lat). Memoized (pure). */
-export function binsAround(lon: number, lat: number, km: number): string[] {
+export function binsAround(lon: number, lat: number, km: number): number[] {
   const ck = `${lon},${lat},${km}`;
   const hit = aroundCache.get(ck);
   if (hit) return hit;
@@ -55,11 +55,11 @@ export function binsAround(lon: number, lat: number, km: number): string[] {
   aroundCache.set(ck, res);
   return res;
 }
-function binsAroundRaw(lon: number, lat: number, km: number): string[] {
+function binsAroundRaw(lon: number, lat: number, km: number): number[] {
   const dLat = km / 111 + SPATIAL_BIN_DEG;
   const cos = Math.max(0.05, Math.cos((Math.min(89, Math.abs(lat)) * Math.PI) / 180));
   const dLon = Math.min(180, km / (111 * cos) + SPATIAL_BIN_DEG);
-  const out = new Set<string>();
+  const out = new Set<number>();
   const nLat = Math.ceil((2 * dLat) / SPATIAL_BIN_DEG);
   const nLon = Math.ceil((2 * dLon) / SPATIAL_BIN_DEG);
   for (let i = 0; i <= nLat; i++) {
@@ -99,7 +99,7 @@ export function buildMapIndex(map: MapData): MapIndex {
   const outside = new Uint8Array(n);
   const coastal = new Uint8Array(n);
   const terrain: Terrain[] = [];
-  const nodeBins = new Map<string, NodeId[]>();
+  const nodeBins = new Map<number, NodeId[]>();
   const playable: NodeId[] = [];
   for (const nd of map.nodes) {
     lon[nd.id] = nd.center[0];

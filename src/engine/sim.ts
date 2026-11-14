@@ -17,7 +17,7 @@
  * 10. AI scheduler (controllers submit commands through submitCommand)
  */
 import type { GameState } from './state';
-import { STEP_MIN } from './rules';
+import { STEP_MIN, VISIBILITY_INTERVAL_MIN } from './rules';
 import { isDayChange, isHour, nextStepTick, dayOf } from './time';
 import { popDue } from './systems/queue';
 import { completeResearch } from './systems/research';
@@ -166,7 +166,7 @@ export function runStep(state: GameState, T: number, host: SimHost): void {
   }
   captureStep(state, govHooks);
   if (isHour(T)) economyHour(state);
-  updateVisibility(state);
+  if (T % VISIBILITY_INTERVAL_MIN === 0) updateVisibility(state);
   if (isDayChange(T)) {
     governmentDay(state, govHooks);
     readinessDay(state);

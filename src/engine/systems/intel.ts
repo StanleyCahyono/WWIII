@@ -11,7 +11,7 @@ import { AGENT_REPORT_INTERVAL_MIN, AGENT_SUCCESS, CORRUPTION_DRAIN_MONEY, INTEL
 import { S } from '../scenario/registry';
 import { nextId } from '../ids';
 import { distKm } from './mapindex';
-import { cmpId, stackLL } from './world';
+import { cmpId, stackLL , sortedStacks } from './world';
 import { streamRng, hash32 } from '../rng';
 import { schedule } from './queue';
 import { emit, toAll } from './events';
@@ -22,7 +22,7 @@ export function snapshotReport(state: GameState, country: CountryId, node: NodeI
   const m = S(state).map;
   const t = state.clock.tick;
   const stacks: IntelReport['stacks'] = [];
-  for (const s of Object.values(state.stacks).sort(cmpId)) {
+  for (const s of sortedStacks(state)) {
     if (s.owner === country || s.aboard) continue;
     const ll = stackLL(state, s);
     const atNode = s.pos.kind === 'node' && s.pos.node === node;

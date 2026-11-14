@@ -144,6 +144,8 @@ export const STEALTH_VISUAL_FRACTION = 0.34; // signature 3 seen visually only w
 export const INTEL_REPORT_TTL_MIN = 24 * 60;
 export const INTEL_REPORT_COST: Partial<Record<Resource, number>> = { money: 150 };
 export const SPATIAL_BIN_DEG = 3;
+/** Observation tables are recomputed on this cadence (minutes) and after relation changes. */
+export const VISIBILITY_INTERVAL_MIN = 30;
 
 // ───────────── Intel agents ─────────────
 export const AGENT_COST: Partial<Record<Resource, number>> = { money: 200 };
