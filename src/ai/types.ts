@@ -111,6 +111,8 @@ export interface AiMemory {
   coalition: { id: string; since: number } | null;
   capitalsLost: number;
   lastOperational?: number;
+  /** End-of-call snapshot: no war, no rebel province, no unhandled request ⇒ operational-only calls are no-ops. */
+  quietOk?: boolean;
 }
 
 export interface DecisionEntry {

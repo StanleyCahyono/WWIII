@@ -160,13 +160,19 @@ function chooseObjective(t: Turn, a: Analysis): void {
   if (mem.geography !== 'landlocked' && a.capitalNode !== null) {
     for (const pc of v.publicCities) if (pc.owner && pc.owner !== t.me && pc.capital && km(g, pc.node, a.capitalNode) < 1600) cset.add(pc.owner);
   }
+  // one pass over the ownership array: candidate countries' nodes
+  const nodesOf = new Map<CountryId, NodeId[]>();
+  for (const c of cset) nodesOf.set(c, []);
+  for (let n = 0; n < g.n; n++) {
+    const o = v.owners[n];
+    if (o && cset.has(o)) nodesOf.get(o)!.push(n);
+  }
   for (const c of [...cset].sort()) {
     const r = t.rel.get(c);
     if (!r || !r.alive || r.sameCoalition) continue;
     // best reachable node of c: nearest high-VP node by hops from our territory
     let best: NodeId | null = null, bestS = -1, bestHop = 99;
-    for (let n = 0; n < g.n; n++) {
-      if (v.owners[n] !== c) continue;
+    for (const n of nodesOf.get(c) ?? []) {
       const h = a.hops[n];
       const reach = h >= 0 ? h : mem.geography !== 'landlocked' && g.coast[n].length ? 10 : -1;
       if (reach < 0) continue;

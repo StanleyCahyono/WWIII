@@ -8,7 +8,7 @@ import type { AiMemory } from './types';
 
 export const GRIEVANCE_DECAY_PER_DAY = 0.9;
 export const FAVOUR_DECAY_PER_DAY = 0.95;
-const MAX_DECISIONS = 12;
+const MAX_DECISIONS = 8;
 const MAX_HANDLED = 24;
 const MAX_INTEL = 6;
 

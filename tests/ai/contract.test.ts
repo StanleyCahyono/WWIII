@@ -5,7 +5,7 @@ import { advance, cloneState, deserialize, getCountryView, serialize, stateHash 
 import type { CountryController } from '../../src/engine';
 import { newMiniGame } from '../fixtures/mini-world';
 import { place, refreshVision } from '../fixtures/helpers';
-import { UtilityController, createAiControllers, createSimHost, getDecisionLog, clearDecisionLogs } from '../../src/ai';
+import { UtilityController, createAiControllers, createSimHost, getDecisionLog, clearDecisionLogs, wantsCall } from '../../src/ai';
 import { decideOnce, recording } from './helpers';
 
 const AI_DIR = join(__dirname, '../../src/ai');
@@ -103,5 +103,24 @@ describe('AI host integration', () => {
     expect(log.length).toBeGreaterThan(0);
     expect(log.length).toBeLessThanOrEqual(64);
     expect(serialize(s)).not.toContain('"layer"');
+  });
+
+  it('wants(): declines only calls that would be no-ops (proposed scheduler pre-check is outcome-equivalent)', () => {
+    const s = newMiniGame({ human: null, seed: 11 });
+    advance(s, 2 * 1440, { fallback: UtilityController });
+    let checked = 0;
+    for (const c of s.countryOrder) {
+      const mem = s.ai.memory[c];
+      expect(wantsCall({ reviews: ['economic'], wake: [], memory: mem })).toBe(true);
+      expect(wantsCall({ reviews: ['operational'], wake: ['offer:e1'], memory: mem })).toBe(true);
+      if (wantsCall({ reviews: ['operational'], wake: [], memory: mem })) continue;
+      checked++;
+      const before = JSON.stringify(s.ai.memory[c]);
+      const { cmds } = decideOnce(s, c, ['operational'], { submit: false });
+      expect(cmds).toEqual([]);
+      expect(JSON.stringify(s.ai.memory[c])).toBe(before);
+    }
+    expect(checked).toBeGreaterThan(0);
+    expect(wantsCall({ reviews: ['operational'], wake: [], memory: null })).toBe(true);
   });
 });

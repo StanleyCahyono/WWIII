@@ -92,12 +92,26 @@ function plan(view: CountryView, ctx: PlannerContext): Command[] {
   if (reviews.has('diplomatic')) diplomaticReview(t, a);
 
   pruneMemory(mem, view);
+  mem.quietOk = !a.enemies.length && !view.rebelNodes.some((n) => view.owners[n] === view.viewer || a.myNodes.includes(n)) && !Object.values(view.messages).some((l) => l.some((m) => m.from !== view.viewer && (m.intent === 'coordinate' || m.intent === 'request_operation') && !mem.handledMessages.includes(m.id)));
   ctx.setMemory(mem);
   return t.out;
 }
 
+/**
+ * Pre-check for the scheduler (proposed engine hook, see docs/AI.md "Engine requests" #1): returns
+ * false when the call cannot produce a decision — an operational-only review without wake triggers
+ * while the last full review recorded a quiet situation (no war, no rebel province, no unhandled
+ * request). Pure function of the call info and the SAVED memory ⇒ deterministic across reloads.
+ */
+export function wantsCall(info: { reviews: readonly string[]; wake: readonly string[]; memory: unknown }): boolean {
+  if (info.wake.length || info.reviews.length !== 1 || info.reviews[0] !== 'operational') return true;
+  const m = info.memory as { quietOk?: boolean; lastStrategic?: number } | null;
+  return !(m && m.quietOk === true && typeof m.lastStrategic === 'number' && m.lastStrategic >= 0);
+}
+
 /** The utility planner. One stateless instance serves every country (state lives in ctx.memory). */
-export const UtilityController: CountryController = {
+export const UtilityController: CountryController & { wants: typeof wantsCall } = {
+  wants: wantsCall,
   decide(view: CountryView, ctx: PlannerContext): Command[] {
     const t0 = nowMs();
     try {

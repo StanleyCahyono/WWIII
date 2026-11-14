@@ -206,7 +206,7 @@ function construction(t: Turn, a: Analysis): void {
       const upkeep = resValue(t.ix, L.upkeepPerDay);
       const net = gain - upkeep;
       const costV = resValue(t.ix, L.cost);
-      if (net <= 0 || costV / net > dl * 0.6) continue;
+      if (net <= 0 || costV / net > Math.min(dl * 0.5, 45)) continue;
       const diversity = 1 / (1 + (counts.get(bt.id) ?? 0) * 0.15);
       cands.push({ b: bt, target: c.key, roi: (net / Math.max(1, costV)) * diversity * (info?.capital ? 1.1 : 1), why: why[0] ?? (inc.productionMult ? 'raise city output' : inc.researchSlots ? 'expand research capacity' : 'improve infrastructure') });
     }
@@ -230,13 +230,13 @@ function construction(t: Turn, a: Analysis): void {
       const gain = inc.productionMult * 40 * (t.ix.price[dep] ?? 1) * shortMult(t, dep) * 0.5;
       const net = gain - resValue(t.ix, L.upkeepPerDay);
       const costV = resValue(t.ix, L.cost);
-      if (net <= 0 || costV / net > dl * 0.6) continue;
+      if (net <= 0 || costV / net > Math.min(dl * 0.5, 45)) continue;
       cands.push({ b: bt, target: p.node, roi: (net / costV) * 0.9, why: `${dep} deposit${shortMult(t, dep) > 1 ? ' (shortage)' : ''}` });
     }
   }
   cands.sort((x, y) => y.roi - x.roi || (x.b.id < y.b.id ? -1 : 1) || String(x.target).localeCompare(String(y.target)));
   let started = 0;
-  const maxStart = Math.min(maxConcurrent - constructing.length, a.enemies.length || constructing.length >= 2 ? 1 : 2);
+  const maxStart = Math.min(maxConcurrent - constructing.length, a.enemies.length || constructing.length >= 1 ? 1 : 2);
   const usedTargets = new Set<string | NodeId>();
   for (const c of cands.slice(0, 4)) {
     if (started >= maxStart || t.full) break;
@@ -554,7 +554,8 @@ export function economicReview(t: Turn, a: Analysis): void {
     construction(t, a);
     mobilization(t, a);
   }
-  market(t);
+  // market: every other economic review unless something is short or blocked (bounded order churn)
+  if (t.mem.plan.shortages.length || Math.floor(t.now / 360) % 2 === 0) market(t);
   annexation(t);
   if (t.out.length === before) {
     t.mem.idleEconomic++;

@@ -43,7 +43,9 @@ garrison and rival power priors (public opening-power composite × public score 
 `geo.ts` is the cached static map analysis; `memory.ts` persistence/decay; `log.ts` the developer log.
 
 **Quiet path.** An operational-only call with no wake, no war, no pending offer/request and no rebel
-province returns immediately without touching memory (most peace-time calls).
+province returns immediately without touching memory (≈ 56 % of calls on the real map). The same
+predicate, evaluated from the saved memory only, is exported as `UtilityController.wants` / `wantsCall`
+for the proposed scheduler pre-check (Engine request 1).
 
 ## Signals per decision (SPEC §4 table → code)
 
@@ -113,39 +115,106 @@ campaign UI; the only bot-authored text a player sees is the reply reason of its
 
 ## Performance
 
-See "Observer suite results" for the measured numbers. Planner cost per game day on the real map
-(119 bots) is reported by `aiPerf` (wall time inside `decide`, including the validator previews it
-requests). The dominant AI-related cost is **outside** the planner: the engine builds a full
-`CountryView` for every scheduled call (≈ 0.8 ms each, ≈ 2,400 calls/day) and every accepted command
-invalidates the shared public slices. See Engine requests 1–2.
+Measured on the real World 120 map (120 AI seats, observer mode, seed 7, esbuild bundle, Node 22,
+this 4-core container, idle machine), averaged over game days 7–9 (≈1,750 stacks):
+
+| Configuration | Total ms / game day | of which planner (`decide`) | AI calls / day | View cost / call |
+| --- | ---: | ---: | ---: | ---: |
+| Engine only (IdleController) | ≈ 230 | — | 0 | — |
+| Engine + empty controller (views only) | ≈ 4,300 | 0 | 2,208 | ≈ 1.9 ms |
+| **Current engine + utility planner** | **≈ 5,900** | **≈ 420** (previews ≈ 95) | 2,208 (56 % quiet) | ≈ 1.9 ms |
+| + proposed `wants()` hook (request 1, prototyped in a scratch copy) | ≈ 4,200 | ≈ 410 | 982 | ≈ 2.0 ms |
+| + lite AI view & market-versioned books (requests 2–3, prototyped) | **≈ 2,470** | ≈ 400 | 977 | ≈ 1.2 ms |
+
+Where the time goes (CPU profile, current engine): ≈ 88 % of the AI phase is `getCountryView`
+(public slice + market books rebuilt after cache invalidation ≈ 34 %, `observedNodes` ≈ 10 %,
+`forceSummary`/`liftBreakdown`/`maintenanceCapacity` ≈ 16 %, 119 diplomacy rows with lazy trust
+≈ 7 %, allied contacts, journal scan); the planner itself is ≈ 8–17 % (economic review ≈ ⅓ of it,
+validator previews ≈ ¼, memory deep copy in `setMemory` ≈ 8 %). AI-side measures already taken:
+quiet operational calls return without work or memory writes; bounded path previews; market reviews on
+alternate economic reviews (orders/day −30 %); construction payback ≤ min(50 % of remaining days, 45 days);
+one-pass ownership scan for objectives; lazy hop BFS; static analysis cached per map/catalog.
+**The ≤ 1 s/day target is not reachable from src/ai alone**: with zero commands the views alone cost
+≈ 4.3 s/day. With requests 1–3 the prototype reaches ≈ 2.5 s/day; requests 4–5 (granular invalidation,
+per-step trust/resource rows) are needed for the remaining step to ≈ 1 s.
 
 ## Observer suite
 
-`npm run report:observer -- --runs 120 --days 30 --long 4 --long-days 180` (see script header; uses 4
-`worker_threads`). Writes `docs/reports/observer-summary.md|json`.
+`npm run report:observer -- --runs 120 --days 30 --long 4 --long-days 180` (options in the script
+header: `--workers` (default 4 `worker_threads`), `--seed0`, `--difficulty`, `--resume` to continue from
+the per-run checkpoint `<out>.runs.jsonl`, `--summarize-only`). Writes `docs/reports/observer-summary.md|json`.
+
+**What was run (final code):** 120 seeded campaigns (seeds 1–120) to a **5-day** horizon plus **4 full
+180-day** campaigns (seeds 1–4), normal difficulty, 4 workers, 52 min wall on this container (shared CPU).
+A 30-day horizon for all 120 seeds would take ≈ 3.5 h here at the current engine cost; it was not run.
+`docs/reports/observer-prefix.md|json` keeps the earlier 4 × 180-day cohort (before the
+balance-of-power / batch-guard changes) for comparison.
+
+| | 120 × 5 days | 4 × 180 days | 4 × 180 days, before fixes |
+| --- | --- | --- | --- |
+| Terminal condition | 120/120 horizon reached ("timeout") | 4/4 day-180 settlement, 0 threshold wins | 4/4 day-180 settlement |
+| Unilateral victories | — | CHN 3/4 (fractions 0.27, 0.28, 0.26 of the solo threshold) | RUS 3/4 |
+| Coalition victories | — | 1/4: ALB+FIN+FRA+POL+USA (0.20 of the 5-member threshold) | 1/4: CHN+ITA+MMR+PAK+PER |
+| Strongest / median rival | CHN 0.19 / ECU 0.03 | CHN 0.256 / PRK 0.023 (RUS 0.249, USA 0.240) | RUS 0.26 / BLR 0.02 |
+| USA | survives 100 %, median rank 2 | survives 100 %, median rank 2.5, 1 coalition win | survives, median rank 3 |
+| Survival by opening-rank quintile | 100 % all | 99 / 93 / 87 / 80 / 57 % | 99 / … |
+| Wars / captures per run | 1.3 / 1.2 | 137 / 791 | 145 / 756 |
+| Invalid bot commands | **0** | **0** | 2 (fixed: batch-consistency guard) |
+| Repeated stalls / no legal opening order | none / none | none / none | none / none |
+| Flags | none | noncompetitive peer set (CHN 3 of 4 wins — see below) | same (RUS) |
+
+Findings and fixes: (1) an early 60-day cohort showed small cash-poor states stalling (BHR, CRI, FIN, GUY,
+MDA): the market was one-sided, so they could not raise cash → fixed by investment-driven buying and
+competitive cash-raising sales (now no stalling nation in any cohort). (2) One aggressive profile (RUS,
+aggression 0.63 vs ≤ 0.51 elsewhere) won 3/4 settlements → added balance-of-power rules (a runaway leader
+becomes the preferred objective of capable neighbours; a clear leader consolidates instead of
+over-extending). The winner moved to CHN with the top three peers within 0.016 of each other in mean
+fraction; with only four full runs the "noncompetitive peer set" flag (one country ≥ 70 % of decided runs)
+is not statistically meaningful, but it is reported as-is. (3) No campaign reaches a threshold in 180 days:
+the solo threshold is 24 % of ≈ 5,050 VP while the largest start holds 4.5 %; all full runs settle by the
+day-180 fraction rule. (4) The weakest quintile survives only 57 % of full runs — conquest pressure on
+small states is real; they join coalitions (≈ 10 live blocs per run) but blocs rarely defend members
+militarily (known gap). (5) A two-run invalid-command check found an offer to a country we had just
+declared war on in the same batch → guard added; 0 invalid commands since.
 
 ## Engine requests
 
-1. **Skip the view for quiet calls.** Add an optional `CountryController.wants?(info: { country, reviews, wake, tick, memory }): boolean`
-   (or a lazy `ctx.view()`), so the scheduler does not build a CountryView for calls the planner would
-   discard (peace-time operational reviews are ~70 % of calls). This is the single largest AI cost.
-2. **Granular derived invalidation.** `submitCommand` invalidates all derived data; with ~1,000 bot
-   commands/day the public slice (owners, public cities, scores) and every market book are rebuilt
-   repeatedly. Market/diplomacy/research commands should not invalidate ownership/scores; books
-   could be maintained incrementally.
-3. **Route flip-flop after peace.** A stack on an edge whose both endpoints become illegal (e.g. inside a
-   former enemy after peace) is turned back every step (`route_revoked` ≈ 96 events/day for one stack).
-   Stop it at the nearer node, or grant a time-limited "withdrawal" passage back to own territory.
-4. **Structured event payloads.** `war_declared`, `grant_revoked`, `city_captured` private texts are parsed
+1. **Scheduler pre-check (largest win, −55 % views).** In `ai-host/scheduler.ts` `invoke`, before building
+   the view:
+   ```ts
+   const w = (ctl as { wants?: (i: { country: CountryId; reviews: ReviewKind[]; wake: string[]; memory: unknown }) => boolean }).wants;
+   if (w && !w({ country: c, reviews, wake, memory: state.ai.memory[c] ?? null })) return;
+   ```
+   and add `wants?` (optional) to `CountryController` in `ai-host/types.ts`. `UtilityController.wants`
+   (= exported `wantsCall`) is already implemented: it declines only operational-only calls without wake
+   triggers when the saved memory says the last full review was quiet (no war, no rebel province, no
+   unhandled request) — a pure function of the call info and the saved memory, so determinism and
+   save/reload equality are preserved. Measured: 2,208 → 982 views/day, 5.9 → 4.2 s/day.
+2. **Lite view for planners.** `getCountryView(state, c, { lite: true })` from the scheduler that skips
+   `forceSummary`, `liftBreakdown` and `observedNodes` (unused by src/ai; ≈ 16 % + 10 % of view time).
+3. **Market books keyed on a market version**, not cleared by every command: e.g. derived key
+   `~books:${state.market.seq}:${state.market.fills.length}`, and iterate only open orders (keep an
+   open-order index) instead of every order record. Prototype of 2+3: 4.2 → 2.5 s/day.
+4. **Granular derived invalidation.** `submitCommand` clears every non-`~` key; research/diplomacy/market
+   commands do not change ownership, rates or force summaries. Version-keyed caches (like `ownv`,
+   `econv`) for the remaining per-view rows would let ~650 bot commands/day stop forcing rebuilds.
+5. **Per-step diplomacy rows**: 119 `trustOf`/`statusFrom`/`coalitionOf` lookups per view (lazy trust
+   initialisation shows up at ≈ 7 %) could be one shared per-step matrix.
+6. **Route flip-flop after peace.** A stack on an edge whose both endpoints became illegal (e.g. inside a
+   former enemy after peace) turns back every step (`route_revoked` ≈ 96 events/day for one stack).
+   Stop it at the nearer node, or grant a time-limited withdrawal passage back to own territory.
+7. **Wake on coordination messages** (`sendMessage` with intent `coordinate`/`request_operation` to an AI
+   country). With request 1 in place a partner's request is otherwise answered at the next
+   economic/diplomatic review (≤ 6 h) rather than within the hour.
+8. **Structured event payloads.** `war_declared`, `grant_revoked`, `city_captured` private texts are parsed
    for the actor; please add `data: { by, target }` / `{ from, to }`.
-5. **Coalition join time in the view** (`members[].joinedAt`) for transparent leave rules.
-6. **Viewer's own trust history** (entries about counterparts) in the view, so replies can cite the
-   engine's recorded reasons rather than the AI's own grievance memory.
-7. ~~Building `productionMult` semantics~~ — resolved by the engine pass (catalog multiplier semantics,
+9. **Coalition join time in the view** (`members[].joinedAt`) and the **viewer's own trust history**, so
+   leave rules and reply reasons can cite engine-recorded facts rather than AI memory.
+10. ~~Building `productionMult` semantics~~ — resolved by the engine pass (catalog multiplier semantics,
    `1 + Σ(mult − 1)`); the planner values `*Mult` increments against a base of 1 accordingly.
-8. **Market depth.** Bots are the only counterparties; with 119 sellers of common surpluses the books are
-   one-sided. The planner now creates demand (it buys inputs that blocked a planned investment) and lets
-   cash-starved states undercut, but a scenario-level importer/exporter of last resort would stabilise prices.
+11. **Market depth.** Bots are the only counterparties; with 119 sellers of common surpluses the books are
+   one-sided. The planner creates demand (it buys inputs that blocked a planned investment) and lets
+   cash-starved states undercut; a scenario-level importer/exporter of last resort would stabilise prices.
 
 ## Known gaps
 
@@ -155,6 +224,9 @@ invalidates the shared public slices. See Engine requests 1–2.
 * Naval: only strikes toward enemy ports in war and returns far-off ships home; no blockade logic.
 * Trade agreements use fixed 100-unit swaps at reference prices; no multi-round haggling.
 * Peace terms never include territory or resources.
+* Coalition members do not send forces to defend each other (they coordinate objectives only), so small
+  bloc members still fall to stronger neighbours (57 % survival of the weakest quintile over 180 days).
+* With only 4 full-length observer campaigns, win-rate statements are indicative, not statistical.
 * Operation requests are matched by a three-letter country code in the message text (UI contract:
   `sendMessage { intent: 'coordinate', text: '... BOR ...' }`); unmatched text is answered with
   "no target we can act on was named".
