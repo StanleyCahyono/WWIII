@@ -8,6 +8,8 @@ import { exec } from '../sim/exec';
 import { RESOURCES, type Resource } from '../../engine/data-types';
 import { ShortageLedger } from '../components/ResourceStrip';
 import { BlockadeReport } from '../components/Features';
+import { Icon, RESOURCE_ICON } from '../icons';
+import { Expander, SectionHead, IconTabs } from './panelKit';
 
 interface RS { resource: Resource; stock: number; reserved: number; onHand: number; spendable: number; committedJobs: number; grossPerDay: number; consumptionPerDay: number; netPerDay: number; forecast24h: number; forecast72h: number; hoursToDepletion: number | null; insufficientStock: boolean; negativeNet: boolean }
 interface Ledger { initial: Record<string, number>; totals: Record<string, Record<string, number>>; days: { day: number; cats: Record<string, Record<string, number>> }[]; stock: Record<string, number>; escrow: Record<string, number>; reconciled: boolean }
@@ -26,116 +28,144 @@ export function EconomyPanel() {
   }, [rs, prof.data]);
   const cats = led.data ? Object.keys(led.data.totals) : [];
   return (
-    <div className="col" data-testid="economy-panel">
-      <div className="card" data-testid="economic-report">
-        <h4>Economic report — {frame.view.self.name}, {gameTime(frame.view.tick)}</h4>
-        <p style={{ margin: '6px 0 0' }}>
-          {report.need ? (
-            <>
-              {frame.view.self.name}'s authored trade need is <strong>{RESOURCE_LABEL[report.need]}</strong>: daily net {signed(milli(rs.find((r) => r.resource === report.need)?.netPerDay ?? 0))}. Buying it on the market preserves construction capacity for {RESOURCE_LABEL[report.worst?.resource ?? 'supplies'].toLowerCase()}-hungry projects; producing it domestically ties up a construction slot.{' '}
-            </>
-          ) : null}
-          {report.worst && (
-            <>
-              Your tightest account is <strong>{RESOURCE_LABEL[report.worst.resource]}</strong> (gross +{num(milli(report.worst.grossPerDay))}/day vs upkeep −{num(milli(report.worst.consumptionPerDay))}/day
-              {report.worst.hoursToDepletion !== null ? `; depleted in ${duration(report.worst.hoursToDepletion * 60)}` : ''}). Choice: expand production in a city with that output, trade for it, or delay upkeep-heavy mobilization.
-            </>
-          )}
-        </p>
-        <div className="row" style={{ marginTop: 6 }}>
-          {report.worst && (
-            <button type="button" className="btn small" onClick={() => setRes(report.worst!.resource)}>
-              Show users by city
+    <div className="col p-root" data-testid="economy-panel">
+      <div className="p-advisor" data-testid="economic-report">
+        <span className="p-advisor-ico" aria-hidden="true"><Icon name="economy" size={26} /></span>
+        <div className="grow" style={{ minWidth: 0 }}>
+          <h4>Economic report — {frame.view.self.name}, {gameTime(frame.view.tick)}</h4>
+          <p style={{ margin: '6px 0 0' }}>
+            {report.need ? (
+              <>
+                {frame.view.self.name}'s authored trade need is <strong>{RESOURCE_LABEL[report.need]}</strong>: daily net {signed(milli(rs.find((r) => r.resource === report.need)?.netPerDay ?? 0))}. Buying it on the market preserves construction capacity for {RESOURCE_LABEL[report.worst?.resource ?? 'supplies'].toLowerCase()}-hungry projects; producing it domestically ties up a construction slot.{' '}
+              </>
+            ) : null}
+            {report.worst && (
+              <>
+                Your tightest account is <strong>{RESOURCE_LABEL[report.worst.resource]}</strong> (gross +{num(milli(report.worst.grossPerDay))}/day vs upkeep −{num(milli(report.worst.consumptionPerDay))}/day
+                {report.worst.hoursToDepletion !== null ? `; depleted in ${duration(report.worst.hoursToDepletion * 60)}` : ''}). Choice: expand production in a city with that output, trade for it, or delay upkeep-heavy mobilization.
+              </>
+            )}
+          </p>
+          <div className="row wrap" style={{ marginTop: 8 }}>
+            {report.worst && (
+              <button type="button" className="btn small" onClick={() => setRes(report.worst!.resource)}>
+                Show users by city
+              </button>
+            )}
+            <button type="button" className="btn small primary" onClick={() => openPanel('market', report.need ?? report.worst?.resource)}>
+              <Icon name="market" size={14} /> Open market
             </button>
-          )}
-          <button type="button" className="btn small" onClick={() => openPanel('market', report.need ?? report.worst?.resource)}>
-            Open market
-          </button>
-          <button type="button" className="btn small" onClick={() => openPanel('cities')}>
-            Cities by net production
-          </button>
+            <button type="button" className="btn small" onClick={() => openPanel('cities')}>
+              <Icon name="cities" size={14} /> Cities by net production
+            </button>
+          </div>
         </div>
       </div>
       <BlockadeReport />
-      <h3>Balances and forecast</h3>
-      <table className="data" data-testid="balance-table">
-        <thead>
-          <tr>
-            <th>Resource</th>
-            <th className="num">On hand</th>
-            <th className="num">Spendable</th>
-            <th className="num">Reserved (market)</th>
-            <th className="num">Committed (jobs)</th>
-            <th className="num">Gross /day</th>
-            <th className="num">Upkeep /day</th>
-            <th className="num">Net /day</th>
-            <th className="num">In 24 h</th>
-            <th className="num">In 72 h</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {rs.map((r) => (
-            <tr key={r.resource} className={res === r.resource ? 'sel' : ''}>
-              <td>
-                {RESOURCE_LABEL[r.resource]} {r.insufficientStock && <span className="tag bad">short</span>}
-                {!r.insufficientStock && r.negativeNet && <span className="tag warn">negative</span>}
-              </td>
-              <td className="num">{num(milli(r.onHand))}</td>
-              <td className="num">{num(milli(r.spendable))}</td>
-              <td className="num">{num(milli(r.reserved))}</td>
-              <td className="num">{num(milli(r.committedJobs))}</td>
-              <td className="num">+{num(milli(r.grossPerDay))}</td>
-              <td className="num">−{num(milli(r.consumptionPerDay))}</td>
-              <td className="num">{signed(milli(r.netPerDay))}</td>
-              <td className="num">{num(milli(r.forecast24h))}</td>
-              <td className="num">{num(milli(r.forecast72h))}</td>
-              <td>
-                <button type="button" className="btn small" onClick={() => setRes(res === r.resource ? null : r.resource)} aria-expanded={res === r.resource}>
-                  By city
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="p-restiles" aria-label="Resource balances">
+        {rs.map((r) => {
+          const net = milli(r.netPerDay);
+          const tone = r.insufficientStock ? 'bad' : r.negativeNet ? 'warn' : 'ok';
+          return (
+            <button key={r.resource} type="button" className={`p-restile ${tone}${res === r.resource ? ' sel' : ''}`} aria-pressed={res === r.resource} onClick={() => setRes(res === r.resource ? null : r.resource)} title={`${RESOURCE_LABEL[r.resource]}: show producers and users by city`}>
+              <span className="p-restile-top">
+                <Icon name={RESOURCE_ICON[r.resource]} size={26} />
+                <span className="p-restile-name">{RESOURCE_LABEL[r.resource]}</span>
+                {r.insufficientStock ? <span className="p-pill bad raw">short</span> : r.negativeNet ? <span className="p-pill warn raw">negative</span> : null}
+              </span>
+              <span className="p-restile-v">{num(milli(r.onHand))}</span>
+              <span className={`p-restile-net ${net < 0 ? 'neg' : 'pos'}`}>
+                {net < 0 ? '▼' : net > 0 ? '▲' : '■'} {signed(net)} /day
+              </span>
+              <span className="p-restile-sub">24 h: {num(milli(r.forecast24h))} · 72 h: {num(milli(r.forecast72h))}</span>
+            </button>
+          );
+        })}
+      </div>
       {res && <ShortageLedger resource={res} onClose={() => setRes(null)} />}
-      <h3>Ledger (cumulative since start)</h3>
+      <Expander summary="Detailed balances and forecast (table)">
+        <table className="data" data-testid="balance-table">
+          <thead>
+            <tr>
+              <th>Resource</th>
+              <th className="num">On hand</th>
+              <th className="num">Spendable</th>
+              <th className="num">Reserved (market)</th>
+              <th className="num">Committed (jobs)</th>
+              <th className="num">Gross /day</th>
+              <th className="num">Upkeep /day</th>
+              <th className="num">Net /day</th>
+              <th className="num">In 24 h</th>
+              <th className="num">In 72 h</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rs.map((r) => (
+              <tr key={r.resource} className={res === r.resource ? 'sel' : ''}>
+                <td>
+                  <span className="row" style={{ gap: 5 }}><Icon name={RESOURCE_ICON[r.resource]} size={16} />{RESOURCE_LABEL[r.resource]}</span> {r.insufficientStock && <span className="tag bad">short</span>}
+                  {!r.insufficientStock && r.negativeNet && <span className="tag warn">negative</span>}
+                </td>
+                <td className="num">{num(milli(r.onHand))}</td>
+                <td className="num">{num(milli(r.spendable))}</td>
+                <td className="num">{num(milli(r.reserved))}</td>
+                <td className="num">{num(milli(r.committedJobs))}</td>
+                <td className="num">+{num(milli(r.grossPerDay))}</td>
+                <td className="num">−{num(milli(r.consumptionPerDay))}</td>
+                <td className="num">{signed(milli(r.netPerDay))}</td>
+                <td className="num">{num(milli(r.forecast24h))}</td>
+                <td className="num">{num(milli(r.forecast72h))}</td>
+                <td>
+                  <button type="button" className="btn small" onClick={() => setRes(res === r.resource ? null : r.resource)} aria-expanded={res === r.resource}>
+                    By city
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Expander>
+      <SectionHead icon={<Icon name="journal" size={18} />} title="Ledger (cumulative since start)" level={4} />
       {led.data ? (
         <>
-          <p className={led.data.reconciled ? 'ok' : 'bad'} style={{ margin: 0 }}>{led.data.reconciled ? 'Ledger reconciles exactly to the national stockpile.' : 'Ledger does not reconcile — please export a diagnostics report.'}</p>
-          <table className="data">
-            <thead>
-              <tr>
-                <th>Category</th>
-                {RESOURCES.map((r) => (
-                  <th key={r} className="num">{RESOURCE_LABEL[r]}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Initial stock</td>
-                {RESOURCES.map((r) => (
-                  <td key={r} className="num">{num(milli(led.data!.initial[r]))}</td>
-                ))}
-              </tr>
-              {cats.map((c) => (
-                <tr key={c}>
-                  <td>{cap(c)}</td>
+          <p className={`p-reconcile ${led.data.reconciled ? 'ok' : 'bad'}`} style={{ margin: 0 }}>
+            <Icon name={led.data.reconciled ? 'check' : 'alert'} size={16} /> {led.data.reconciled ? 'Ledger reconciles exactly to the national stockpile.' : 'Ledger does not reconcile — please export a diagnostics report.'}
+          </p>
+          <Expander summary="Ledger by category">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Category</th>
                   {RESOURCES.map((r) => (
-                    <td key={r} className="num">{led.data!.totals[c]?.[r] ? signed(milli(led.data!.totals[c][r])) : '—'}</td>
+                    <th key={r} className="num" title={RESOURCE_LABEL[r]}><Icon name={RESOURCE_ICON[r]} size={16} title={RESOURCE_LABEL[r]} /></th>
                   ))}
                 </tr>
-              ))}
-              <tr>
-                <td><strong>Spendable stock</strong></td>
-                {RESOURCES.map((r) => (
-                  <td key={r} className="num"><strong>{num(milli(led.data!.stock[r]))}</strong></td>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Initial stock</td>
+                  {RESOURCES.map((r) => (
+                    <td key={r} className="num">{num(milli(led.data!.initial[r]))}</td>
+                  ))}
+                </tr>
+                {cats.map((c) => (
+                  <tr key={c}>
+                    <td>{cap(c)}</td>
+                    {RESOURCES.map((r) => (
+                      <td key={r} className="num">{led.data!.totals[c]?.[r] ? signed(milli(led.data!.totals[c][r])) : '—'}</td>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-            </tbody>
-          </table>
+                <tr>
+                  <td><strong>Spendable stock</strong></td>
+                  {RESOURCES.map((r) => (
+                    <td key={r} className="num"><strong>{num(milli(led.data!.stock[r]))}</strong></td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </Expander>
         </>
       ) : (
         <p className="muted">Loading…</p>
@@ -162,9 +192,10 @@ export function MarketPanel({ resource }: { resource: string | null }) {
   const myOrders = v.market.myOrders;
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   return (
-    <div className="row" style={{ alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }} data-testid="market-panel">
-      <div className="col" style={{ flex: '2 1 460px', minWidth: 0 }}>
-        <div className="row wrap">
+    <div className="p-root p-market" data-testid="market-panel">
+      <div className="col" style={{ minWidth: 0 }}>
+        <div className="p-markethead">
+          <Icon name={RESOURCE_ICON[r]} size={34} />
           <label className="row" style={{ gap: 6 }}>
             Good
             <select value={r} onChange={(e) => { setR(e.target.value as Resource); ui.patch({ panelArg: e.target.value }); }} data-testid="market-resource">
@@ -175,19 +206,30 @@ export function MarketPanel({ resource }: { resource: string | null }) {
               ))}
             </select>
           </label>
-          <span className="muted">Last trade: {book?.last ? `${(book.last / 1000).toFixed(3)} money/unit` : 'none yet'}</span>
+          <div className="grow" />
+          <span className="p-lasttrade">
+            <span className="p-kicker">Last trade</span>
+            <strong>{book?.last ? `${(book.last / 1000).toFixed(3)}` : 'none yet'}</strong>
+            {book?.last ? <span className="muted"> money/unit</span> : null}
+          </span>
         </div>
-        <div className="tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'best'} onClick={() => setTab('best')}>Best offers</button>
-          <button type="button" role="tab" aria-selected={tab === 'all'} onClick={() => setTab('all')}>All offers</button>
-          <button type="button" role="tab" aria-selected={tab === 'mine'} onClick={() => setTab('mine')}>My trades</button>
-        </div>
+        <IconTabs
+          compact
+          label="Market views"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { key: 'best', label: 'Best offers', icon: <Icon name="star" size={16} /> },
+            { key: 'all', label: 'All offers', icon: <Icon name="roster" size={16} /> },
+            { key: 'mine', label: 'My trades', icon: <Icon name="journal" size={16} />, badge: myOrders.filter((o) => o.status === 'open').length || undefined },
+          ]}
+        />
         {tab !== 'mine' && book && (
           <div className="row wrap" style={{ alignItems: 'flex-start' }}>
             {(['asks', 'bids'] as const).map((side) => {
               const lv = tab === 'best' ? book[side].slice(0, 5) : book[side];
               return (
-                <div key={side} style={{ flex: '1 1 220px' }}>
+                <div key={side} className={`p-book ${side}`} style={{ flex: '1 1 220px' }}>
                   <h4>{side === 'asks' ? 'Sell offers (you can buy)' : 'Buy bids (you can sell)'}</h4>
                   {lv.length === 0 ? (
                     <div className="empty">Empty book: no {side === 'asks' ? 'sellers' : 'buyers'} for {RESOURCE_LABEL[r].toLowerCase()} right now. A resting order waits for computer countries.</div>
@@ -351,13 +393,13 @@ function OrderForm({ r, setR }: { r: Resource; setR: (r: Resource) => void }) {
   }, [side, r, q, p, frame.view.tick]);
   const invalid = !Number.isInteger(Number(qty)) || q < 1 ? 'Amount must be a whole number of at least 1.' : !(p >= 1) ? 'Enter a limit price above 0.' : null;
   return (
-    <form className="card col" style={{ flex: '1 1 280px' }} onSubmit={(e) => e.preventDefault()} aria-label="New market order" data-testid="order-form">
+    <form className="p-card p-orderform" onSubmit={(e) => e.preventDefault()} aria-label="New market order" data-testid="order-form">
       <h4>New order</h4>
-      <div className="row" role="radiogroup" aria-label="Side">
-        <label className="row" style={{ gap: 4 }}>
+      <div className="p-seg" role="radiogroup" aria-label="Side">
+        <label className={side === 'buy' ? 'on buy' : ''}>
           <input type="radio" checked={side === 'buy'} onChange={() => setSide('buy')} /> Buy
         </label>
-        <label className="row" style={{ gap: 4 }}>
+        <label className={side === 'sell' ? 'on sell' : ''}>
           <input type="radio" checked={side === 'sell'} onChange={() => setSide('sell')} /> Sell
         </label>
       </div>
@@ -407,7 +449,7 @@ function OrderForm({ r, setR }: { r: Resource; setR: (r: Resource) => void }) {
       >
         Place {side} order
       </ActionButton>
-      <p className="muted" style={{ fontSize: 12, margin: 0 }}>Best price first, then oldest order. A seller may receive more than the limit. Sell orders reserve goods; buy orders reserve cash; aborting releases the unfilled remainder.</p>
+      <p className="muted" style={{ fontSize: 11.5, margin: 0 }}>Best price first, then oldest order. A seller may receive more than the limit. Sell orders reserve goods; buy orders reserve cash; aborting releases the unfilled remainder.</p>
     </form>
   );
 }

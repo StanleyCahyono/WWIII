@@ -1,10 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useQuery, ActionButton, Modal } from '../components/common';
 import { getHost } from '../sim/host';
 import { openPanel, select } from '../state/ui';
-import { techById, unitById, buildingById, CATALOG } from '../data/static';
-import { resM, duration, gameTime, cap, pct } from '../format';
+import { techById, unitById, buildingById, CATALOG, missileById } from '../data/static';
+import { resM, duration, gameTime, cap, pct, dayOf } from '../format';
 import { exec } from '../sim/exec';
+import { Icon } from '../icons';
+import type { UnitType } from '../../engine/data-types';
+import { Cost, Duration, IconTabs, Progress, SectionHead, Expander, type TabDef } from './panelKit';
+import { LockIcon, UnitPlate, UNIT_CLASSES, unitClassOf, type UnitClass } from './panelIcons';
 
 interface TechRow {
   id: string;
@@ -35,94 +39,264 @@ const STATUS_LABEL: Record<string, string> = {
   unaffordable: 'Unaffordable',
   slots_full: 'Busy (slots full)',
 };
-const STATUS_GLYPH: Record<string, string> = { completed: '✓', busy: '◐', available: '○', time_locked: '⏱', prerequisite_locked: '🔒', facility_locked: '⌂', doctrine_unavailable: '✕', unaffordable: '¤', slots_full: '⋯' };
+const LOCKED = new Set(['time_locked', 'prerequisite_locked', 'facility_locked', 'doctrine_unavailable']);
 
-let lastBranch: string | null = null;
+type ExtraTab = 'doctrine' | 'industry' | 'mobility';
+type RTab = 'all' | UnitClass | ExtraTab;
+const EXTRA_TABS: { key: ExtraTab; label: string; short: string; icon: string }[] = [
+  { key: 'doctrine', label: 'Doctrine', short: 'Doctrine', icon: 'shield' },
+  { key: 'industry', label: 'Industry & economy', short: 'Industry', icon: 'components' },
+  { key: 'mobility', label: 'Mobility & logistics', short: 'Mobility', icon: 'embark' },
+];
+
+/** A node in a research line: one technology (or the standard-issue level that needs none). */
+interface TNode {
+  label: string;
+  tech: TechRow | null;
+  /** The first (canonical) occurrence of a technology carries its test id; a shared unlock repeats as a mirror. */
+  primary: boolean;
+}
+interface Line {
+  key: string;
+  label: string;
+  unit?: UnitType;
+  nodes: TNode[];
+}
+interface TabModel {
+  key: RTab;
+  lines: Line[];
+  singles: TechRow[];
+}
+
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+function stemOf(id: string): string {
+  return id.replace(/_(\d+|blueprint|qualified)$/, '');
+}
+function stripNumeral(name: string): string {
+  return name.replace(/\s+(I{1,3}|IV|V|VI{0,3})$/, '').replace(/\s+\((blueprint|qualified)\)$/i, '');
+}
+function numeralOf(name: string, i: number): string {
+  const m = /\s(I{1,3}|IV|V|VI{0,3})$/.exec(name);
+  return m ? m[1] : ROMAN[i] ?? String(i + 1);
+}
+
+/** Lay the technology catalog out as unit lines per class tab, plus non-unit tabs. */
+function buildModel(rows: TechRow[]): Map<RTab, TabModel> {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const tabs = new Map<RTab, TabModel>();
+  const tab = (k: RTab) => tabs.get(k) ?? tabs.set(k, { key: k, lines: [], singles: [] }).get(k)!;
+  const placed = new Set<string>();
+  for (const cls of UNIT_CLASSES) {
+    for (const u of CATALOG.units) {
+      if (unitClassOf(u) !== cls.key) continue;
+      const nodes: TNode[] = u.levels.map((l, i) => {
+        const tid = l.level === 1 ? u.unlockTech : l.tech;
+        const t = tid ? byId.get(tid) ?? null : null;
+        const primary = !!t && !placed.has(t.id);
+        if (t) placed.add(t.id);
+        return { label: `L${l.level ?? i + 1}`, tech: t, primary };
+      });
+      tab(cls.key).lines.push({ key: u.id, label: u.name, unit: u, nodes });
+    }
+  }
+  // everything else: group by branch, chain same-stem technologies (I → II → III, blueprint → qualified)
+  const rest = rows.filter((r) => !placed.has(r.id)).sort((a, b) => a.tier - b.tier || a.dayAvailable - b.dayAvailable || a.id.localeCompare(b.id));
+  const target = (r: TechRow): RTab => (r.branch === 'industry' ? 'industry' : r.branch === 'mobility' ? 'mobility' : r.branch === 'strategic' || r.branch === 'hypersonic' ? 'missiles' : 'doctrine');
+  const chains = new Map<string, TechRow[]>();
+  for (const r of rest) {
+    const k = `${target(r)}|${stemOf(r.id)}`;
+    (chains.get(k) ?? chains.set(k, []).get(k)!).push(r);
+  }
+  for (const [k, list] of chains) {
+    const tk = k.split('|')[0] as RTab;
+    if (list.length === 1) tab(tk).singles.push(list[0]);
+    else tab(tk).lines.push({ key: k, label: stripNumeral(list[0].name), nodes: list.map((t, i) => ({ label: numeralOf(t.name, i), tech: t, primary: true })) });
+  }
+  return tabs;
+}
+
+function caption(t: TechRow, today: number, label: string): React.ReactNode {
+  switch (t.status) {
+    case 'completed':
+      return label.length <= 3 ? `${label} done` : 'Done';
+    case 'busy':
+      return pct(t.progress);
+    case 'available':
+      return 'Ready';
+    case 'unaffordable':
+      return 'Short';
+    case 'slots_full':
+      return 'Slots full';
+    case 'facility_locked':
+      return 'Needs lab';
+    case 'doctrine_unavailable':
+      return 'N/A';
+    default:
+      return t.dayAvailable > today ? `Day ${t.dayAvailable}` : 'Prereq.';
+  }
+}
+
+let lastTab: RTab = 'all';
 let lastSel: string | null = null;
 
 export function ResearchPanel() {
   const frame = useFrame()!;
   const q = useQuery<TechRow[]>('researchTree');
-  const [branch, setBranch] = useState<string | null>(lastBranch);
+  const [tab, setTab] = useState<RTab>(lastTab);
   const [sel, setSel] = useState<string | null>(lastSel);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const branches = useMemo(() => [...new Set((q.data ?? []).map((t) => t.branch))], [q.data]);
-  const list = (q.data ?? []).filter((t) => (!branch || t.branch === branch) && (statusFilter === 'all' || t.status === statusFilter || (statusFilter === 'available' && t.status === 'unaffordable')));
+  const detailRef = useRef<HTMLDivElement>(null);
+  const model = useMemo(() => buildModel(q.data ?? []), [q.data]);
   const chosen = (q.data ?? []).find((t) => t.id === sel) ?? null;
   const v = frame.view;
+  const today = dayOf(v.tick);
+  const pick = (id: string) => {
+    setSel(id);
+    lastSel = id;
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches) requestAnimationFrame(() => detailRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  };
+  const count = (k: RTab) => {
+    const m = model.get(k);
+    if (!m) return 0;
+    return m.lines.reduce((a, l) => a + l.nodes.filter((n) => n.primary && n.tech && (n.tech.status === 'available' || n.tech.status === 'unaffordable')).length, 0) + m.singles.filter((t) => t.status === 'available' || t.status === 'unaffordable').length;
+  };
+  const tabs: TabDef<RTab>[] = [
+    { key: 'all', label: 'All', icon: <Icon name="research" size={20} />, testid: 'rtab-all', badge: count('all') || undefined },
+    ...UNIT_CLASSES.map((c) => ({ key: c.key as RTab, label: c.short, title: c.label, icon: <Icon name={c.icon} size={20} />, testid: `rtab-${c.key}`, badge: count(c.key) || undefined })),
+    ...EXTRA_TABS.map((c) => ({ key: c.key as RTab, label: c.short, title: c.label, icon: <Icon name={c.icon} size={20} />, testid: `rtab-${c.key}`, badge: count(c.key) || undefined })),
+  ];
+  // "All" counts every available technology once
+  tabs[0].badge = (q.data ?? []).filter((t) => t.status === 'available' || t.status === 'unaffordable').length || undefined;
+  const sections: { key: RTab; label: string; icon: string }[] = tab === 'all' ? [...UNIT_CLASSES, ...EXTRA_TABS] : [...UNIT_CLASSES, ...EXTRA_TABS].filter((c) => c.key === tab);
   return (
-    <div className="row" style={{ alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }} data-testid="research-panel">
-      <div className="col" style={{ flex: '2 1 480px', minWidth: 0 }}>
-        <div className="row wrap">
-          <span>
-            Slots: <strong>{v.self.research.length}/{v.self.researchSlots}</strong> busy
-          </span>
-          {v.self.research.map((r) => (
-            <span key={r.tech} className="tag accent">
-              {techById.get(r.tech)?.name} · done {gameTime(r.endsAt)}
-            </span>
-          ))}
+    <div className="p-root p-research" data-testid="research-panel">
+      <div className="p-research-main">
+        <IconTabs label="Research branch" value={tab} onChange={(k) => { setTab(k); lastTab = k; }} tabs={tabs} />
+        <div className="p-legend" aria-hidden="true">
+          <span><i className="p-dia done" /> Researched</span>
+          <span><i className="p-dia ready" /> Ready to start</span>
+          <span><i className="p-dia busy" /> Researching</span>
+          <span><i className="p-dia locked" /> Locked (opens on the day shown)</span>
         </div>
-        <div className="region-filters" role="group" aria-label="Branch">
-          <button type="button" aria-pressed={!branch} onClick={() => { setBranch(null); lastBranch = null; }}>
-            All branches
-          </button>
-          {branches.map((b) => (
-            <button key={b} type="button" aria-pressed={branch === b} onClick={() => { setBranch(b); lastBranch = b; }}>
-              {cap(b)}
-            </button>
-          ))}
-        </div>
-        <label className="row" style={{ gap: 6, fontSize: 13 }}>
-          Show
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} data-testid="research-filter">
-            <option value="all">All states</option>
-            {Object.entries(STATUS_LABEL).map(([k, l]) => (
-              <option key={k} value={k}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </label>
         {!q.data && <p className="muted">Loading…</p>}
-        {(branch ? [branch] : branches).map((b) => {
-          const items = list.filter((t) => t.branch === b);
-          if (!items.length) return null;
-          const tiers = [...new Set(items.map((t) => t.tier))].sort((a, z) => a - z);
+        {sections.map((s) => {
+          const m = model.get(s.key);
+          if (!m || (!m.lines.length && !m.singles.length)) return null;
           return (
-            <section key={b} className="tech-branch" aria-label={`${b} branch`}>
-              <h4>{cap(b)}</h4>
-              {tiers.map((tier) => (
-                <div key={tier} style={{ marginTop: 6 }}>
-                  <div className="muted" style={{ fontSize: 11 }}>Tier {tier}</div>
-                  <div className="tech-grid">
-                    {items.filter((t) => t.tier === tier).map((t) => (
-                      <button key={t.id} type="button" className="tech" data-status={t.status} aria-pressed={sel === t.id} onClick={() => { setSel(t.id); lastSel = t.id; }} aria-label={`${t.name}, ${STATUS_LABEL[t.status] ?? t.status}. ${t.reason}`} data-testid={`tech-${t.id}`}>
-                        <span className="row" style={{ gap: 6 }}>
-                          <span aria-hidden>{STATUS_GLYPH[t.status] ?? '·'}</span>
-                          <strong style={{ fontSize: 12.5 }}>{t.name}</strong>
-                        </span>
-                        <span className="muted" style={{ fontSize: 11 }}>
-                          {STATUS_LABEL[t.status]} · day {t.dayAvailable} · {duration(t.durationMin)}
-                        </span>
-                        {t.status === 'busy' && (
-                          <span className="bar" aria-label={`Progress ${pct(t.progress)}`}>
-                            <span style={{ width: pct(t.progress) }} />
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            <section key={s.key} className="p-rsec" aria-label={`${s.label} research`}>
+              {tab === 'all' && <SectionHead icon={<Icon name={s.icon} size={18} />} title={s.label} level={4} />}
+              {m.lines.map((l) => (
+                <ResearchLine key={l.key} line={l} sel={sel} onPick={pick} today={today} />
               ))}
+              {m.singles.length > 0 && (
+                <div className="p-singles">
+                  {m.singles.map((t) => (
+                    <div key={t.id} className="p-single">
+                      <TechNodeBtn t={t} label={t.name.match(/\s(I{1,3}|IV|V)$/)?.[1] ?? '◆'} sel={sel === t.id} onPick={pick} today={today} primary />
+                      <div className="p-single-txt">
+                        <strong>{t.name}</strong>
+                        <span className="muted">{techById.get(t.id)?.description}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           );
         })}
       </div>
-      <aside className="card" style={{ flex: '1 1 300px', position: 'sticky', top: 0 }} aria-label="Technology detail">
-        {chosen ? <TechDetail t={chosen} all={q.data ?? []} onChanged={q.refresh} /> : <p className="muted">Select a technology to see its prerequisites, cost, time, effects and the units it unlocks.</p>}
+      <aside className="p-research-side" aria-label="Research status and detail" ref={detailRef}>
+        <div className="p-card">
+          <SectionHead icon={<Icon name="clock" size={18} />} title="Currently researching" level={4}>
+            <span className="p-badge">{v.self.research.length}/{v.self.researchSlots}</span>
+          </SectionHead>
+          <div className="p-rslots">
+            {Array.from({ length: Math.max(v.self.researchSlots, v.self.research.length) }, (_, i) => {
+              const r = v.self.research[i];
+              if (!r)
+                return (
+                  <div key={`free-${i}`} className="p-rslot free">
+                    <span className="p-dia ready" aria-hidden="true" />
+                    <span>Free slot — pick a ready technology</span>
+                  </div>
+                );
+              const tn = techById.get(r.tech);
+              const p = (v.tick - r.startedAt) / Math.max(1, r.endsAt - r.startedAt);
+              return (
+                <button key={r.tech} type="button" className="p-rslot" onClick={() => pick(r.tech)}>
+                  <span className="p-dia busy" aria-hidden="true" />
+                  <span className="grow" style={{ minWidth: 0 }}>
+                    <span className="p-ellip" style={{ display: 'block', fontWeight: 700 }}>{tn?.name ?? r.tech}</span>
+                    <Progress value={p} tone="accent" label={`${Math.round(p * 100)}% researched`} />
+                    <span className="muted p-small">done {gameTime(r.endsAt)} · {duration(r.endsAt - v.tick)} left</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="p-card p-rdetail">
+          <span className="p-kicker">Selected research</span>
+          {chosen ? <TechDetail t={chosen} all={q.data ?? []} onChanged={q.refresh} /> : <p className="muted" style={{ margin: 0 }}>Select a technology to see when it opens, its cost and time, prerequisites, and what it unlocks.</p>}
+        </div>
       </aside>
     </div>
+  );
+}
+
+function ResearchLine({ line, sel, onPick, today }: { line: Line; sel: string | null; onPick: (id: string) => void; today: number }) {
+  const lvl = line.nodes.filter((n) => (n.tech ? n.tech.status === 'completed' : true)).length;
+  return (
+    <div className="p-rline">
+      <div className="p-rline-head">
+        {line.unit ? <UnitPlate family={line.unit.family} size={50} /> : <span className="p-plate bld" style={{ width: 50, height: 37 }} aria-hidden="true"><Icon name="research" size={22} /></span>}
+        <div style={{ minWidth: 0 }}>
+          <div className="p-rline-name">{line.label}</div>
+          <div className="muted p-small">{line.unit ? `${lvl ? `Level ${lvl} of ${line.nodes.length}` : 'Not unlocked'}` : `${lvl} of ${line.nodes.length} researched`}</div>
+        </div>
+      </div>
+      <ol className="p-rnodes">
+        {line.nodes.map((n, i) => {
+          const prevDone = i > 0 && (line.nodes[i - 1].tech ? line.nodes[i - 1].tech!.status === 'completed' : true);
+          return (
+            <li key={i} className={i > 0 ? (prevDone ? 'link done' : 'link') : undefined}>
+              {n.tech ? (
+                <TechNodeBtn t={n.tech} label={n.label} sel={sel === n.tech.id} onPick={onPick} today={today} primary={n.primary} />
+              ) : (
+                <span className="p-node base" title="Standard issue: available from the start, no research needed">
+                  <span className="p-dia done"><Icon name="check" size={14} /></span>
+                  <span className="p-node-cap">{n.label} · Std</span>
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function TechNodeBtn({ t, label, sel, onPick, today, primary }: { t: TechRow; label: string; sel: boolean; onPick: (id: string) => void; today: number; primary: boolean }) {
+  const locked = LOCKED.has(t.status);
+  const kind = t.status === 'completed' ? 'done' : t.status === 'busy' ? 'busy' : locked ? 'locked' : t.status === 'available' ? 'ready' : 'warn';
+  return (
+    <button
+      type="button"
+      className="tech p-node"
+      data-status={t.status}
+      aria-pressed={sel}
+      onClick={() => onPick(t.id)}
+      aria-label={`${t.name}, ${STATUS_LABEL[t.status] ?? t.status}. ${t.reason}`}
+      title={`${t.name} — ${STATUS_LABEL[t.status] ?? t.status}`}
+      data-testid={primary ? `tech-${t.id}` : undefined}
+    >
+      <span className={`p-dia ${kind}`} style={t.status === 'busy' ? ({ '--p': `${Math.round(t.progress * 100)}%` } as React.CSSProperties) : undefined}>
+        <span className="p-dia-in">{t.status === 'completed' ? <Icon name="check" size={14} /> : label.length <= 3 ? label : '◆'}</span>
+      </span>
+      <span className="p-node-cap">
+        {locked && t.status !== 'doctrine_unavailable' && <LockIcon size={10} />}
+        {caption(t, today, label)}
+      </span>
+    </button>
   );
 }
 
@@ -137,57 +311,90 @@ function TechDetail({ t, all, onChanged }: { t: TechRow; all: TechRow[]; onChang
   const frame = useFrame()!;
   const [cancel, setCancel] = useState<{ text: string } | null>(null);
   const [eligible, setEligible] = useState<{ name: string; ok: boolean; reason?: string; key: string }[] | null>(null);
+  useEffect(() => setEligible(null), [t.id]);
   const node = techById.get(t.id);
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   const startReason = ro ? 'Read-only campaign' : t.status === 'available' ? null : t.status === 'unaffordable' ? `${t.reason} Short: ${resM(t.shortfall)}` : t.reason;
   const unlockUnits = t.unlocks.unlockUnit ?? [];
+  const artUnit = unlockUnits[0] ?? t.unlocks.unitLevel?.[0]?.unit;
+  const stock = Object.fromEntries(frame.view.self.resources.map((r) => [r.resource, r.spendable]));
   const showEligible = async (unit: string) => {
     const keys = frame.view.cities.map((c) => c.key);
     const v = await getHost().preview<{ rows: { target: string; name: string; ok: boolean; reason?: string }[] }>({ type: 'mobilize', unit, cities: keys });
     const rows = (v.ok ? v.preview : (v as { details?: { rows: { target: string; name: string; ok: boolean; reason?: string }[] } }).details)?.rows ?? [];
     setEligible(rows.map((r) => ({ name: r.name, ok: r.ok, reason: r.reason, key: String(r.target) })));
   };
+  const tone = t.status === 'completed' ? 'ok' : t.status === 'available' ? 'accent' : t.status === 'busy' ? 'accent' : t.status === 'unaffordable' ? 'warn' : '';
   return (
-    <div className="col" data-testid="tech-detail">
-      <h3>{t.name}</h3>
-      <div className="row wrap">
-        <span className={`tag${t.status === 'completed' ? ' ok' : t.status === 'available' ? ' accent' : ''}`}>{STATUS_LABEL[t.status]}</span>
-        {t.lineage && <span className="tag">{t.lineage}</span>}
+    <div className="col" data-testid="tech-detail" style={{ gap: 10 }}>
+      <div className="p-rdetail-head">
+        {artUnit ? <UnitPlate family={unitById.get(artUnit)?.family} size={64} /> : <span className="p-plate bld" style={{ width: 64, height: 47 }} aria-hidden="true"><Icon name="research" size={28} /></span>}
+        <div style={{ minWidth: 0 }}>
+          <h3>{t.name}</h3>
+          <div className="row wrap" style={{ gap: 4, marginTop: 4 }}>
+            <span className={`p-pill ${tone}`}>{STATUS_LABEL[t.status]}</span>
+            {t.lineage && <span className="p-pill">{t.lineage}</span>}
+            <span className="p-pill">{cap(t.branch)} · tier {t.tier}</span>
+          </div>
+        </div>
       </div>
-      <p className="dim" style={{ margin: 0, fontSize: 13 }}>{node?.description}</p>
-      <dl className="kv">
-        <dt>Branch / tier</dt>
-        <dd>
-          {cap(t.branch)} / {t.tier}
-        </dd>
-        <dt>Available from</dt>
-        <dd>Day {t.dayAvailable}</dd>
-        <dt>Prerequisites</dt>
-        <dd>{node?.prereqs.length ? node.prereqs.map((p) => `${techById.get(p)?.name ?? p}${all.find((x) => x.id === p)?.status === 'completed' ? ' ✓' : ''}`).join(', ') : 'None'}</dd>
-        <dt>Cost</dt>
-        <dd style={{ fontSize: 12 }}>{resM(t.cost)}</dd>
-        <dt>Duration</dt>
-        <dd>{duration(t.durationMin)}</dd>
+      <div className="p-facts">
+        <div>
+          <span className="p-kicker">Available from</span>
+          <strong>Day {t.dayAvailable}</strong>
+        </div>
+        <div>
+          <span className="p-kicker">Duration</span>
+          <Duration min={t.durationMin} />
+        </div>
         {node?.requiresLabLevel ? (
-          <>
-            <dt>Facility</dt>
-            <dd>Research facility level {node.requiresLabLevel}</dd>
-          </>
+          <div>
+            <span className="p-kicker">Facility</span>
+            <strong>Research lab L{node.requiresLabLevel}</strong>
+          </div>
         ) : null}
         {t.endsAt && (
-          <>
-            <dt>Completes</dt>
-            <dd>{gameTime(t.endsAt)}</dd>
-          </>
+          <div>
+            <span className="p-kicker">Completes</span>
+            <strong>{gameTime(t.endsAt)}</strong>
+          </div>
         )}
-      </dl>
+      </div>
+      {t.status === 'busy' && <Progress value={t.progress} tone="accent" label={`${Math.round(t.progress * 100)}% researched`} />}
+      <div>
+        <span className="p-kicker">Cost</span>
+        <Cost cost={t.cost} stock={t.status === 'completed' || t.status === 'busy' ? undefined : stock} />
+      </div>
+      <div>
+        <span className="p-kicker">Prerequisites</span>
+        {node?.prereqs.length ? (
+          <ul className="p-prereq">
+            {node.prereqs.map((p) => {
+              const done = all.find((x) => x.id === p)?.status === 'completed';
+              return (
+                <li key={p} className={done ? 'ok' : ''}>
+                  {done ? <Icon name="check" size={13} /> : <LockIcon size={12} />} {techById.get(p)?.name ?? p}
+                  {done ? ' ✓' : ''}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="muted">None</div>
+        )}
+      </div>
       <p className={t.status === 'available' ? 'ok' : 'muted'} style={{ margin: 0, fontSize: 12.5 }}>{t.reason}</p>
-      <div className="col" style={{ gap: 4 }}>
-        <h4>Effects</h4>
+      <div className="col" style={{ gap: 6 }}>
+        <span className="p-kicker">Unlocks &amp; effects</span>
         {unlockUnits.map((u) => (
-          <div key={u} className="row wrap">
-            Unlocks <button type="button" className="btn ghost small" onClick={() => openPanel('dossier', { unit: u })}>{unitById.get(u)?.name ?? u}</button>
-            {unitById.get(u)?.requires.length ? <span className="muted" style={{ fontSize: 12 }}>needs {unitById.get(u)!.requires.map((r) => `${buildingById.get(r.building)?.name} L${r.level}`).join(', ')}</span> : null}
+          <div key={u} className="p-unlock">
+            <UnitPlate family={unitById.get(u)?.family} size={40} />
+            <div className="grow" style={{ minWidth: 0 }}>
+              <button type="button" className="p-link" onClick={() => openPanel('dossier', { unit: u })}>
+                {unitById.get(u)?.name ?? u}
+              </button>
+              {unitById.get(u)?.requires.length ? <div className="muted p-small">needs {unitById.get(u)!.requires.map((r) => `${buildingById.get(r.building)?.name} L${r.level}`).join(', ')}</div> : null}
+            </div>
             {t.status === 'completed' && (
               <button type="button" className="btn small" onClick={() => showEligible(u)}>
                 Eligible cities
@@ -199,12 +406,12 @@ function TechDetail({ t, all, onChanged }: { t: TechRow; all: TechRow[]; onChang
           const cur = statLine(ul.unit, ul.level - 1);
           const nxt = statLine(ul.unit, ul.level);
           return (
-            <div key={ul.unit} className="card" style={{ padding: 8 }}>
+            <div key={ul.unit} className="p-unlock col" style={{ alignItems: 'stretch' }}>
               <div>
                 Upgrades <strong>{unitById.get(ul.unit)?.name}</strong> to level {ul.level} (applies to existing and new units)
               </div>
               {cur && nxt && (
-                <table className="data" aria-label="Current versus next level">
+                <table className="data p-cmp" aria-label="Current versus next level">
                   <thead>
                     <tr>
                       <th>Stat</th>
@@ -227,19 +434,24 @@ function TechDetail({ t, all, onChanged }: { t: TechRow; all: TechRow[]; onChang
           );
         })}
         {(t.unlocks.unlockBuilding ?? []).map((b) => (
-          <div key={b}>Unlocks building: {buildingById.get(b)?.name ?? b}</div>
+          <div key={b} className="p-unlock">Unlocks building: <strong>{buildingById.get(b)?.name ?? b}</strong></div>
         ))}
         {(t.unlocks.unlockMissile ?? []).map((m) => (
-          <div key={m}>Missile program: {m}</div>
+          <div key={m} className="p-unlock">Missile program: <strong>{missileById.get(m)?.name ?? m}</strong></div>
         ))}
-        {t.unlocks.missileProgram && <div>Program step: {t.unlocks.missileProgram.stage} for {t.unlocks.missileProgram.missile}</div>}
+        {t.unlocks.missileProgram && <div className="p-unlock">Program step: {t.unlocks.missileProgram.stage} for {missileById.get(t.unlocks.missileProgram.missile)?.name ?? t.unlocks.missileProgram.missile}</div>}
         {(t.unlocks.modifiers ?? []).map((m) => (
-          <div key={m.key}>{m.description}</div>
+          <div key={m.key} className="p-unlock">{m.description}</div>
         ))}
-        {t.unlocks.liftCapacity ? <div>+{t.unlocks.liftCapacity} lift capacity</div> : null}
-        {t.unlocks.maintenanceSlots ? <div>+{t.unlocks.maintenanceSlots} maintenance slots</div> : null}
+        {t.unlocks.liftCapacity ? <div className="p-unlock">+{t.unlocks.liftCapacity} lift capacity</div> : null}
+        {t.unlocks.maintenanceSlots ? <div className="p-unlock">+{t.unlocks.maintenanceSlots} maintenance slots</div> : null}
       </div>
-      <div className="row wrap">
+      {node?.description && (
+        <Expander summary="Background">
+          <p className="dim" style={{ margin: 0, fontSize: 13 }}>{node.description}</p>
+        </Expander>
+      )}
+      <div className="p-rgo">
         {t.status === 'busy' ? (
           <ActionButton
             className="btn danger"
@@ -252,14 +464,14 @@ function TechDetail({ t, all, onChanged }: { t: TechRow; all: TechRow[]; onChang
             Cancel research…
           </ActionButton>
         ) : (
-          <ActionButton className="btn primary" disabledReason={t.status === 'completed' ? 'Already completed.' : startReason} onClick={async () => { const r = await exec({ type: 'startResearch', tech: t.id }, `Research started: ${t.name}.`); if (r.ok) onChanged(); }} data-testid="start-research">
-            Start research
+          <ActionButton className="btn primary p-start wide" disabledReason={t.status === 'completed' ? 'Already completed.' : startReason} onClick={async () => { const r = await exec({ type: 'startResearch', tech: t.id }, `Research started: ${t.name}.`); if (r.ok) onChanged(); }} data-testid="start-research">
+            <Icon name="research" size={16} /> Start research
           </ActionButton>
         )}
       </div>
       {eligible && (
         <Modal title="Cities that can mobilize it" onClose={() => setEligible(null)}>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
+          <ul className="p-elig">
             {eligible.map((e) => (
               <li key={e.key} className={e.ok ? 'ok' : 'muted'}>
                 {e.ok ? (
@@ -295,5 +507,3 @@ function TechDetail({ t, all, onChanged }: { t: TechRow; all: TechRow[]; onChang
     </div>
   );
 }
-
-void CATALOG;

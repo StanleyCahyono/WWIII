@@ -8,7 +8,7 @@ import { prefs } from '../persist/prefs';
 import { MapView, mapRef, useObjects, selectionIds } from '../map/MapView';
 import { TopBar } from '../components/TopBar';
 import { ResourceStrip } from '../components/ResourceStrip';
-import { LeftRail, MobileNav } from '../components/LeftRail';
+import { CountryCard, SideTabs, MobileNav } from '../components/LeftRail';
 import { Roster } from '../components/Roster';
 import { Inspector } from '../components/Inspector';
 import { TimeStrip } from '../components/TimeStrip';
@@ -37,6 +37,7 @@ export function Game() {
   const inspectorOpen = useStore(ui, (s) => s.inspectorOpen && (!!s.selection || !!s.lostSelection));
   const resOpen = useStore(ui, (s) => s.resourceBarOpen);
   const mode = useStore(ui, (s) => s.mode);
+  const selKind = useStore(ui, (s) => s.selection?.kind ?? null);
   const isMobile = useIsMobile();
   const objects = useObjects();
   const moveRoutes = useMoveRoutes();
@@ -185,32 +186,42 @@ export function Game() {
       </div>
     );
 
+  const dock = !isMobile && inspectorOpen && selKind === 'stack';
+  const side = !isMobile && inspectorOpen && !dock;
   return (
-    <div className="app" data-testid="game">
+    <div className={`app${side ? ' insp-open' : ''}`} data-testid="game">
       <a className="skip" href="#map-canvas">Skip to map</a>
       <TopBar />
-      <ResourceStrip open={resOpen} />
-      {!isMobile && <LeftRail />}
-      {!isMobile && (
-        <div className={`roster${rosterOpen ? '' : ' closed'}`} style={{ gridArea: 'roster' }}>
-          {rosterOpen && <Roster />}
-        </div>
-      )}
-      <div style={{ gridArea: 'map', position: 'relative', minWidth: 0, minHeight: 0, display: 'flex' }}>
+      {isMobile && <ResourceStrip open={resOpen} />}
+      <div className={`stage${panel ? ' has-panel' : ''}${dock ? ' has-dock' : ''}${rosterOpen ? ' has-roster' : ''}`}>
         <MapView extraRoutes={moveRoutes} />
+        {!isMobile && (
+          <div className="hud-left">
+            <SideTabs />
+            <div className="hud-col">
+              <CountryCard />
+              {rosterOpen && (
+                <div className="roster" style={{ gridArea: 'roster' }}>
+                  <Roster />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <Toasts />
+        {dock && <Inspector dock />}
+        {!isMobile && <TimeStrip />}
         {mode.kind === 'move' && <MoveOrder />}
         {mode.kind === 'draw' && <DrawBanner />}
         {panel && <PanelHost />}
         {isMobile && mode.kind === 'idle' && <Inspector mobile />}
         {isMobile && <MobileNav />}
       </div>
-      {!isMobile && (
-        <aside className={`inspector${inspectorOpen ? '' : ' closed'}`} aria-label="Inspector">
-          {inspectorOpen && <Inspector />}
+      {side && (
+        <aside className="inspector" aria-label="Inspector">
+          <Inspector />
         </aside>
       )}
-      {!isMobile && <TimeStrip />}
       <InterruptDialog />
       {briefing && <Briefing />}
       {tutorial && <Tutorial />}

@@ -72,16 +72,100 @@ export function PlannedUnitSym({ unit, size = 18 }: { unit: string; size?: numbe
   return <Sym sidc={buildSidc(ut.symbol, { affiliation: 'friend', status: 'planned' })} size={size} label={`Planned unit (not yet fielded): ${ut.name}`} />;
 }
 
-function flagColor(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return `hsl(${h % 360} 45% 38%)`;
+function hashId(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
-export function FlagChip({ id }: { id: string | null | undefined }) {
-  if (!id) return <span className="chip-flag" style={{ background: '#555' }} aria-hidden>—</span>;
+
+/**
+ * Original, simplified national badge derived from the country code (not a reproduction of any
+ * real flag): one of five band layouts in two hues plus a light field, deterministic per code.
+ */
+export function badgeColors(id: string): { a: string; b: string; c: string; layout: number } {
+  const h = hashId(id);
+  const h1 = h % 360;
+  const h2 = (h1 + 110 + ((h >>> 9) % 120)) % 360;
+  const s1 = 38 + ((h >>> 5) % 20);
+  const s2 = 34 + ((h >>> 13) % 22);
+  return {
+    a: `hsl(${h1} ${s1}% ${32 + ((h >>> 3) % 12)}%)`,
+    b: `hsl(${h2} ${s2}% ${38 + ((h >>> 17) % 12)}%)`,
+    c: (h >>> 21) % 3 === 0 ? 'hsl(45 30% 88%)' : 'hsl(210 20% 94%)',
+    layout: (h >>> 24) % 5,
+  };
+}
+
+export function NationBadge({ id, size = 36, title }: { id: string | null | undefined; size?: number; title?: string }) {
+  const w = size;
+  const hgt = Math.round(size * 0.68);
+  if (!id) return <svg className="nation-badge" width={w} height={hgt} viewBox="0 0 30 20" aria-hidden><rect width="30" height="20" rx="3" fill="#555" /></svg>;
+  const { a, b, c, layout } = badgeColors(id);
+  const bands: React.ReactNode =
+    layout === 0 ? (
+      <>
+        <rect width="10" height="20" fill={a} />
+        <rect x="10" width="10" height="20" fill={c} />
+        <rect x="20" width="10" height="20" fill={b} />
+      </>
+    ) : layout === 1 ? (
+      <>
+        <rect width="30" height="7" fill={a} />
+        <rect y="7" width="30" height="6" fill={c} />
+        <rect y="13" width="30" height="7" fill={b} />
+      </>
+    ) : layout === 2 ? (
+      <>
+        <rect width="30" height="20" fill={a} />
+        <path d="M0 8h9V0h5v8h16v5H14v7H9v-7H0z" fill={c} />
+        <path d="M0 9.4h10.4V0h2.2v9.4H30v2.2H12.6V20h-2.2v-8.4H0z" fill={b} />
+      </>
+    ) : layout === 3 ? (
+      <>
+        <rect width="30" height="20" fill={a} />
+        <path d="M0 20 30 0v20z" fill={b} />
+        <path d="M0 20 30 0v3L4.5 20z" fill={c} />
+      </>
+    ) : (
+      <>
+        <rect width="30" height="20" fill={b} />
+        <rect width="30" height="10" fill={a} />
+        <path d="M0 0l11 10L0 20z" fill={c} />
+        <circle cx="4.2" cy="10" r="2" fill={a} />
+      </>
+    );
   return (
-    <span className="chip-flag" style={{ background: flagColor(id) }} aria-hidden title={countryName(id)}>
-      {id}
+    <svg className="nation-badge" width={w} height={hgt} viewBox="0 0 30 20" role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+      <defs>
+        <clipPath id={`nb-${id}`}>
+          <rect width="30" height="20" rx="3" />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#nb-${id})`}>
+        {bands}
+        <rect width="30" height="10" fill="rgba(255,255,255,0.10)" />
+      </g>
+      <rect x="0.5" y="0.5" width="29" height="19" rx="2.6" fill="none" stroke="rgba(0,0,0,0.45)" />
+    </svg>
+  );
+}
+
+/** Compact badge + country code (lists, tables, chips). */
+export function FlagChip({ id, size = 26 }: { id: string | null | undefined; size?: number }) {
+  if (!id)
+    return (
+      <span className="chip-flag" style={{ width: size, height: Math.round(size * 0.68) }} aria-hidden>
+        <NationBadge id={null} size={size} />
+        <span className="code">—</span>
+      </span>
+    );
+  return (
+    <span className="chip-flag" style={{ width: size, height: Math.round(size * 0.68) }} aria-hidden title={countryName(id)}>
+      <NationBadge id={id} size={size} />
+      <span className="code">{id}</span>
     </span>
   );
 }
@@ -171,47 +255,8 @@ export function isModalOpen() {
   return modalDepth > 0;
 }
 
-export function Icon({ name, size = 18 }: { name: string; size?: number }) {
-  const p: Record<string, React.ReactNode> = {
-    map: <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14" />,
-    forces: <path d="M4 7h16v10H4zM4 7l16 10M20 7L4 17" />,
-    economy: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
-    research: <path d="M9 3h6M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3" />,
-    diplomacy: <path d="M3 12l4-4 5 3 5-3 4 4-9 7zM7 8V5M17 8V5" />,
-    intel: <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z" />,
-    journal: <path d="M5 3h12l2 2v16H5zM8 8h8M8 12h8M8 16h5" />,
-    cities: <path d="M3 21V9l5-3v15M8 21V4l7 3v14M15 21V11l6 2v8M2 21h20" />,
-    coalition: <path d="M8 11a3 3 0 100-6 3 3 0 000 6zM16 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M12 20c0-3 2-5 4-5s6 2 6 5" />,
-    news: <path d="M4 5h13v14H6a2 2 0 01-2-2zM17 8h3v9a2 2 0 01-2 2M7 9h7M7 12h7M7 15h4" />,
-    events: <path d="M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 100 8 4 4 0 000-8z" />,
-    market: <path d="M3 10l2-6h14l2 6M4 10v10h16V10M3 10h18M9 20v-6h6v6" />,
-    score: <path d="M6 4h12v4a6 6 0 01-12 0zM12 14v4M8 21h8M6 6H3a3 3 0 003 4M18 6h3a3 3 0 01-3 4" />,
-    help: <path d="M12 21a9 9 0 100-18 9 9 0 000 18zM9.5 9a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17h.01" />,
-    planning: <path d="M4 20l4-1 11-11-3-3L5 16zM14 6l3 3" />,
-    layers: <path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17l9 5 9-5" />,
-    home: <path d="M3 11l9-8 9 8v10H3zM9 21v-6h6v6" />,
-    plus: <path d="M12 5v14M5 12h14" />,
-    minus: <path d="M5 12h14" />,
-    target: <path d="M12 3v4M12 17v4M3 12h4M17 12h4M12 9a3 3 0 100 6 3 3 0 000-6z" />,
-    pause: <path d="M8 5v14M16 5v14" />,
-    play: <path d="M7 4l13 8-13 8z" />,
-    step: <path d="M5 4l10 8-10 8zM18 4v16" />,
-    skip: <path d="M3 4l8 8-8 8zM12 4l8 8-8 8z" />,
-    save: <path d="M5 3h11l3 3v15H5zM8 3v6h8V3M8 21v-7h8v7" />,
-    roster: <path d="M4 6h16M4 12h16M4 18h10" />,
-    close: <path d="M6 6l12 12M18 6L6 18" />,
-    search: <path d="M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-5-5" />,
-    legend: <path d="M4 5h4v4H4zM4 15h4v4H4zM11 7h9M11 17h9" />,
-    menu: <path d="M3 6h18M3 12h18M3 18h18" />,
-    fullscreen: <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />,
-    'exit-fullscreen': <path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" />,
-  };
-  return (
-    <svg className="ico" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {p[name] ?? p.help}
-    </svg>
-  );
-}
+/** Re-export of the shared icon set (src/ui/icons.tsx); kept here for existing imports. */
+export { Icon } from '../icons';
 
 export function useIsMobile(): boolean {
   const [m, setM] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches);

@@ -81,15 +81,76 @@ main thread (React 18)                         Web Worker (src/workers/sim.worke
   targeting or context menu (Inspect, Locate in roster, Orders, Pin report), Shift+F10/Menu key for
   the same menu, cluster click → chooser. Clicking ocean clears selection.
 
+## Visual design (redesign 2026-11-14)
+
+Original identity “Ink & Signal”: graphite ink surfaces, a signal-amber command accent
+(`--accent`), a cyan own-nation highlight (`--own`), condensed uppercase display type from the
+local system stack (`--font-display`: Bahnschrift / DIN / Roboto Condensed / Arial Narrow — no
+web fonts). Layout and ease-of-use follow genre conventions only; no third-party art, icons,
+names or copy.
+
+* **Tokens** — `src/ui/theme.css` (imported before `styles.css`): surfaces `--bg --bg-2 --panel
+  --panel-2 --panel-3 --glass`, lines `--line --line-2`, text `--text --text-2 --text-3`, signals
+  `--accent --accent-2 --on-accent --info --own --own-glow --ok --warn --bad --select --focus`,
+  resource tints `--ic-<resource>`, unit tint `--ic-unit`, shape `--radius --radius-lg
+  --radius-pill --shadow --shadow-sm`, layout `--top-h --hud-w --tab-w --insp-w`. Light theme
+  overrides the same names (`:root[data-theme='light']`). Panel stylesheets use only these names.
+* **Icons** — `src/ui/icons.tsx`, original inline SVG on a 24×24 artboard. API:
+  `<Icon name size? title? className? />` (decorative unless `title`), `IconName` union,
+  `RESOURCE_ICON[resource]`, `familyIcon(unitFamily)`, `<UnitArt family size color? />` (large
+  class silhouette on a land/sea/air plate). Resource icons (crate, gear, fuel can, chip, crystal,
+  helmet, banknote) and the 13 unit-class silhouettes are filled and tinted by `--ic-*`; UI and
+  action glyphs are stroked in `currentColor`. `components/common.tsx` re-exports `Icon`.
+* **Nation badges** — `NationBadge` / `FlagChip` (`common.tsx`) draw an original, deterministic
+  band layout from the country code (not real flags) plus the code.
+* **Desktop HUD** (`screens/Game.tsx`): the map fills everything under the 52 px top bar.
+  - Top bar: brand mark, resource pills (icon, spendable stock, signed net `/d` in green/red, a ▾
+    ledger toggle when short/negative), a **Show market** pull-tab (`rail-market`), time controls
+    (round play/pause, segmented 1×…64× speeds = group “Game speed”, step hour, next event, real-time
+    rate), save indicator, help, menu.
+  - Nation card (top-left, `CountryCard`): badge + name (`nation-chip` → campaign info), DAY / TIME
+    (`game-clock`; text stays “D1 07:00”, the captions are CSS), victory progress bar
+    (`score-button`), five square quick actions with badges: News, Research (active programs),
+    Diplomacy (offers awaiting an answer), Coalition, Events (journal, unread count since last
+    opened). Ids `rail-news|research|diplomacy|coalition|journal`.
+  - Side tabs (left edge, vertical labels): Forces, Cities, Economy, Intel, Plans, Roster
+    (`rail-forces|cities|economy|intel|planning`, button “Roster”). The roster opens under the
+    nation card. Drawers open to the right of the HUD column (`--drawer-left`), so every
+    destination stays clickable while a panel is open.
+  - Map controls: search pill top-right; round buttons bottom-right (zoom, recenter, layers/display
+    settings, legend, fullscreen); scale bottom-left; toasts top-right under the search; timeline
+    pill at the bottom.
+  - Selection: a formation opens the **unit card** docked at the bottom (`Inspector dock` →
+    `StackSheet layout="dock"`): big order buttons above it (Move/Attack or Patrol/Rebase, Stop,
+    Delay, Embark/Disembark, Retreat, Launch, Split, Merge, Refit — the same validated dialogs and
+    `exec` path as before), class illustration with APP-6 symbol and unit count, name + owner, HP
+    bar, ATK/DEF/SPD/HP/RDY/EFF tiles (aggregates of the player's own units), position, fire
+    control, full details, present activity and a units list with dossier links. The camera
+    offsets a centred formation upward so the card never hides it. Cities, provinces, contacts,
+    reports and multi-selections keep the right inspector column (320–380 px).
+* **Map look** (`map/renderer.ts`, `map/palette.ts`): other countries are muted (low saturation);
+  the player's provinces are bright cyan with an outer glow + rim drawn from one fill of the
+  province union (political fill). Country names are condensed caps with letter-spacing (own
+  nation larger, highlighted); city labels carry the fixed public tier, e.g. “Jakarta (5)”, at
+  regional/local zoom. Stack counts are pills tinted by affiliation (outside the symbol frame).
+  **Unit markers** (Layers → “Unit markers”, per device, `localStorage wc.unitStyle.v1`): APP-6
+  military symbols (default, required by the spec) or game counters — an affiliation-shaped plate
+  (friend rounded, hostile hexagon, neutral square, unknown pill; dashed when planned) with the
+  class glyph derived from the same viewer-safe `symbolKey` (radar contacts show “?” and an
+  unknown count “?”).
+* **Phones** (≤760 px): compact top bar (badge, clock, play, speed select, step, score, resource
+  toggle, save, menu), icon destination bar, bottom sheet with the same unit card content in a
+  vertical layout.
+
 ## Screens → components
 
 | Screen / requirement | Component |
 | --- | --- |
 | Title (Continue card: nation, day, difficulty, score, last save) | `screens/Title.tsx` |
-| Choose your country (map + 6 region filters 22/34/18/22/21/3, Indonesia featured, preview incl. opening power, difficulty, seed) | `screens/ChooseCountry.tsx` |
+| Choose your country (nation list with badges + size class, hover-to-identify world map, “Selected nation” banner, 6 region filters 22/34/18/22/21/3, Indonesia featured, preview incl. opening power, difficulty, seed, Back / Random nation / Start) | `screens/ChooseCountry.tsx` |
 | Load Campaign (active/archived/recovery, resume/archive/restore/delete, export/import) | `screens/LoadCampaign.tsx` |
 | Settings, Credits (milsymbol MIT, Natural Earth PD), Diagnostics (versions, last save, copyable report) | `screens/Menus.tsx` |
-| Game layout (top bar, resource strip, rail, roster, map, inspector, time strip; mobile sheet/nav) | `screens/Game.tsx` |
+| Game layout (resource/time top bar, full-bleed map stage, nation card + side tabs, roster, docked unit card, right inspector for places/contacts, time strip; mobile sheet/nav) | `screens/Game.tsx`, `components/{TopBar,ResourceStrip,LeftRail,Inspector,TimeStrip}.tsx` |
 | Briefing (3 decisions linked to screens), tutorial (5 lessons, saved in campaign) | `components/Briefing.tsx` |
 | Move workflow (preview route, legs/terrain, mode changes, ETA, war confirmation, cancel) | `components/MoveOrder.tsx` |
 | Bulk build/mobilize (per-row eligibility & reasons, queue position, total, stale-token recompute) | `panels/Cities.tsx` |

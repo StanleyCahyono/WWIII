@@ -5,6 +5,7 @@ import { prefs } from '../persist/prefs';
 import { openCampaign } from '../session';
 import { relWall } from '../format';
 import { FlagChip, Modal } from '../components/common';
+import { Icon } from '../icons';
 
 export function TitleScreen() {
   const [cont, setCont] = useState<CampaignMeta | null>(null);
@@ -59,22 +60,27 @@ export function TitleScreen() {
     <main className="title-screen">
       <div className="title-inner">
         <section className="brand">
+          <svg className="title-emblem" width="64" height="64" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 1.5 21.5 7v10L12 22.5 2.5 17V7z" fill="none" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M12 4 19.3 8.2v7.6L12 20l-7.3-4.2V8.2z" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
+            <path d="M7 9l2.5 7L12 10l2.5 6L17 9" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+          </svg>
           <h1>World Command</h1>
           <div className="sub">World 120 — a private, offline grand strategy campaign. One human seat, 119 computer countries.</div>
           <nav className="menu" aria-label="Main menu">
             {cont && (
               <button type="button" className="btn primary" onClick={() => doContinue(cont)} disabled={busy} data-testid="continue">
-                Continue — {cont.nationName}, day {cont.day}
+                <Icon name="play" size={18} /> Continue — {cont.nationName}, day {cont.day}
               </button>
             )}
             <button type="button" className={`btn${cont ? '' : ' primary'}`} onClick={() => ui.patch({ screen: 'new' })} data-testid="new-campaign">
-              New Campaign
+              <Icon name="flag" size={18} /> New Campaign
             </button>
             <button type="button" className="btn" onClick={() => ui.patch({ screen: 'load' })} data-testid="load-campaign">
-              Load Campaign{count ? ` (${count})` : ''}
+              <Icon name="save" size={18} /> Load Campaign{count ? ` (${count})` : ''}
             </button>
             <button type="button" className="btn" onClick={() => ui.patch({ screen: 'settings' })}>
-              Settings
+              <Icon name="settings" size={18} /> Settings
             </button>
             <div className="row">
               <button type="button" className="btn ghost small" onClick={() => ui.patch({ screen: 'credits' })}>

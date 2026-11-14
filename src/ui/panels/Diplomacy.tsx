@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useFrame, ActionButton, Modal, FlagChip } from '../components/common';
+import { Icon } from '../icons';
+import { StatTile, SectionHead, Expander } from './panelKit';
 import { getHost } from '../sim/host';
 import { ui } from '../state/ui';
 import { countryName, RESOURCE_LABEL, MAP, placeName } from '../data/static';
@@ -31,12 +33,40 @@ function maxRounds(_frame: Frame): number {
 
 let lastSel: string | null = null;
 
+const STATUS_ICON: Record<string, string> = { war: 'sword', peace: 'shield', right_of_way: 'move', shared_intel: 'intel' };
+const STATUS_TONE: Record<string, string> = { war: 'bad', peace: '', right_of_way: 'accent', shared_intel: 'ok' };
+
+/** A diplomatic status with its glyph (meaning carried by icon + words, not colour). */
+function StatusChip({ s, compact }: { s: string; compact?: boolean }) {
+  return (
+    <span className={`p-dstat ${STATUS_TONE[s] ?? ''}`} title={statusLabel(s)}>
+      <Icon name={STATUS_ICON[s] ?? 'diplomacy'} size={14} />
+      {compact ? <span className="sr-only">{statusLabel(s)}</span> : statusLabel(s)}
+    </span>
+  );
+}
+
+/** Trust runs from −100 (hostile) to +100 (trusting); a centred bar shows the sign without colour. */
+function TrustMeter({ v }: { v: number }) {
+  const t = Math.max(-100, Math.min(100, Math.round(v)));
+  const tone = t >= 20 ? 'pos' : t <= -20 ? 'neg' : 'mid';
+  return (
+    <span className="p-trust" title={`Trust ${t > 0 ? '+' : ''}${t} on a −100…+100 scale (their view of you)`}>
+      <span className={`p-fbar ${tone}`} role="img" aria-label={`Trust ${t} of ±100`}>
+        <span className={t >= 0 ? 'pos' : 'neg'} style={{ width: `${Math.abs(t) / 2}%` }} />
+      </span>
+      <span className="num">{t > 0 ? '+' : t < 0 ? '−' : ''}{Math.abs(t)}</span>
+    </span>
+  );
+}
+
 export function DiplomacyPanel({ arg }: { arg: { country?: string } | null }) {
   const frame = useFrame()!;
   const [sel, setSel] = useState<string | null>(arg?.country ?? lastSel);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'neighbours' | 'war' | 'pending' | 'agreements'>('all');
   const v = frame.view;
+  const nb = useMemo(() => neighbourSet(frame), [frame]);
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();
     return v.relations.filter((r) => {
@@ -44,18 +74,31 @@ export function DiplomacyPanel({ arg }: { arg: { country?: string } | null }) {
       if (filter === 'war') return r.war;
       if (filter === 'pending') return r.pendingOffers.length > 0;
       if (filter === 'agreements') return r.myStatusToThem !== 'peace' || r.theirStatusToMe !== 'peace' || r.sameCoalition;
-      if (filter === 'neighbours') return neighbourSet(frame).has(r.country);
+      if (filter === 'neighbours') return nb.has(r.country);
       return true;
     }).sort((a, b) => Number(b.pendingOffers.length > 0) - Number(a.pendingOffers.length > 0) || a.name.localeCompare(b.name));
-  }, [v.relations, q, filter, frame]);
+  }, [v.relations, q, filter, nb]);
   const chosen = v.relations.find((r) => r.country === sel) ?? null;
+  const counts = {
+    war: v.relations.filter((r) => r.war).length,
+    pending: v.relations.filter((r) => r.pendingOffers.length > 0).length,
+    agreements: v.relations.filter((r) => r.myStatusToThem !== 'peace' || r.theirStatusToMe !== 'peace' || r.sameCoalition).length,
+  };
   return (
-    <div className="row" style={{ alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }} data-testid="diplomacy-panel">
-      <div className="col" style={{ flex: '1 1 420px', minWidth: 0 }}>
-        <div className="row wrap">
+    <div className="p-root p-diplo" data-testid="diplomacy-panel">
+      <div className="p-diplo-list">
+        <div className="p-tiles p-tiles-sm">
+          <StatTile icon={<Icon name="sword" size={20} />} label="At war" value={counts.war} tone={counts.war ? 'bad' : undefined} />
+          <StatTile icon={<Icon name="bell" size={20} />} label="Pending offers" value={counts.pending} tone={counts.pending ? 'warn' : undefined} />
+          <StatTile icon={<Icon name="diplomacy" size={20} />} label="Agreements" value={counts.agreements} tone="ok" />
+        </div>
+        <div className="p-toolbar">
           <label className="sr-only" htmlFor="dip-q">Search countries</label>
-          <input id="dip-q" type="search" placeholder="Search nations…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <div className="region-filters" role="group" aria-label="Filter">
+          <span className="p-search">
+            <Icon name="search" size={15} />
+            <input id="dip-q" type="search" placeholder="Search nations…" value={q} onChange={(e) => setQ(e.target.value)} />
+          </span>
+          <div className="region-filters p-chips" role="group" aria-label="Filter">
             {(['all', 'neighbours', 'war', 'pending', 'agreements'] as const).map((f) => (
               <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>
                 {cap(f)}
@@ -63,41 +106,40 @@ export function DiplomacyPanel({ arg }: { arg: { country?: string } | null }) {
             ))}
           </div>
         </div>
-        <div style={{ maxHeight: 'calc(100vh - 220px)', overflow: 'auto' }}>
-          <table className="data" data-testid="nation-list">
-            <thead>
-              <tr>
-                <th>Nation</th>
-                <th>Controller</th>
-                <th>You grant →</th>
-                <th>← They grant</th>
-                <th className="num">Trust</th>
-                <th className="num">Offers</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.country} className={sel === r.country ? 'sel' : ''}>
-                  <td>
-                    <button type="button" className="btn ghost small" style={{ padding: 0, minHeight: 0, gap: 6 }} onClick={() => { setSel(r.country); lastSel = r.country; }} data-testid={`nation-${r.country}`}>
-                      <FlagChip id={r.country} /> {r.name}
-                    </button>
-                    {!r.alive && <span className="tag">eliminated</span>}
-                    {r.sameCoalition && <span className="tag accent">coalition</span>}
-                  </td>
-                  <td>{r.controller === 'ai' ? 'Computer' : 'You'}</td>
-                  <td className={r.war ? 'bad' : ''}>{statusLabel(r.myStatusToThem)}</td>
-                  <td className={r.war ? 'bad' : ''}>{statusLabel(r.theirStatusToMe)}</td>
-                  <td className="num">{Math.round(r.trust)}</td>
-                  <td className="num">{r.pendingOffers.length || ''}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="p-nations" data-testid="nation-list" aria-label="Nations">
+          {rows.length === 0 && <li className="empty">No nation matches.</li>}
+          {rows.map((r) => (
+            <li key={r.country}>
+              <button type="button" className="p-nation" aria-current={sel === r.country ? 'true' : undefined} onClick={() => { setSel(r.country); lastSel = r.country; }} data-testid={`nation-${r.country}`}>
+                <FlagChip id={r.country} />
+                <span className="p-nation-name">
+                  <strong>{r.name}</strong>
+                  <span className="p-sub">
+                    {r.controller === 'ai' ? 'Computer' : 'You'}
+                    {!r.alive && <span className="p-pill">eliminated</span>}
+                    {r.sameCoalition && <span className="p-pill accent">coalition</span>}
+                    {nb.has(r.country) && <span>neighbour</span>}
+                  </span>
+                </span>
+                <span className="p-nation-rel" aria-label={`You grant ${statusLabel(r.myStatusToThem)}; they grant ${statusLabel(r.theirStatusToMe)}`}>
+                  <StatusChip s={r.myStatusToThem} compact />
+                  <span className="muted" aria-hidden="true">⇄</span>
+                  <StatusChip s={r.theirStatusToMe} compact />
+                </span>
+                <TrustMeter v={r.trust} />
+                {r.pendingOffers.length > 0 ? <span className="p-badge solid" title={`${r.pendingOffers.length} pending offer(s)`}>{r.pendingOffers.length}</span> : <span className="p-badge-gap" />}
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
-      <div className="col" style={{ flex: '1 1 380px', minWidth: 0 }}>
-        {chosen ? <CountryDetail r={chosen} frame={frame} /> : <div className="empty">Select a nation to see relations in both directions, pending offers and your private thread.</div>}
+      <div className="p-diplo-detail">
+        {chosen ? <CountryDetail key={chosen.country} r={chosen} frame={frame} /> : (
+          <div className="p-card p-empty-card">
+            <Icon name="diplomacy" size={40} />
+            <p>Select a nation to see relations in both directions, pending offers and your private thread.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -124,30 +166,43 @@ function CountryDetail({ r, frame }: { r: DiplomacyRow; frame: Frame }) {
   const offers = v.offers.filter((o) => o.from === r.country || o.to === r.country).sort((a, b) => b.createdAt - a.createdAt);
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   const gone = !r.alive;
+  const threadRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thread.length]);
   return (
-    <div className="col" data-testid="country-detail">
-      <div className="row">
-        <FlagChip id={r.country} />
-        <h3>{r.name}</h3>
-        <span className="muted">{r.controller === 'ai' ? 'Computer-controlled' : 'Human'}</span>
+    <div className="col p-root" data-testid="country-detail">
+      <div className={`p-dhead${r.war ? ' war' : ''}`}>
+        <span className="p-bigflag"><FlagChip id={r.country} /></span>
+        <div style={{ minWidth: 0 }}>
+          <h3>{r.name}</h3>
+          <div className="p-sub">
+            <span>{r.controller === 'ai' ? 'Computer-controlled' : 'Human'}</span>
+            <span className={`p-pill raw ${r.war ? 'bad' : 'ok'}`}>{r.war ? 'At war' : 'Not at war'}</span>
+            {r.coalition && <span className="p-pill accent">{v.coalitions.find((c) => c.id === r.coalition)?.name ?? r.coalition}</span>}
+          </div>
+        </div>
       </div>
-      {gone && <div className="card warn" role="status">This country has been eliminated; offers and messages are closed.</div>}
-      <dl className="kv card">
-        <dt>You grant {r.name}</dt>
-        <dd>{statusLabel(r.myStatusToThem)}</dd>
-        <dt>{r.name} grants you</dt>
-        <dd>{statusLabel(r.theirStatusToMe)}</dd>
-        <dt>State</dt>
-        <dd className={r.war ? 'bad' : ''}>{r.war ? 'At war' : 'Not at war'}</dd>
-        <dt>Trust (their view of you)</dt>
-        <dd>{Math.round(r.trust)}</dd>
-        <dt>Coalition</dt>
-        <dd>{r.coalition ? v.coalitions.find((c) => c.id === r.coalition)?.name ?? r.coalition : 'None'}</dd>
-      </dl>
-      <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>Right of way lets the other side's formations cross your territory (it does not make them friendly). Shared intel shares your observations and reports. Each direction is granted separately.</p>
-      <div className="row wrap">
-        <ActionButton className="btn primary" disabledReason={ro ? 'Read-only campaign' : gone ? 'Country eliminated.' : null} onClick={() => setCompose(true)} data-testid="propose-offer">
-          Send request / offer…
+      {gone && <div className="p-card warn" role="status">This country has been eliminated; offers and messages are closed.</div>}
+      <div className="p-relgrid">
+        <div className="p-relcard">
+          <span className="p-kicker">You grant {r.name}</span>
+          <StatusChip s={r.myStatusToThem} />
+        </div>
+        <div className="p-relarrow" aria-hidden="true">⇄</div>
+        <div className="p-relcard">
+          <span className="p-kicker">{r.name} grants you</span>
+          <StatusChip s={r.theirStatusToMe} />
+        </div>
+        <div className="p-relcard">
+          <span className="p-kicker">Trust (their view of you)</span>
+          <TrustMeter v={r.trust} />
+        </div>
+      </div>
+      <div className="p-actions">
+        <ActionButton className="btn primary p-start" disabledReason={ro ? 'Read-only campaign' : gone ? 'Country eliminated.' : null} onClick={() => setCompose(true)} data-testid="propose-offer">
+          <Icon name="diplomacy" size={16} /> Send request / offer…
         </ActionButton>
         {(r.myStatusToThem === 'right_of_way' || r.myStatusToThem === 'shared_intel') && (
           <ActionButton className="btn" disabledReason={ro ? 'Read-only campaign' : null} onClick={() => exec({ type: 'revokeGrant', to: r.country, level: r.myStatusToThem === 'shared_intel' ? 'right_of_way' : 'peace' }, 'Grant reduced.')}>
@@ -162,19 +217,22 @@ function CountryDetail({ r, frame }: { r: DiplomacyRow; frame: Frame }) {
             setWar({ effects: p.ok ? p.preview.effects : [p.reason] });
           }}
         >
-          Declare war…
+          <Icon name="sword" size={16} /> Declare war…
         </ActionButton>
       </div>
-      <h4>Offers</h4>
+      <Expander summary="What these relations mean">
+        <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>Right of way lets the other side's formations cross your territory (it does not make them friendly). Shared intel shares your observations and reports. Each direction is granted separately.</p>
+      </Expander>
+      <SectionHead icon={<Icon name="bell" size={18} />} title={`Offers (${offers.length})`} level={4} />
       {offers.length === 0 ? <div className="empty">No offers with {r.name}.</div> : offers.map((o) => <OfferCard key={o.id} o={o} frame={frame} />)}
-      <h4>Private thread</h4>
-      <div className="card" style={{ maxHeight: 260, overflow: 'auto' }} data-testid="thread">
+      <SectionHead icon={<Icon name="journal" size={18} />} title="Private thread" level={4} />
+      <div className="p-thread" data-testid="thread" ref={threadRef}>
         {thread.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>No messages yet.</p>
         ) : (
           thread.map((m) => (
-            <div key={m.id} style={{ padding: '4px 0', borderBottom: '1px solid var(--line)' }}>
-              <div className="muted" style={{ fontSize: 11.5 }}>
+            <div key={m.id} className={`p-msg${m.from === v.viewer ? ' mine' : ''}`}>
+              <div className="p-msg-meta">
                 {countryName(m.from)} → {m.to ? countryName(m.to) : 'thread'} · {gameTime(m.at)}
               </div>
               <div>{m.text}</div>
@@ -183,7 +241,7 @@ function CountryDetail({ r, frame }: { r: DiplomacyRow; frame: Frame }) {
           ))
         )}
       </div>
-      <div className="row">
+      <div className="row p-compose">
         <label className="sr-only" htmlFor="dm-text">Message to {r.name}</label>
         <input id="dm-text" type="text" className="grow" placeholder={`Message ${r.name} (kept in this save)`} value={msg} onChange={(e) => setMsg(e.target.value)} maxLength={500} />
         <ActionButton className="btn" disabledReason={ro ? 'Read-only campaign' : gone ? 'Country eliminated.' : !msg.trim() ? 'Type a message first.' : null} onClick={async () => { const res = await exec({ type: 'sendMessage', to: r.country, text: msg.trim() }); if (res.ok) setMsg(''); }}>
@@ -233,16 +291,25 @@ export function OfferCard({ o, frame }: { o: Offer; frame: Frame }) {
     setBusy(false);
   };
   return (
-    <div className="card" data-testid={`offer-${o.id}`}>
+    <div className={`p-card p-offer ${o.status}${recipient && o.status === 'pending' ? ' incoming' : ''}`} data-testid={`offer-${o.id}`}>
       <div className="row wrap">
+        <span className="p-offer-dir" aria-hidden="true"><Icon name={mine ? 'chevron-right' : 'chevron-left'} size={16} /></span>
         <strong>{mine ? `To ${countryName(o.to)}` : `From ${countryName(o.from)}`}</strong>
-        <span className={`tag${o.status === 'accepted' ? ' ok' : o.status === 'pending' ? ' accent' : ''}`}>{o.status}</span>
+        <span className={`p-pill raw ${o.status === 'accepted' ? 'ok' : o.status === 'pending' ? 'accent' : o.status === 'declined' ? 'bad' : ''}`}>{o.status}</span>
         <span className="muted" style={{ fontSize: 12 }}>
           sent {gameTime(o.createdAt)} · {o.status === 'pending' ? `expires ${gameTime(o.expiresAt)} (${duration(o.expiresAt - v.tick)})` : o.resolvedAt ? `resolved ${gameTime(o.resolvedAt)}` : ''}
         </span>
       </div>
-      <div style={{ fontSize: 13 }}>
-        {countryName(o.from)} gives: {offerSide(o, 'give')} · asks: {offerSide(o, 'receive')}
+      <div className="p-terms">
+        <div className="p-term">
+          <span className="p-kicker">{countryName(o.from)} gives</span>
+          <span>{offerSide(o, 'give')}</span>
+        </div>
+        <span className="p-relarrow" aria-hidden="true">⇄</span>
+        <div className="p-term">
+          <span className="p-kicker">and asks</span>
+          <span>{offerSide(o, 'receive')}</span>
+        </div>
       </div>
       {(o.round ?? 1) > 1 && <div className="muted" style={{ fontSize: 12 }} data-testid={`offer-round-${o.id}`}>Counter-offer, round {o.round} of {maxRounds(frame)}</div>}
       {o.effectiveAt && <div className="muted" style={{ fontSize: 12 }}>Effective {gameTime(o.effectiveAt)}{o.applied ? ' (applied)' : ''}</div>}
@@ -427,10 +494,13 @@ export function CoalitionPanel() {
   const myCo = v.myCoalition;
   const thread = myCo ? v.messages[`co:${myCo}`] ?? [] : [];
   return (
-    <div className="col" data-testid="coalition-panel">
-      <div className="row wrap">
-        <span>{myCo ? `You are a member of ${v.coalitions.find((c) => c.id === myCo)?.name}.` : 'You are not in a coalition.'}</span>
-        <div className="grow" />
+    <div className="col p-root" data-testid="coalition-panel">
+      <div className={`p-advisor${myCo ? ' member' : ''}`}>
+        <span className="p-advisor-ico" aria-hidden="true">{myCo ? <span className="p-emblem">{v.coalitions.find((c) => c.id === myCo)?.emblem}</span> : <Icon name="coalition" size={26} />}</span>
+        <div className="grow">
+          <strong>{myCo ? `You are a member of ${v.coalitions.find((c) => c.id === myCo)?.name}.` : 'You are not in a coalition.'}</strong>
+          <div className="muted p-small">Members share transit rights and compete for victory together; up to 5 nations per coalition.</div>
+        </div>
         <ActionButton className="btn" disabledReason={ro ? 'Read-only campaign' : myCo ? 'Leave your coalition before founding another.' : null} onClick={() => setCreate(true)}>
           Create coalition…
         </ActionButton>
@@ -438,7 +508,7 @@ export function CoalitionPanel() {
       {active.length === 0 ? (
         <div className="empty">No coalitions yet. Computer countries form them over time; you can found one.</div>
       ) : (
-        <table className="data">
+        <table className="data p-cotable">
           <thead>
             <tr>
               <th>Coalition</th>
@@ -452,10 +522,10 @@ export function CoalitionPanel() {
             {active.map((c) => (
               <tr key={c.id} className={sel === c.id ? 'sel' : ''}>
                 <td>
-                  <span aria-hidden>{c.emblem}</span> {c.name}
+                  <span className="p-emblem sm" aria-hidden>{c.emblem}</span> <strong>{c.name}</strong>{c.id === myCo ? <span className="p-pill accent raw" style={{ marginLeft: 6 }}>yours</span> : null}
                 </td>
                 <td>{countryName(c.leader)}</td>
-                <td className="num">{c.members.length}/5</td>
+                <td className="num"><span className="p-slotsdots" aria-hidden="true">{[0, 1, 2, 3, 4].map((i) => <i key={i} className={i < c.members.length ? 'on' : ''} />)}</span> {c.members.length}/5</td>
                 <td className="num">{c.score}</td>
                 <td>
                   <button type="button" className="btn small" onClick={() => setSel(c.id)}>
@@ -468,24 +538,21 @@ export function CoalitionPanel() {
         </table>
       )}
       {chosen && (
-        <div className="card col">
-          <h3>
-            {chosen.emblem} {chosen.name}
-          </h3>
-          <p className="dim" style={{ margin: 0 }}>{chosen.description || 'No description.'}</p>
-          <dl className="kv">
-            <dt>Leader</dt>
-            <dd>{countryName(chosen.leader)}</dd>
-            <dt>Total score</dt>
-            <dd>{chosen.score} VP</dd>
-            <dt>Required ({Math.max(2, chosen.members.length)} members)</dt>
-            <dd>{v.scores.coalitionThresholds[Math.max(2, Math.min(5, chosen.members.length))]} VP</dd>
-            <dt>Remaining slots</dt>
-            <dd>{5 - chosen.members.length}</dd>
-            <dt>Admission</dt>
-            <dd>{chosen.members.length >= 5 ? 'Full' : 'Open to applications (leader decides)'}</dd>
-            <dt>Founded</dt>
-            <dd>{gameTime(chosen.createdAt)}</dd>
+        <div className="p-card">
+          <div className="row" style={{ gap: 12 }}>
+            <span className="p-emblem lg" aria-hidden="true">{chosen.emblem}</span>
+            <div>
+              <h3>{chosen.name}</h3>
+              <p className="dim" style={{ margin: 0 }}>{chosen.description || 'No description.'}</p>
+            </div>
+          </div>
+          <dl className="p-kvtiles">
+            <div><dt>Leader</dt><dd>{countryName(chosen.leader)}</dd></div>
+            <div><dt>Total score</dt><dd>{chosen.score} VP</dd></div>
+            <div><dt>Required ({Math.max(2, chosen.members.length)} members)</dt><dd>{v.scores.coalitionThresholds[Math.max(2, Math.min(5, chosen.members.length))]} VP</dd></div>
+            <div><dt>Remaining slots</dt><dd>{5 - chosen.members.length}</dd></div>
+            <div><dt>Admission</dt><dd>{chosen.members.length >= 5 ? 'Full' : 'Open to applications (leader decides)'}</dd></div>
+            <div><dt>Founded</dt><dd>{gameTime(chosen.createdAt)}</dd></div>
           </dl>
           <table className="data">
             <thead>
@@ -545,12 +612,12 @@ export function CoalitionPanel() {
         </div>
       )}
       {myCo && (
-        <div className="card col">
+        <div className="p-card">
           <h4>Coalition thread (current members only)</h4>
-          <div style={{ maxHeight: 200, overflow: 'auto' }}>
-            {thread.length === 0 ? <p className="muted">No posts.</p> : thread.map((m) => (
-              <div key={m.id} style={{ borderBottom: '1px solid var(--line)', padding: '3px 0' }}>
-                <span className="muted" style={{ fontSize: 11.5 }}>{countryName(m.from)} · {gameTime(m.at)}</span>
+          <div className="p-thread">
+            {thread.length === 0 ? <p className="muted" style={{ margin: 0 }}>No posts.</p> : thread.map((m) => (
+              <div key={m.id} className={`p-msg${m.from === v.viewer ? ' mine' : ''}`}>
+                <div className="p-msg-meta">{countryName(m.from)} · {gameTime(m.at)}</div>
                 <div>{m.text}</div>
               </div>
             ))}
@@ -590,7 +657,7 @@ export function CoalitionPanel() {
             <legend>Emblem</legend>
             <div className="row wrap">
               {['★', '◆', '▲', '●', '✚', '⬢', '☰', '⚓'].map((e) => (
-                <label key={e} className="row" style={{ gap: 4 }}>
+                <label key={e} className={`row p-emblem-pick${form.emblem === e ? ' on' : ''}`} style={{ gap: 4 }}>
                   <input type="radio" checked={form.emblem === e} onChange={() => setForm({ ...form, emblem: e })} />
                   <span style={{ fontSize: 18 }}>{e}</span>
                 </label>

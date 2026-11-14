@@ -1,0 +1,116 @@
+/*
+ * World Command — design tokens ("Ink & Signal").
+ * Original identity: graphite ink surfaces, a signal-amber command accent, a cyan "own nation"
+ * highlight, condensed uppercase display type from the local system stack. Offline only:
+ * no remote fonts, no images — every glyph is inline SVG (src/ui/icons.tsx).
+ *
+ * Stable names used by every stylesheet (styles.css, panels/panels.css):
+ *   --bg --bg-2 --panel --panel-2 --panel-3 --line --line-2 --text --text-2 --text-3
+ *   --accent --accent-2 --ok --warn --bad --select --focus --shadow --radius
+ */
+:root {
+  /* type */
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Roboto, 'Noto Sans', Arial, sans-serif;
+  --font-display: Bahnschrift, 'DIN Alternate', 'DIN Condensed', 'Roboto Condensed', 'Arial Narrow', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --fs-xs: 11px;
+  --fs-sm: 12.5px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --track: 0.08em;
+
+  /* surfaces (dark, default) */
+  --bg: #0b0f13;
+  --bg-2: #10161c;
+  --panel: #141b22;
+  --panel-2: #1a232c;
+  --panel-3: #222e39;
+  --glass: rgba(16, 22, 29, 0.86);
+  --glass-strong: rgba(14, 19, 25, 0.95);
+  --line: #27333e;
+  --line-2: #364552;
+  --text: #e7ecf0;
+  --text-2: #b1bdc7;
+  --text-3: #7f8d99;
+
+  /* signal colours */
+  --accent: #f2a93b;
+  --accent-2: #c9862a;
+  --on-accent: #1a1206;
+  --info: #45b9d8;
+  --own: #2fb5d0;
+  --own-glow: #7fe3ff;
+  --ok: #5fcf86;
+  --warn: #f2c14e;
+  --bad: #f0675a;
+  --select: #ffd84a;
+  --focus: #8fe1ff;
+
+  /* resource tints (icons) */
+  --ic-supplies: #c99d5b;
+  --ic-components: #a9bccf;
+  --ic-fuel: #e5803e;
+  --ic-electronics: #36c1a0;
+  --ic-rare: #ad86f5;
+  --ic-manpower: #8fb35a;
+  --ic-money: #d9bf4a;
+  --ic-unit: #dbe3ea;
+
+  /* shape & depth */
+  --radius: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 3px 10px rgba(0, 0, 0, 0.4);
+  --edge: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --hud-grad: linear-gradient(180deg, rgba(24, 32, 41, 0.97) 0%, rgba(14, 19, 25, 0.97) 100%);
+
+  /* layout */
+  --top-h: 52px;
+  --strip-h: 0px;
+  --rail-w: 0px;
+  --hud-w: 316px;
+  --insp-w: 356px;
+  --tab-w: 34px;
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: #e8ebee;
+  --bg-2: #dde2e7;
+  --panel: #f8f9fa;
+  --panel-2: #eef1f4;
+  --panel-3: #e1e7ec;
+  --glass: rgba(248, 249, 250, 0.9);
+  --glass-strong: rgba(248, 249, 250, 0.97);
+  --line: #c7cfd7;
+  --line-2: #a9b5c0;
+  --text: #141b22;
+  --text-2: #36424e;
+  --text-3: #5a6773;
+  --accent: #b86e00;
+  --accent-2: #9a5b00;
+  --on-accent: #ffffff;
+  --info: #106f8a;
+  --own: #0d7d97;
+  --own-glow: #0aa2c4;
+  --ok: #1d7a41;
+  --warn: #8a5a00;
+  --bad: #b3261e;
+  --select: #b88400;
+  --focus: #005fcc;
+  --ic-supplies: #a87a38;
+  --ic-components: #6d8398;
+  --ic-fuel: #c45f1d;
+  --ic-electronics: #12866b;
+  --ic-rare: #7a52c9;
+  --ic-manpower: #5d7d2c;
+  --ic-money: #a88a12;
+  --ic-unit: #2a3640;
+  --shadow: 0 10px 26px rgba(20, 30, 40, 0.2);
+  --shadow-sm: 0 3px 8px rgba(20, 30, 40, 0.16);
+  --edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --hud-grad: linear-gradient(180deg, rgba(250, 251, 252, 0.98) 0%, rgba(236, 240, 243, 0.98) 100%);
+  color-scheme: light;
+}

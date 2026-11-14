@@ -6,6 +6,8 @@ import { getHost } from '../sim/host';
 import { NODES, cityByNode, countryName, placeName, unitById } from '../data/static';
 import { gameTime, resM, cap, ageLabel } from '../format';
 import { exec } from '../sim/exec';
+import { Icon } from '../icons';
+import { StatTile } from './panelKit';
 
 export function IntelPanel({ arg }: { arg: { node?: number | null } | null }) {
   const frame = useFrame()!;
@@ -35,9 +37,14 @@ export function IntelPanel({ arg }: { arg: { node?: number | null } | null }) {
   }, [node, mission, v.tick, city, owner, v.viewer]);
   const foreignCities = v.publicCities.filter((c) => c.owner && c.owner !== v.viewer).sort((a, b) => a.name.localeCompare(b.name));
   return (
-    <div className="col" data-testid="intel-panel">
-      <div className="card col">
-        <h4>Selected place</h4>
+    <div className="col p-root" data-testid="intel-panel">
+      <div className="p-tiles p-tiles-sm">
+        <StatTile icon={<Icon name="intel" size={20} />} label="Active agents" value={v.agents.filter((a) => a.active).length} />
+        <StatTile icon={<Icon name="journal" size={20} />} label="Reports held" value={v.reports.filter((r) => !r.expired).length} sub={`${v.reports.length} incl. expired`} />
+        <StatTile icon={<Icon name="clock" size={20} />} label="Next agent report" value={<span style={{ fontSize: 14 }}>{(() => { const n = v.agents.filter((a) => a.active).map((a) => a.nextReportAt).sort((a, b) => a - b)[0]; return n !== undefined ? gameTime(n) : '—'; })()}</span>} />
+      </div>
+      <div className="p-card">
+        <h4><Icon name="locate" size={15} /> Selected place</h4>
         <div className="row wrap">
           <strong>{node !== null ? placeName(node) : 'None'}</strong>
           {owner && <span className="muted">held by {countryName(owner)}</span>}
@@ -73,7 +80,7 @@ export function IntelPanel({ arg }: { arg: { node?: number | null } | null }) {
         </div>
         <p className="muted" style={{ margin: 0, fontSize: 12 }}>A report is a frozen, dated snapshot of the sector: it pins observed formations at their observed positions until it expires. It does not track them afterwards.</p>
       </div>
-      <h3>Agents ({v.agents.filter((a) => a.active).length} active)</h3>
+      <h3 className="p-h3"><Icon name="intel" size={18} /> Agents ({v.agents.filter((a) => a.active).length} active)</h3>
       {v.agents.length === 0 ? (
         <div className="empty">No agents assigned.</div>
       ) : (
@@ -100,7 +107,7 @@ export function IntelPanel({ arg }: { arg: { node?: number | null } | null }) {
           </tbody>
         </table>
       )}
-      <h3>Report history</h3>
+      <h3 className="p-h3"><Icon name="journal" size={18} /> Report history</h3>
       {v.reports.length === 0 ? (
         <div className="empty">No reports yet.</div>
       ) : (

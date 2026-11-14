@@ -7,6 +7,11 @@ import { num, resM, duration, cap, gameTime } from '../format';
 import { MissileProgramTable } from '../components/Orders';
 import { AirmobileDialog, airLiftActivity, hasAirLift, inAirLift } from '../components/Features';
 import { TARGET_CLASSES, TERRAINS } from '../../engine/data-types';
+import { Icon, familyIcon } from '../icons';
+import { StatTile, Progress, SectionHead } from './panelKit';
+import { GearIcon, UnitPlate } from './panelIcons';
+
+const DOMAIN_ICON: Record<string, string> = { land: familyIcon('armor'), air: familyIcon('fighter'), sea: familyIcon('naval'), subsurface: familyIcon('submarine'), strategic: familyIcon('missile_launcher') };
 
 interface Force { fielded: number; ready: number; committed: number; inRefit: number; units: number; stacks: number; maintenanceUsed: number; maintenanceCapacity: number; byDomain: Record<string, { units: number; fielded: number; ready: number }> }
 
@@ -20,56 +25,43 @@ export function ForcesPanel() {
   const [lift, setLift] = useState<string | null>(null);
   const liftStack = lift ? stacks.find((x) => x.id === lift) : undefined;
   return (
-    <div className="col" data-testid="forces-panel">
-      <div className="row wrap" style={{ gap: 12 }}>
-        <div className="card">
-          <h4>Fielded strength</h4>
-          <div style={{ fontSize: 20 }}>{num(f.fielded)}</div>
-          <div className="muted" style={{ fontSize: 12 }}>replacement value × health, all formations</div>
-        </div>
-        <div className="card">
-          <h4>Ready strength</h4>
-          <div style={{ fontSize: 20 }}>{num(f.ready)}</div>
-          <div className="muted" style={{ fontSize: 12 }}>readiness ≥ 70%, not refitting</div>
-        </div>
-        <div className="card">
-          <h4>Committed</h4>
-          <div style={{ fontSize: 20 }}>{num(f.committed)}</div>
-          <div className="muted" style={{ fontSize: 12 }}>moving, attacking or in combat</div>
-        </div>
-        <div className="card">
-          <h4>Maintenance</h4>
-          <div style={{ fontSize: 20 }}>
-            {f.maintenanceUsed}/{f.maintenanceCapacity}
-          </div>
-          <div className="muted" style={{ fontSize: 12 }}>{num(f.inRefit)} strength in refit</div>
-        </div>
+    <div className="col p-root" data-testid="forces-panel">
+      <div className="p-tiles">
+        <StatTile icon={<Icon name="forces" size={22} />} label="Fielded strength" value={num(f.fielded)} sub="replacement value × health, all formations" />
+        <StatTile icon={<Icon name="shield" size={22} />} label="Ready strength" value={num(f.ready)} sub="readiness ≥ 70%, not refitting" tone="ok">
+          <Progress value={f.fielded ? f.ready / f.fielded : 0} tone="ok" label="Ready share of fielded strength" />
+        </StatTile>
+        <StatTile icon={<Icon name="move" size={22} />} label="Committed" value={num(f.committed)} sub="moving, attacking or in combat" tone={f.committed ? 'warn' : undefined} />
+        <StatTile icon={<GearIcon size={22} />} label="Maintenance" value={`${f.maintenanceUsed}/${f.maintenanceCapacity}`} sub={`${num(f.inRefit)} strength in refit`}>
+          <Progress value={f.maintenanceCapacity ? f.maintenanceUsed / f.maintenanceCapacity : 0} label="Maintenance slots in use" />
+        </StatTile>
       </div>
-      <table className="data" aria-label="Strength by domain">
-        <thead>
-          <tr>
-            <th>Domain</th>
-            <th className="num">Units</th>
-            <th className="num">Fielded</th>
-            <th className="num">Ready</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(f.byDomain).map(([d, x]) => (
-            <tr key={d}>
-              <td style={{ textTransform: 'capitalize' }}>{d}</td>
-              <td className="num">{x.units}</td>
-              <td className="num">{num(x.fielded)}</td>
-              <td className="num">{num(x.ready)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <h3>Formations ({stacks.length})</h3>
+      <div className="p-domains" role="table" aria-label="Strength by domain">
+        <div role="row" className="sr-only">
+          <span role="columnheader">Domain</span>
+          <span role="columnheader">Units</span>
+          <span role="columnheader">Fielded</span>
+          <span role="columnheader">Ready</span>
+          <span role="columnheader">Ready share</span>
+        </div>
+        {Object.entries(f.byDomain).map(([d, x]) => (
+          <div key={d} role="row" className="p-domain">
+            <span role="rowheader" className="p-domain-h">
+              <Icon name={DOMAIN_ICON[d] ?? 'forces'} size={22} />
+              <span style={{ textTransform: 'capitalize' }}>{d}</span>
+            </span>
+            <span role="cell"><strong>{x.units}</strong> units</span>
+            <span role="cell" title="Fielded strength">{num(x.fielded)} fielded</span>
+            <span role="cell" title="Ready strength">{num(x.ready)} ready</span>
+            <span role="cell"><Progress value={x.fielded ? x.ready / x.fielded : 0} tone="ok" label={`${d}: ready share`} /></span>
+          </div>
+        ))}
+      </div>
+      <SectionHead icon={<Icon name="symbols" size={18} />} title={`Formations (${stacks.length})`} />
       {stacks.length === 0 ? (
         <div className="empty">No formations. Mobilize units from a homeland or annexed city.</div>
       ) : (
-        <table className="data" data-testid="formations-table">
+        <table className="data p-formtable" data-testid="formations-table">
           <thead>
             <tr>
               <th>Formation</th>
@@ -94,7 +86,7 @@ export function ForcesPanel() {
                   </td>
                   <td className="num">{s.units.length}</td>
                   <td>{s.pos.kind === 'node' ? placeName(s.pos.node) : s.pos.kind === 'edge' ? `→ ${placeName(s.pos.to)}` : 'airborne'}</td>
-                  <td className="num">{rd}%</td>
+                  <td className="num"><span className="p-rd"><Progress value={rd / 100} tone={rd >= 70 ? 'ok' : rd >= 40 ? 'warn' : 'bad'} label={`Readiness ${rd}%`} />{rd}%</span></td>
                   <td>{inAirLift(s) ? airLiftActivity(s) : s.order ? (s.order.kind === 'move' ? `Moving to ${placeName(s.order.dest)}${s.eta ? `, ETA ${gameTime(s.eta)}` : ''}` : 'Attacking') : s.refit ? 'Refitting' : 'Holding'}</td>
                   <td>{cap(s.supply)}</td>
                   <td>
@@ -111,7 +103,7 @@ export function ForcesPanel() {
         </table>
       )}
       {liftStack && <AirmobileDialog s={liftStack} onClose={() => setLift(null)} />}
-      <h3>Strategic inventory</h3>
+      <SectionHead icon={<Icon name="launch" size={18} />} title="Strategic inventory" />
       <MissileProgramTable />
     </div>
   );
@@ -138,6 +130,9 @@ export function UnitDossier({ arg }: { arg: { unit: string; stack?: string } }) 
         <button type="button" className="btn small" onClick={backPanel}>
           ← Previous screen
         </button>
+      </div>
+      <div className="row wrap p-dossierhead">
+        <UnitPlate family={ut.family} size={84} />
         <h3>{ut.name}</h3>
         <span className="tag">{cap(ut.family)}</span>
         <span className="tag">{ut.domain}</span>

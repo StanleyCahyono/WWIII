@@ -7,11 +7,20 @@ import { MapRenderer, type MapInput } from '../map/renderer';
 import { screenToWorld } from '../map/projection';
 import { prefs } from '../persist/prefs';
 import { startNewCampaign } from '../session';
-import { FlagChip, Icon } from '../components/common';
+import { FlagChip, NationBadge } from '../components/common';
+import { Icon, RESOURCE_ICON } from '../icons';
 import { num, cap } from '../format';
 import { RESOURCES } from '../../engine/data-types';
 
 const FEATURED = 'IDN';
+
+type SizeClass = 'Large' | 'Medium' | 'Small';
+function sizeClass(p: CountryPreview | null | undefined): SizeClass | null {
+  if (!p) return null;
+  const rank = p.power?.rank;
+  if (rank !== undefined) return rank <= 20 ? 'Large' : rank <= 60 ? 'Medium' : 'Small';
+  return p.provinces >= 40 ? 'Large' : p.provinces >= 12 ? 'Medium' : 'Small';
+}
 
 export function ChooseCountry() {
   const [data, setData] = useState<{ summary: ScenarioSummary; previews: CountryPreview[] } | null>(null);
@@ -23,6 +32,7 @@ export function ChooseCountry() {
   const [seed, setSeed] = useState<number>(() => Math.floor(Math.random() * 1e9));
   const [busy, setBusy] = useState(false);
   const [startErr, setStartErr] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getHost()
@@ -31,11 +41,23 @@ export function ChooseCountry() {
       .catch((e: Error) => setErr(e.message));
   }, []);
 
+  const byId = useMemo(() => new Map((data?.previews ?? []).map((p) => [p.id, p])), [data]);
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
     return MANIFEST.filter((m) => (!region || m.region === region) && (!s || m.name.toLowerCase().includes(s) || m.id.toLowerCase().includes(s))).slice().sort((a, b) => (a.id === FEATURED ? -1 : b.id === FEATURED ? 1 : a.name.localeCompare(b.name)));
   }, [q, region]);
-  const preview = data?.previews.find((p) => p.id === sel) ?? null;
+  const preview = byId.get(sel) ?? null;
+
+  // keep the chosen nation visible in the list (map click, random pick)
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>(`[data-testid="country-${sel}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [sel]);
+
+  const randomNation = () => {
+    const pool = list.length ? list : MANIFEST;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (pick) setSel(pick.id);
+  };
 
   const start = async () => {
     setBusy(true);
@@ -51,16 +73,26 @@ export function ChooseCountry() {
   return (
     <main className="choose" aria-labelledby="choose-title">
       <div className="ch-head">
-        <button type="button" className="btn ghost" onClick={() => ui.patch({ screen: 'title' })} aria-label="Back to title screen">
-          ← Back
-        </button>
-        <h1 id="choose-title" style={{ fontSize: 18 }}>Choose your country</h1>
+        <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" style={{ color: 'var(--text-2)' }}>
+          <path d="M12 1.5 21.5 7v10L12 22.5 2.5 17V7z" fill="none" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M7 9l2.5 7L12 10l2.5 6L17 9" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+        </svg>
+        <h1 id="choose-title">Choose your country</h1>
         <span className="muted desktop-only">World 120 · one human seat, 119 computer countries</span>
+        <div className="ch-steps" aria-hidden="true">
+          <span className="ch-step on">1 · Nation</span>
+          <span className="ch-step">2 · Briefing</span>
+          <span className="ch-step">3 · Command</span>
+        </div>
       </div>
       <section className="ch-list" aria-label="Country list">
-        <div className="col" style={{ padding: 10, borderBottom: '1px solid var(--line)' }}>
-          <label className="sr-only" htmlFor="country-search">Search countries</label>
-          <input id="country-search" type="search" placeholder="Search 120 countries…" value={q} onChange={(e) => setQ(e.target.value)} data-testid="country-search" />
+        <div className="ch-list-head">
+          <h4>Select nation</h4>
+          <div className="ch-search">
+            <Icon name="search" size={16} />
+            <label className="sr-only" htmlFor="country-search">Search countries</label>
+            <input id="country-search" type="search" placeholder="Search 120 countries…" value={q} onChange={(e) => setQ(e.target.value)} data-testid="country-search" />
+          </div>
           <div className="region-filters" role="group" aria-label="Region filter">
             <button type="button" aria-pressed={region === null} onClick={() => setRegion(null)}>
               All · 120
@@ -72,63 +104,81 @@ export function ChooseCountry() {
             ))}
           </div>
         </div>
-        <div role="listbox" aria-label="Countries" style={{ overflowY: 'auto', flex: 1 }} tabIndex={-1}>
+        <div role="listbox" aria-label="Countries" style={{ overflowY: 'auto', flex: 1 }} tabIndex={-1} ref={listRef}>
           {list.length === 0 && <div className="empty" style={{ margin: 10 }}>No country matches “{q}”.</div>}
-          {list.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              role="option"
-              aria-selected={sel === m.id}
-              className={`country-row${m.id === FEATURED ? ' featured' : ''}`}
-              onClick={() => setSel(m.id)}
-              data-testid={`country-${m.id}`}
-            >
-              <FlagChip id={m.id} />
-              <span className="grow">
-                {m.name}
-                {m.id === FEATURED && <span className="tag accent" style={{ marginLeft: 6 }}>Suggested start</span>}
-              </span>
-              <span className="muted" style={{ fontSize: 11 }}>{m.region.split(',')[0]}</span>
-            </button>
-          ))}
+          {list.map((m) => {
+            const sz = sizeClass(byId.get(m.id));
+            return (
+              <button
+                key={m.id}
+                type="button"
+                role="option"
+                aria-selected={sel === m.id}
+                className={`country-row${m.id === FEATURED ? ' featured' : ''}`}
+                onClick={() => setSel(m.id)}
+                data-testid={`country-${m.id}`}
+              >
+                <FlagChip id={m.id} size={34} />
+                <span className="grow">
+                  <span className="cr-name">
+                    {m.name}
+                    {m.id === FEATURED && <span className="tag accent" style={{ marginLeft: 6 }}>Suggested start</span>}
+                  </span>
+                  <span className="cr-meta">{m.region.split(',')[0]}</span>
+                </span>
+                {sz && <span className={`size-pill ${sz[0]}`}>{sz}</span>}
+              </button>
+            );
+          })}
         </div>
       </section>
       <section className="ch-map" aria-label="World map (click a country to preview it)">
         <ChooseMap selected={sel} onPick={setSel} />
       </section>
       <section className="ch-prev" aria-label="Country preview" data-testid="country-preview">
-        {err && <p className="bad" role="alert">Could not prepare previews: {err}</p>}
-        {!data && !err && <p className="muted" role="status">Preparing the opening positions of all 120 countries…</p>}
-        {preview && <Preview p={preview} summary={data!.summary} />}
-        <hr />
-        <fieldset>
-          <legend>Difficulty — computer planning effort only</legend>
-          <div className="row wrap">
-            {(['easy', 'normal', 'hard'] as const).map((d) => (
-              <label key={d} className="row" style={{ gap: 4 }}>
-                <input type="radio" name="difficulty" checked={difficulty === d} onChange={() => setDifficulty(d)} />
-                {cap(d)}
-              </label>
-            ))}
+        <div className="ch-prev-scroll">
+          {err && <p className="bad" role="alert">Could not prepare previews: {err}</p>}
+          {!data && !err && <p className="muted" role="status" style={{ marginTop: 14 }}>Preparing the opening positions of all 120 countries…</p>}
+          {preview && <Preview p={preview} summary={data!.summary} />}
+        </div>
+        <div className="ch-foot">
+          <div className="row wrap" style={{ justifyContent: 'space-between' }}>
+            <fieldset style={{ border: 0, padding: 0 }}>
+              <legend>Difficulty — computer planning effort</legend>
+              <div className="seg">
+                {(['easy', 'normal', 'hard'] as const).map((d) => (
+                  <label key={d}>
+                    <input type="radio" name="difficulty" checked={difficulty === d} onChange={() => setDifficulty(d)} />
+                    {cap(d)}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <label className="field" style={{ width: 150 }} title="Varies diplomatic personalities, market activity and event draws">
+              Seed
+              <div className="row" style={{ gap: 4 }}>
+                <input type="number" value={seed} onChange={(e) => setSeed(Math.max(0, Math.floor(Number(e.target.value) || 0)))} style={{ flex: 1, minWidth: 0 }} data-testid="seed-input" aria-label="Seed (varies diplomatic personalities, market activity and event draws)" />
+                <button type="button" className="btn icon" onClick={() => setSeed(Math.floor(Math.random() * 1e9))} aria-label="New random seed" title="New random seed">
+                  <Icon name="dice" size={18} />
+                </button>
+              </div>
+            </label>
           </div>
-          <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>
-            Sets how much planning each of the 119 computer countries does per review. It never changes the roster, starting assets or resources.
-          </p>
-        </fieldset>
-        <label className="field">
-          Seed (varies diplomatic personalities, market activity and event draws)
-          <div className="row">
-            <input type="number" value={seed} onChange={(e) => setSeed(Math.max(0, Math.floor(Number(e.target.value) || 0)))} style={{ flex: 1 }} data-testid="seed-input" />
-            <button type="button" className="btn" onClick={() => setSeed(Math.floor(Math.random() * 1e9))}>
-              Random
+          <p className="muted" style={{ margin: 0, fontSize: 11.5 }}>Difficulty sets how much planning each of the 119 computer countries does per review. It never changes the roster, starting assets or resources.</p>
+          <div className="ch-actions">
+            <button type="button" className="btn" onClick={() => ui.patch({ screen: 'title' })} aria-label="Back to title screen">
+              <Icon name="back" size={16} /> Back
+            </button>
+            <button type="button" className="btn" onClick={randomNation} title="Pick a random nation from the list">
+              <Icon name="dice" size={16} /> Random nation
+            </button>
+            <button type="button" className="btn primary" onClick={start} disabled={busy || !data} data-testid="start-campaign">
+              {busy ? 'Creating the world…' : `Start as ${countryName(sel)}`}
+              {!busy && <Icon name="chevron-right" size={18} />}
             </button>
           </div>
-        </label>
-        <button type="button" className="btn primary" style={{ minHeight: 44 }} onClick={start} disabled={busy || !data} data-testid="start-campaign">
-          {busy ? 'Creating the world…' : `Start as ${countryName(sel)}`}
-        </button>
-        {startErr && <p className="bad" role="alert">{startErr}</p>}
+          {startErr && <p className="bad" role="alert">{startErr}</p>}
+        </div>
       </section>
     </main>
   );
@@ -136,14 +186,22 @@ export function ChooseCountry() {
 
 function Preview({ p, summary }: { p: CountryPreview; summary: ScenarioSummary }) {
   const ports = p.cities.filter((c) => c.port).length;
+  const sz = sizeClass(p);
   return (
-    <div className="col" style={{ gap: 10 }}>
-      <div className="row">
-        <FlagChip id={p.id} />
-        <h2>{p.name}</h2>
-        <span className={`tag ${p.startDifficulty === 'easy' ? 'ok' : p.startDifficulty === 'hard' ? 'bad' : 'warn'}`}>{cap(p.startDifficulty)} start</span>
+    <div className="col" style={{ gap: 12 }}>
+      <div className="sel-banner">
+        <span className="sel-kicker">Selected nation</span>
+        <div className="sel-title">
+          <NationBadge id={p.id} size={64} />
+          <h2>{p.name}</h2>
+        </div>
+        <div className="sel-tags">
+          {sz && <span className={`size-pill ${sz[0]}`}>{sz} nation</span>}
+          <span className={`tag ${p.startDifficulty === 'easy' ? 'ok' : p.startDifficulty === 'hard' ? 'bad' : 'warn'}`}>{cap(p.startDifficulty)} start</span>
+          <span className="size-pill">{cap(p.doctrine)} doctrine</span>
+        </div>
+        <p className="dim" style={{ margin: 0, fontSize: 13 }}>{p.summary}</p>
       </div>
-      <p className="dim" style={{ margin: 0 }}>{p.summary}</p>
       {p.synthesized && <p className="warn" style={{ margin: 0, fontSize: 12 }}>Profile synthesized from map data (authored profile pending).</p>}
       <dl className="kv">
         <dt>Capital</dt>
@@ -178,13 +236,16 @@ function Preview({ p, summary }: { p: CountryPreview; summary: ScenarioSummary }
       </div>
       <div>
         <h4>Resources — stockpile · daily output</h4>
-        <table className="data" style={{ marginTop: 4 }}>
+        <table className="data res-table" style={{ marginTop: 4 }}>
           <tbody>
             {RESOURCES.map((r) => (
               <tr key={r}>
-                <td>{RESOURCE_LABEL[r]}</td>
+                <td>
+                  <Icon name={RESOURCE_ICON[r]} size={18} />
+                  {RESOURCE_LABEL[r]}
+                </td>
                 <td className="num">{num(p.stockpile[r] ?? 0)}</td>
-                <td className="num">+{num(p.dailyOutput[r] ?? 0)}/day</td>
+                <td className="num ok">+{num(p.dailyOutput[r] ?? 0)}/day</td>
               </tr>
             ))}
           </tbody>
@@ -292,8 +353,20 @@ function ChooseMap({ selected, onPick }: { selected: string; onPick: (id: string
     if (mc) rr.center(mc.labelAt[0], mc.labelAt[1], Math.max(rr.cam.z, 3.5));
   }, [selected]);
   const down = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null);
+  const countryAt = (clientX: number, clientY: number): string | null => {
+    const rr = r.current;
+    if (!rr) return null;
+    const b = canvas.current!.getBoundingClientRect();
+    const h = rr.hitAt(clientX - b.left, clientY - b.top);
+    if (h?.kind === 'small' && h.ids[0]) return h.ids[0];
+    const [lon, lat] = screenToWorld(rr.cam, rr.w, rr.h, clientX - b.left, clientY - b.top);
+    const n = rr.nodeAt(lon, lat);
+    const c = n !== null ? NODES[n].country : null;
+    return c && MANIFEST.some((m) => m.id === c) ? c : null;
+  };
   return (
-    <div ref={wrap} style={{ position: 'absolute', inset: 0 }} className="mapwrap">
+    <div ref={wrap} style={{ position: 'absolute', inset: 0, cursor: hover ? 'pointer' : 'grab' }} className="mapwrap" onPointerLeave={() => setHover(null)}>
       <canvas
         ref={canvas}
         aria-hidden
@@ -303,7 +376,13 @@ function ChooseMap({ selected, onPick }: { selected: string; onPick: (id: string
         }}
         onPointerMove={(e) => {
           const d = down.current;
-          if (!d || !r.current) return;
+          if (!d) {
+            const id = countryAt(e.clientX, e.clientY);
+            const b = wrap.current!.getBoundingClientRect();
+            setHover(id ? { id, x: e.clientX - b.left, y: e.clientY - b.top } : null);
+            return;
+          }
+          if (!r.current) return;
           const dx = e.clientX - d.x, dy = e.clientY - d.y;
           if (!d.moved && Math.hypot(dx, dy) > 5) d.moved = true;
           if (d.moved) {
@@ -317,13 +396,8 @@ function ChooseMap({ selected, onPick }: { selected: string; onPick: (id: string
           down.current = null;
           const rr = r.current;
           if (!d || d.moved || !rr) return;
-          const b = canvas.current!.getBoundingClientRect();
-          const [lon, lat] = screenToWorld(rr.cam, rr.w, rr.h, e.clientX - b.left, e.clientY - b.top);
-          const h = rr.hitAt(e.clientX - b.left, e.clientY - b.top);
-          if (h?.kind === 'small' && h.ids[0]) return onPick(h.ids[0]);
-          const n = rr.nodeAt(lon, lat);
-          const c = n !== null ? NODES[n].country : null;
-          if (c && MANIFEST.some((m) => m.id === c)) onPick(c);
+          const c = countryAt(e.clientX, e.clientY);
+          if (c) onPick(c);
         }}
         onWheel={(e) => {
           const rr = r.current;
@@ -332,15 +406,22 @@ function ChooseMap({ selected, onPick }: { selected: string; onPick: (id: string
           rr.zoomAt(Math.exp(-e.deltaY * 0.0016), e.clientX - b.left, e.clientY - b.top);
         }}
       />
+      {hover && (
+        <div className="map-hover" style={{ left: Math.min(hover.x + 16, (r.current?.w ?? 600) - 220), top: hover.y + 16 }} aria-hidden="true">
+          <NationBadge id={hover.id} size={26} />
+          {countryName(hover.id)}
+        </div>
+      )}
+      <div className="ch-hint">Hover to identify · click a country to select it · drag to pan</div>
       <div className="map-tools">
-        <button type="button" className="btn icon" aria-label="Zoom in" onClick={() => r.current?.zoomAt(1.5, r.current.w / 2, r.current.h / 2)}>
+        <button type="button" className="round-btn" aria-label="Zoom in" onClick={() => r.current?.zoomAt(1.5, r.current.w / 2, r.current.h / 2)}>
           <Icon name="plus" />
         </button>
-        <button type="button" className="btn icon" aria-label="Zoom out" onClick={() => r.current?.zoomAt(1 / 1.5, r.current.w / 2, r.current.h / 2)}>
+        <button type="button" className="round-btn" aria-label="Zoom out" onClick={() => r.current?.zoomAt(1 / 1.5, r.current.w / 2, r.current.h / 2)}>
           <Icon name="minus" />
         </button>
       </div>
-      <div className="scalebar">Click a country to preview it · Indonesia is highlighted to start</div>
+      <div className="scalebar">Selected: {countryName(selected)} · Indonesia is the suggested start</div>
     </div>
   );
 }

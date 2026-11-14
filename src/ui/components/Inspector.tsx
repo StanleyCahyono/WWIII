@@ -12,8 +12,9 @@ import type { StackView } from '../../engine/index';
 import type { Frame } from '../sim/protocol';
 import type { MapObject } from '../map/objects';
 import { RESOURCES } from '../../engine/data-types';
+import { Icon, UnitArt, familyIcon, type IconName } from '../icons';
 
-export function Inspector({ mobile = false }: { mobile?: boolean }) {
+export function Inspector({ mobile = false, dock = false }: { mobile?: boolean; dock?: boolean }) {
   const sel = useStore(ui, (s) => s.selection);
   const lost = useStore(ui, (s) => s.lostSelection);
   const expanded = useStore(ui, (s) => s.sheetExpanded);
@@ -45,9 +46,10 @@ export function Inspector({ mobile = false }: { mobile?: boolean }) {
     const s = frame.view.stacks.find((x) => x.id === sel.id);
     const o = objects.find((x) => x.id === `S:${sel.id}`);
     if (s && o) {
+      if (dock) return <StackSheet s={s} o={o} frame={frame} layout="dock" />;
       title = s.name;
       sym = <Sym sidc={o.sidc} size={30} label={o.aria} />;
-      body = <StackSheet s={s} o={o} frame={frame} />;
+      body = <StackSheet s={s} o={o} frame={frame} layout={mobile ? 'sheet' : 'panel'} />;
     }
   } else if (sel.kind === 'contact' || sel.kind === 'report') {
     const id = sel.kind === 'contact' ? `C:${sel.id}` : `R:${sel.id}:${sel.ref}`;
@@ -85,16 +87,17 @@ export function Inspector({ mobile = false }: { mobile?: boolean }) {
     );
   }
   return (
-    <div className="col" style={{ gap: 0, height: '100%', minHeight: 0 }} data-testid="inspector">
+    <div className="insp-panel" data-testid="inspector">
       <div className="head">
-        {sym}
+        {sym ?? <span className="insp-ico" aria-hidden><Icon name={sel?.kind === 'city' ? 'city' : sel?.kind === 'province' ? 'map' : sel?.kind === 'multi' ? 'forces' : 'target'} size={22} /></span>}
         <div className="grow">
-          <h2 style={{ fontSize: 15 }} data-testid="inspector-title">{title}</h2>
+          <div className="insp-kind">{sel?.kind === 'city' ? 'City' : sel?.kind === 'province' ? 'Province' : sel?.kind === 'contact' ? 'Contact' : sel?.kind === 'report' ? 'Dated report' : sel?.kind === 'multi' ? 'Multi-selection' : 'Inspector'}</div>
+          <h2 data-testid="inspector-title">{title}</h2>
           <div className="muted" style={{ fontSize: 12 }}>As of {gameTime(frame.view.tick)}</div>
         </div>
         {sel && (
-          <button type="button" className="btn ghost small" aria-label="Clear selection" onClick={() => select(null)}>
-            ✕
+          <button type="button" className="round-btn sm" aria-label="Clear selection" title="Clear selection (Esc)" onClick={() => select(null)}>
+            <Icon name="close" size={16} />
           </button>
         )}
       </div>
@@ -165,10 +168,49 @@ function stackSpeed(s: StackView): number {
   return Number.isFinite(sp) ? sp : 0;
 }
 
-export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame: Frame }) {
+function stackPower(s: StackView): { atk: number; def: number } {
+  let atk = 0;
+  let def = 0;
+  for (const u of s.units) {
+    const ut = unitById.get(u.type);
+    const st = ut?.levels[Math.min(ut.levels.length - 1, Math.max(0, u.level - 1))];
+    if (!st) continue;
+    const f = u.maxHp ? u.hp / u.maxHp : 1;
+    atk += Math.max(0, ...Object.values(st.attack).map((x) => x ?? 0)) * f;
+    def += Math.max(0, ...Object.values(st.defense).map((x) => x ?? 0)) * f;
+  }
+  return { atk: Math.round(atk), def: Math.round(def) };
+}
+
+function dominantFamily(s: StackView): string {
+  const c = new Map<string, number>();
+  for (const u of s.units) {
+    const f = unitById.get(u.type)?.family ?? 'infantry';
+    if (f === 'officer') continue;
+    c.set(f, (c.get(f) ?? 0) + 1);
+  }
+  let best = 'infantry';
+  let n = -1;
+  for (const [f, k] of c) if (k > n) (best = f), (n = k);
+  return best;
+}
+
+function Stat({ icon, label, value, sub, tone }: { icon: IconName; label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: 'ok' | 'warn' | 'bad' }) {
+  return (
+    <div className={`ustat${tone ? ' ' + tone : ''}`}>
+      <Icon name={icon} size={15} />
+      <span className="ustat-l">{label}</span>
+      <span className="ustat-v">{value}</span>
+      {sub && <span className="ustat-s">{sub}</span>}
+    </div>
+  );
+}
+
+export function StackSheet({ s, o, frame, layout = 'panel' }: { s: StackView; o: MapObject; frame: Frame; layout?: 'dock' | 'sheet' | 'panel' }) {
   const [split, setSplit] = useState(false);
   const [dlg, setDlg] = useState<null | 'attack' | 'patrol' | 'rebase' | 'delay' | 'embark' | 'retreat' | 'launch'>(null);
   const [deploy, setDeploy] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
   const isAir = s.moveClass === 'air' && !!s.air;
   const deployables = s.units.filter((u) => !!unitById.get(u.type)?.deployable);
   const canLaunch = s.units.some((u) => ['missile_launcher', 'naval', 'heavy', 'submarine'].includes(unitById.get(u.type)?.family ?? '')) && Object.values(frame.view.self.missiles).some((m) => m.ready > 0);
@@ -190,202 +232,253 @@ export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame:
   const order = s.order;
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   const remaining = s.eta ? s.eta - v.tick : null;
-  return (
+  const power = stackPower(s);
+  const fam = dominantFamily(s);
+  const hpPct = Math.round(frac * 100);
+  const position = node !== null ? placeName(node) : s.pos.kind === 'edge' ? `${placeName(s.pos.from)} → ${placeName(s.pos.to)}` : 'Airborne';
+  const domainWord = o.domain === 'land' ? 'ground' : o.domain === 'sea' ? 'surface' : o.domain;
+  const RO = ro ? 'Read-only campaign' : null;
+
+  const primary = (
     <>
-      <div className="sect">
-        <div className="row">
-          <FlagChip id={v.viewer} />
-          <span>{v.self.name} · friendly {o.domain === 'land' ? 'ground' : o.domain} formation</span>
-        </div>
-        <dl className="kv">
-          <dt>Position</dt>
-          <dd data-testid="stack-position">{node !== null ? placeName(node) : s.pos.kind === 'edge' ? `${placeName(s.pos.from)} → ${placeName(s.pos.to)}` : 'Airborne'}</dd>
-          <dt>Terrain</dt>
-          <dd>{node !== null ? TERRAIN_LABEL[NODES[node].terrain] : '—'}</dd>
-          <dt>Strength (HP)</dt>
-          <dd>{Math.round(frac * 100)}%</dd>
-          <dt>Readiness</dt>
-          <dd>{readiness}%{readiness < 70 ? ' (not ready)' : ''}</dd>
-          <dt>Supply</dt>
-          <dd>{cap(s.supply)}</dd>
-          <dt>Speed</dt>
-          <dd>{stackSpeed(s)} km/h (slowest unit)</dd>
-          <dt>Stack efficiency</dt>
-          <dd>
-            {efficiency}% {s.units.length > 10 ? '(overstacked)' : '(group size OK)'}
-          </dd>
-          <dt>Fire control</dt>
-          <dd>{s.firePolicy === 'hold' ? 'Hold unless ordered' : s.firePolicy === 'return_fire' ? 'Return fire' : 'Engage eligible contacts'}</dd>
-          {s.engagement && (
+      {!isAir && (
+        <ActionButton className="btn primary act" disabledReason={RO} onClick={() => ui.patch({ mode: { kind: 'move', stacks: [s.id], waypoints: [], dest: null } })} data-testid="action-move">
+          <Icon name="move" size={20} />
+          Move…
+        </ActionButton>
+      )}
+      {!isAir && (
+        <ActionButton className="btn act danger-soft" disabledReason={RO ?? (s.pos.kind === 'air' ? 'Airborne.' : null)} onClick={() => setDlg('attack')} data-testid="action-attack">
+          <Icon name="attack" size={20} />
+          Attack…
+        </ActionButton>
+      )}
+      {isAir && (
+        <ActionButton className="btn primary act" disabledReason={RO ?? airReason(s, ['landed', 'on_station'])} onClick={() => setDlg('patrol')} data-testid="action-patrol">
+          <Icon name="patrol" size={20} />
+          Patrol…
+        </ActionButton>
+      )}
+      {isAir && (
+        <ActionButton className="btn act" disabledReason={RO ?? airReason(s, ['landed'])} onClick={() => setDlg('rebase')} data-testid="action-rebase">
+          <Icon name="rebase" size={20} />
+          Rebase / ferry…
+        </ActionButton>
+      )}
+      <ActionButton className="btn act" disabledReason={RO ?? (!order && !(isAir && s.air?.state === 'on_station') ? 'No active order to stop.' : null)} onClick={() => exec({ type: 'stop', stack: s.id }, `${s.name}: orders cancelled.`)} data-testid="action-stop">
+        <Icon name="stop" size={20} />
+        {isAir && s.air?.state === 'on_station' ? 'Return to base' : 'Stop'}
+      </ActionButton>
+      {!isAir && (
+        <ActionButton className="btn act" disabledReason={RO ?? (!order ? 'No active order to delay.' : null)} onClick={() => setDlg('delay')} data-testid="action-delay">
+          <Icon name="delay" size={20} />
+          Delay…
+        </ActionButton>
+      )}
+      {s.moveClass === 'ground' && (
+        <ActionButton className="btn act" disabledReason={RO ?? (s.pos.kind !== 'node' ? 'Only from a province or sea zone.' : node !== null && NODES[node].kind === 'land' && !NODES[node].coastal ? 'Embarking requires a coastal province.' : null)} onClick={() => setDlg('embark')} data-testid="action-embark">
+          <Icon name={node !== null && NODES[node].kind === 'sea' ? 'disembark' : 'embark'} size={20} />
+          {node !== null && NODES[node].kind === 'sea' ? 'Disembark…' : 'Embark…'}
+        </ActionButton>
+      )}
+      {!isAir && (
+        <ActionButton className="btn act" disabledReason={RO ?? (s.pos.kind !== 'node' ? 'Retreat is possible only while engaged at a province.' : null)} onClick={() => setDlg('retreat')} data-testid="action-retreat">
+          <Icon name="retreat" size={20} />
+          Retreat…
+        </ActionButton>
+      )}
+      {canLaunch && (
+        <ActionButton className="btn act" disabledReason={RO} onClick={() => setDlg('launch')} data-testid="action-launch">
+          <Icon name="launch" size={20} />
+          Launch missile…
+        </ActionButton>
+      )}
+    </>
+  );
+  const secondary = (
+    <>
+      <ActionButton className="btn act" disabledReason={RO ?? (s.units.length < 2 ? 'A single unit cannot be split.' : s.pos.kind !== 'node' ? 'Split only at a province or sea zone.' : null)} onClick={() => setSplit(true)}>
+        <Icon name="split" size={18} />
+        Split…
+      </ActionButton>
+      <ActionButton className="btn act" disabledReason={RO ?? (colocated.length === 0 ? 'No other friendly formation of the same domain here.' : null)} onClick={() => exec({ type: 'merge', stacks: [s.id, ...colocated.map((c) => c.id)] }, `Merged ${colocated.length + 1} formations.`)}>
+        <Icon name="merge" size={18} />
+        Merge here ({colocated.length})
+      </ActionButton>
+      <ActionButton className="btn act" disabledReason={RO} onClick={() => exec({ type: 'setRefit', stack: s.id, refit: !s.refit }, s.refit ? 'Refit ended.' : 'Refit started.')}>
+        <Icon name="build" size={18} />
+        {s.refit ? 'End refit' : 'Refit'}
+      </ActionButton>
+    </>
+  );
+
+  const stats = (
+    <div className="ustats">
+      <Stat icon="attack" label="ATK" value={power.atk} />
+      <Stat icon="shield" label="DEF" value={power.def} />
+      <Stat icon="speed" label="SPD" value={`${stackSpeed(s)}`} sub="km/h" />
+      <Stat icon="hp" label="HP" value={`${hpPct}%`} tone={hpPct < 35 ? 'bad' : hpPct < 70 ? 'warn' : undefined} />
+      <Stat icon="check" label="RDY" value={`${readiness}%`} tone={readiness < 70 ? 'warn' : undefined} />
+      <Stat icon="forces" label="EFF" value={`${efficiency}%`} tone={efficiency < 100 ? 'warn' : undefined} />
+    </div>
+  );
+  const hpBar = (
+    <div className={`hpbar${hpPct < 35 ? ' bad' : hpPct < 70 ? ' warn' : ''}`} role="img" aria-label={`Strength ${hpPct}%`}>
+      <span style={{ width: `${hpPct}%` }} />
+    </div>
+  );
+
+  const details = (
+    <dl className="kv">
+      <dt>Position</dt>
+      <dd data-testid="stack-position">{position}</dd>
+      <dt>Terrain</dt>
+      <dd>{node !== null ? TERRAIN_LABEL[NODES[node].terrain] : '—'}</dd>
+      <dt>Strength (HP)</dt>
+      <dd>{hpPct}%</dd>
+      <dt>Readiness</dt>
+      <dd>{readiness}%{readiness < 70 ? ' (not ready)' : ''}</dd>
+      <dt>Supply</dt>
+      <dd>{cap(s.supply)}</dd>
+      <dt>Speed</dt>
+      <dd>{stackSpeed(s)} km/h (slowest unit)</dd>
+      <dt>Stack efficiency</dt>
+      <dd>
+        {efficiency}% {s.units.length > 10 ? '(overstacked)' : '(group size OK)'}
+      </dd>
+      <dt>Fire control</dt>
+      <dd>{s.firePolicy === 'hold' ? 'Hold unless ordered' : s.firePolicy === 'return_fire' ? 'Return fire' : 'Engage eligible contacts'}</dd>
+      {s.engagement && (
+        <>
+          <dt>Engagement</dt>
+          <dd className="bad">In combat</dd>
+        </>
+      )}
+      {s.refit && (
+        <>
+          <dt>Maintenance</dt>
+          <dd>Refitting (half strength)</dd>
+        </>
+      )}
+    </dl>
+  );
+
+  const activity = (
+    <div className="sect" data-testid="active-order">
+      <h4>Present activity</h4>
+      {order ? (
+        <div className="card activity">
+          {order.kind === 'move' ? (
             <>
-              <dt>Engagement</dt>
-              <dd className="bad">In combat</dd>
+              <div>
+                <Icon name="move" size={15} /> Moving to <strong>{placeName(order.dest)}</strong>
+                {order.waypoints.length ? ` via ${order.waypoints.map(placeName).join(', ')}` : ''}
+              </div>
+              <dl className="kv" style={{ marginTop: 4 }}>
+                <dt>Remaining duration</dt>
+                <dd>{duration(remaining)}</dd>
+                <dt>Arrival time</dt>
+                <dd>{s.eta ? gameTime(s.eta) : '—'}</dd>
+                <dt>Issued</dt>
+                <dd>{gameTime(order.issuedAt)}</dd>
+                {order.warConfirmed.length > 0 && (
+                  <>
+                    <dt>War accepted with</dt>
+                    <dd className="bad">{order.warConfirmed.map(countryName).join(', ')}</dd>
+                  </>
+                )}
+              </dl>
             </>
-          )}
-          {s.refit && (
-            <>
-              <dt>Maintenance</dt>
-              <dd>Refitting (half strength)</dd>
-            </>
-          )}
-        </dl>
-      </div>
-      <div className="sect" data-testid="active-order">
-        <h4>Present activity</h4>
-        {order ? (
-          <div className="card">
-            {order.kind === 'move' ? (
-              <>
-                <div>
-                  Moving to <strong>{placeName(order.dest)}</strong>
-                  {order.waypoints.length ? ` via ${order.waypoints.map(placeName).join(', ')}` : ''}
-                </div>
-                <dl className="kv" style={{ marginTop: 4 }}>
-                  <dt>Remaining duration</dt>
-                  <dd>{duration(remaining)}</dd>
-                  <dt>Arrival time</dt>
-                  <dd>{s.eta ? gameTime(s.eta) : '—'}</dd>
-                  <dt>Issued</dt>
-                  <dd>{gameTime(order.issuedAt)}</dd>
-                  {order.warConfirmed.length > 0 && (
-                    <>
-                      <dt>War accepted with</dt>
-                      <dd className="bad">{order.warConfirmed.map(countryName).join(', ')}</dd>
-                    </>
-                  )}
-                </dl>
-              </>
-            ) : (
-              <div>Attack order {order.targetNode !== null ? `on ${placeName(order.targetNode)}` : 'on a contact'}</div>
-            )}
-          </div>
-        ) : (
-          <p className="muted" style={{ margin: 0 }}>{s.air && s.air.state !== 'landed' ? `Air mission in progress (${s.air.state.replace('_', ' ')}) — see Aircraft below.` : 'Holding position — no orders.'}</p>
-        )}
-        {s.air && <AircraftPanel s={s} />}
-      </div>
-      <div className="sect">
-        <h4>Authorized actions</h4>
-        <div className="actions">
-          {!isAir && (
-            <ActionButton className="btn primary" disabledReason={ro ? 'Read-only campaign' : null} onClick={() => ui.patch({ mode: { kind: 'move', stacks: [s.id], waypoints: [], dest: null } })} data-testid="action-move">
-              Move…
-            </ActionButton>
-          )}
-          {!isAir && (
-            <ActionButton disabledReason={ro ? 'Read-only campaign' : s.pos.kind === 'air' ? 'Airborne.' : null} onClick={() => setDlg('attack')} data-testid="action-attack">
-              Attack…
-            </ActionButton>
-          )}
-          {isAir && (
-            <ActionButton className="btn primary" disabledReason={ro ? 'Read-only campaign' : airReason(s, ['landed', 'on_station'])} onClick={() => setDlg('patrol')} data-testid="action-patrol">
-              Patrol…
-            </ActionButton>
-          )}
-          {isAir && (
-            <ActionButton disabledReason={ro ? 'Read-only campaign' : airReason(s, ['landed'])} onClick={() => setDlg('rebase')} data-testid="action-rebase">
-              Rebase / ferry…
-            </ActionButton>
-          )}
-          <ActionButton disabledReason={ro ? 'Read-only campaign' : !order && !(isAir && s.air?.state === 'on_station') ? 'No active order to stop.' : null} onClick={() => exec({ type: 'stop', stack: s.id }, `${s.name}: orders cancelled.`)} data-testid="action-stop">
-            {isAir && s.air?.state === 'on_station' ? 'Return to base' : 'Stop'}
-          </ActionButton>
-          {!isAir && (
-            <ActionButton disabledReason={ro ? 'Read-only campaign' : !order ? 'No active order to delay.' : null} onClick={() => setDlg('delay')} data-testid="action-delay">
-              Delay…
-            </ActionButton>
-          )}
-          {s.moveClass === 'ground' && (
-            <ActionButton disabledReason={ro ? 'Read-only campaign' : s.pos.kind !== 'node' ? 'Only from a province or sea zone.' : node !== null && NODES[node].kind === 'land' && !NODES[node].coastal ? 'Embarking requires a coastal province.' : null} onClick={() => setDlg('embark')} data-testid="action-embark">
-              {node !== null && NODES[node].kind === 'sea' ? 'Disembark…' : 'Embark…'}
-            </ActionButton>
-          )}
-          {!isAir && (
-            <ActionButton disabledReason={ro ? 'Read-only campaign' : s.pos.kind !== 'node' ? 'Retreat is possible only while engaged at a province.' : null} onClick={() => setDlg('retreat')} data-testid="action-retreat">
-              Retreat…
-            </ActionButton>
-          )}
-          <ActionButton disabledReason={ro ? 'Read-only campaign' : s.units.length < 2 ? 'A single unit cannot be split.' : s.pos.kind !== 'node' ? 'Split only at a province or sea zone.' : null} onClick={() => setSplit(true)}>
-            Split…
-          </ActionButton>
-          <ActionButton disabledReason={ro ? 'Read-only campaign' : colocated.length === 0 ? 'No other friendly formation of the same domain here.' : null} onClick={() => exec({ type: 'merge', stacks: [s.id, ...colocated.map((c) => c.id)] }, `Merged ${colocated.length + 1} formations.`)}>
-            Merge here ({colocated.length})
-          </ActionButton>
-          <ActionButton disabledReason={ro ? 'Read-only campaign' : null} onClick={() => exec({ type: 'setRefit', stack: s.id, refit: !s.refit }, s.refit ? 'Refit ended.' : 'Refit started.')}>
-            {s.refit ? 'End refit' : 'Refit'}
-          </ActionButton>
-          {canLaunch && (
-            <ActionButton disabledReason={ro ? 'Read-only campaign' : null} onClick={() => setDlg('launch')} data-testid="action-launch">
-              Launch missile…
-            </ActionButton>
+          ) : (
+            <div>
+              <Icon name="attack" size={15} /> Attack order {order.targetNode !== null ? `on ${placeName(order.targetNode)}` : 'on a contact'}
+            </div>
           )}
         </div>
-        {v.stacks.length > 1 && (
-          <div className="row" style={{ marginTop: 6 }}>
-            <button type="button" className="btn small" onClick={() => cycle('stack', -1)} aria-label="Previous formation">
-              ← Prev formation
-            </button>
-            <button type="button" className="btn small" onClick={() => cycle('stack', 1)} aria-label="Next formation">
-              Next formation →
-            </button>
+      ) : (
+        <p className="muted idle-line" style={{ margin: 0 }}>
+          {s.air && s.air.state !== 'landed' ? `Air mission in progress (${s.air.state.replace('_', ' ')}) — see Aircraft below.` : `Holding position at ${position} — no orders.`}
+        </p>
+      )}
+      {s.air && <AircraftPanel s={s} />}
+    </div>
+  );
+
+  const units = (
+    <div className="sect">
+      <h4>Units ({s.units.length})</h4>
+      <ul className="unit-list">
+        {[...counts.entries()].map(([t, c]) => {
+          const ut = unitById.get(t);
+          const hp = Math.round((c.hp / Math.max(1, c.mx)) * 100);
+          return (
+            <li key={t}>
+              <span className="ul-ico" aria-hidden>
+                <Icon name={familyIcon(ut?.family)} size={20} />
+              </span>
+              <span className="ul-main">
+                <button type="button" className="linkish" onClick={() => openPanel('dossier', { unit: t, stack: s.id })} aria-label={`Open dossier for ${ut?.name ?? t}`}>
+                  {ut?.name ?? t}
+                </button>
+                <span className="ul-meta">
+                  Level {c.lvl} · {hp}% HP · {Math.round(c.ready / c.n)}% ready
+                </span>
+                <span className={`mini-hp${hp < 35 ? ' bad' : hp < 70 ? ' warn' : ''}`} aria-hidden>
+                  <span style={{ width: `${hp}%` }} />
+                </span>
+              </span>
+              <span className="ul-n">×{c.n}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+
+  const nav = v.stacks.length > 1 && (
+    <div className="row nav-pair">
+      <button type="button" className="btn small" onClick={() => cycle('stack', -1)} aria-label="Previous formation" title="Previous formation (←)">
+        <Icon name="chevron-left" size={14} /> Prev
+      </button>
+      <button type="button" className="btn small" onClick={() => cycle('stack', 1)} aria-label="Next formation" title="Next formation (→)">
+        Next <Icon name="chevron-right" size={14} />
+      </button>
+    </div>
+  );
+
+  const fire = (
+    <label className="row fire-ctl" style={{ gap: 6, fontSize: 13 }}>
+      Fire control
+      <select value={s.firePolicy} disabled={ro} onChange={(e) => exec({ type: 'setFirePolicy', stack: s.id, policy: e.target.value as 'hold' | 'return_fire' | 'engage' })}>
+        <option value="hold">Hold unless ordered</option>
+        <option value="return_fire">Return fire</option>
+        <option value="engage">Engage eligible contacts</option>
+      </select>
+    </label>
+  );
+
+  const deployCard = deployables.length > 0 && (
+    <div className="card" data-testid="deployables">
+      <strong>Deployables</strong>
+      {deployables.map((u) => {
+        const ut = unitById.get(u.type)!;
+        const cd = u.cooldownUntil && u.cooldownUntil > v.tick ? u.cooldownUntil : null;
+        return (
+          <div key={u.id} className="row wrap" style={{ marginTop: 4 }}>
+            <span className="grow">
+              {ut.name} · {u.uses ?? 0} use(s) left{cd ? ` · cooldown until ${gameTime(cd)}` : ' · ready'}
+            </span>
+            <ActionButton className="btn small" disabledReason={RO ?? ((u.uses ?? 0) <= 0 ? 'No uses remaining.' : cd ? `On cooldown until ${gameTime(cd)}.` : null)} onClick={() => setDeploy(u.id)}>
+              Use…
+            </ActionButton>
           </div>
-        )}
-        {deployables.length > 0 && (
-          <div className="card" data-testid="deployables">
-            <strong>Deployables</strong>
-            {deployables.map((u) => {
-              const ut = unitById.get(u.type)!;
-              const cd = u.cooldownUntil && u.cooldownUntil > v.tick ? u.cooldownUntil : null;
-              return (
-                <div key={u.id} className="row wrap" style={{ marginTop: 4 }}>
-                  <span className="grow">
-                    {ut.name} · {u.uses ?? 0} use(s) left{cd ? ` · cooldown until ${gameTime(cd)}` : ' · ready'}
-                  </span>
-                  <ActionButton className="btn small" disabledReason={ro ? 'Read-only campaign' : (u.uses ?? 0) <= 0 ? 'No uses remaining.' : cd ? `On cooldown until ${gameTime(cd)}.` : null} onClick={() => setDeploy(u.id)}>
-                    Use…
-                  </ActionButton>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        <label className="row" style={{ gap: 6, fontSize: 13 }}>
-          Fire control
-          <select value={s.firePolicy} disabled={ro} onChange={(e) => exec({ type: 'setFirePolicy', stack: s.id, policy: e.target.value as 'hold' | 'return_fire' | 'engage' })}>
-            <option value="hold">Hold unless ordered</option>
-            <option value="return_fire">Return fire</option>
-            <option value="engage">Engage eligible contacts</option>
-          </select>
-        </label>
-      </div>
-      <div className="sect">
-        <h4>Units ({s.units.length})</h4>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Unit</th>
-              <th className="num">#</th>
-              <th className="num">HP</th>
-              <th className="num">Rdy</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...counts.entries()].map(([t, c]) => (
-              <tr key={t}>
-                <td>
-                  <button type="button" className="btn ghost small" style={{ padding: 0, minHeight: 0, textAlign: 'left' }} onClick={() => openPanel('dossier', { unit: t, stack: s.id })} aria-label={`Open dossier for ${unitById.get(t)?.name ?? t}`}>
-                    {unitById.get(t)?.name ?? t}
-                  </button>
-                  <div className="muted" style={{ fontSize: 11 }}>Level {c.lvl}</div>
-                </td>
-                <td className="num">{c.n}</td>
-                <td className="num">{Math.round((c.hp / Math.max(1, c.mx)) * 100)}%</td>
-                <td className="num">{Math.round(c.ready / c.n)}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        );
+      })}
+    </div>
+  );
+
+  const dialogs = (
+    <>
       {split && <SplitDialog s={s} onClose={() => setSplit(false)} />}
       {dlg === 'attack' && <AttackDialog s={s} onClose={() => setDlg(null)} />}
       {dlg === 'patrol' && <PatrolDialog s={s} onClose={() => setDlg(null)} />}
@@ -395,6 +488,97 @@ export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame:
       {dlg === 'retreat' && <RetreatDialog s={s} onClose={() => setDlg(null)} />}
       {dlg === 'launch' && <LaunchDialog onClose={() => setDlg(null)} />}
       {deploy && <DeployableDialog s={s} unitId={deploy} onClose={() => setDeploy(null)} />}
+    </>
+  );
+
+  const owner = (
+    <div className="u-owner">
+      <FlagChip id={v.viewer} />
+      <span>{v.self.name} · friendly {domainWord} formation</span>
+    </div>
+  );
+
+  if (layout === 'dock') {
+    return (
+      <section className="unit-dock" aria-label="Selected formation" data-testid="inspector">
+        <div className="ud-actions" role="toolbar" aria-label="Orders">
+          {primary}
+          {secondary}
+        </div>
+        <div className="ud-card">
+          <div className="ud-artcol">
+            <div className="ud-art">
+              <UnitArt family={fam} size={150} />
+              <span className="ud-sym">
+                <Sym sidc={o.sidc} size={24} label={o.aria} />
+              </span>
+              <span className="ud-count">×{s.units.length}</span>
+            </div>
+            {nav}
+          </div>
+          <div className="ud-main">
+            <div className="ud-head">
+              <div className="grow" style={{ minWidth: 0 }}>
+                <h2 data-testid="inspector-title" title={s.name}>{s.name}</h2>
+                {owner}
+              </div>
+            </div>
+            {hpBar}
+            {stats}
+            <div className="ud-pos">
+              <Icon name="locate" size={14} /> {position}
+              {node !== null && <span className="muted"> · {TERRAIN_LABEL[NODES[node].terrain]}</span>}
+              <span className="muted"> · supply {s.supply}</span>
+              {s.engagement && <span className="tag bad">In combat</span>}
+              {s.refit && <span className="tag warn">Refitting</span>}
+            </div>
+            {fire}
+            <details className="ud-more" open={more} onToggle={(e) => setMore((e.target as HTMLDetailsElement).open)}>
+              <summary>Full details</summary>
+              {details}
+            </details>
+            {deployCard}
+          </div>
+          <div className="ud-side">
+            {activity}
+            {units}
+          </div>
+          <button type="button" className="round-btn sm ud-close" aria-label="Clear selection" title="Clear selection (Esc)" onClick={() => select(null)}>
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+        {dialogs}
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <div className="sect unit-hero">
+        <div className="uh-art">
+          <UnitArt family={fam} size={96} />
+          <span className="ud-count">×{s.units.length}</span>
+        </div>
+        <div className="grow" style={{ minWidth: 0 }}>
+          {owner}
+          {hpBar}
+        </div>
+      </div>
+      {stats}
+      <div className="sect">{details}</div>
+      {activity}
+      <div className="sect">
+        <h4>Authorized actions</h4>
+        <div className="actions">
+          {primary}
+          {secondary}
+        </div>
+        {nav}
+        {deployCard}
+        {fire}
+      </div>
+      {units}
+      {dialogs}
     </>
   );
 }

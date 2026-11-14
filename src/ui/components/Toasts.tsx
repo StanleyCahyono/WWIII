@@ -5,6 +5,7 @@ import { humanizeIds } from '../eventText';
 import { getHost } from '../sim/host';
 import { NODES, cityByNode } from '../data/static';
 import { Modal } from './common';
+import { Icon } from '../icons';
 
 function jump(node: number | null) {
   if (node === null || !NODES[node]) return;
@@ -28,6 +29,9 @@ export function Toasts() {
     <div className="toasts" role="log" aria-live="polite" aria-label="Notifications" data-testid="toasts">
       {toasts.map((t) => (
         <div key={t.id} className={`toast ${t.level}`}>
+          <span className="toast-ico" aria-hidden>
+            <Icon name={t.level === 'alert' ? 'alert' : t.level === 'success' ? 'check' : t.level === 'warn' ? 'sword' : 'bell'} size={16} />
+          </span>
           <div className="grow">{t.text}</div>
           {t.action && (
             <button type="button" className="btn small" onClick={() => { openPanel(t.action!.panel); dismissToast(t.id); }}>
@@ -40,7 +44,7 @@ export function Toasts() {
             </button>
           )}
           <button type="button" className="btn ghost small" onClick={() => dismissToast(t.id)} aria-label="Dismiss notification">
-            ✕
+            <Icon name="close" size={14} />
           </button>
         </div>
       ))}

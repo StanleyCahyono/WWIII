@@ -4,6 +4,8 @@ import { ui, centerOn, select, closePanel } from '../state/ui';
 import { NODES, cityByNode, countryName } from '../data/static';
 import { gameTime, cap } from '../format';
 import { leaveToTitle } from '../session';
+import { Icon } from '../icons';
+import { Progress } from './panelKit';
 
 interface Entry { id: string; kind: string; members: string[]; score: number; threshold: number; fraction: number; capitals: number; industry: number }
 interface Breakdown {
@@ -28,11 +30,13 @@ function entryName(e: Entry, frame: ReturnType<typeof useFrame>) {
 
 function Spark({ data }: { data: number[] }) {
   if (data.length < 2) return <span className="muted">History starts after the first day change.</span>;
-  const w = 320, h = 70, mx = Math.max(...data, 1);
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / mx) * (h - 6) - 3}`).join(' ');
+  const w = 480, h = 90, mx = Math.max(...data, 1);
+  const xy = data.map((v, i) => [(i / (data.length - 1)) * w, h - (v / mx) * (h - 10) - 4] as const);
+  const pts = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   return (
-    <svg width={w} height={h} role="img" aria-label={`Score history: ${data.join(', ')}`}>
-      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth={2} />
+    <svg className="p-sparksvg" viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" role="img" aria-label={`Score history: ${data.join(', ')}`}>
+      <polygon points={`0,${h} ${pts} ${w},${h}`} className="p-spark-area" />
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth={2} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -44,33 +48,43 @@ export function ScorePanel() {
   if (!b) return <p className="muted">Loading…</p>;
   const target = b.myEntry?.threshold ?? b.thresholds.solo;
   return (
-    <div className="col" data-testid="score-panel">
-      <div className="row wrap" style={{ gap: 12 }}>
-        <div className="card">
-          <h4>Your score</h4>
-          <div style={{ fontSize: 22 }}>
-            {b.myEntry?.score ?? b.mine} / {target} VP
+    <div className="col p-root" data-testid="score-panel">
+      <div className="p-tiles">
+        <div className="card p-tile accent p-scoretile">
+          <span className="p-tile-ico"><Icon name="score" size={24} /></span>
+          <div className="p-tile-body">
+            <h4>Your score</h4>
+            <div className="p-tile-v">
+              {b.myEntry?.score ?? b.mine} / {target} VP
+            </div>
+            <Progress value={b.myEntry?.fraction ?? 0} tone="accent" label={`${Math.round((b.myEntry?.fraction ?? 0) * 100)}% of the victory threshold`} />
+            <div className="p-tile-sub">{b.myEntry?.kind === 'coalition' ? 'Competing as a coalition' : 'Competing solo'} · {Math.round((b.myEntry?.fraction ?? 0) * 100)}% of threshold</div>
           </div>
-          <div className="muted" style={{ fontSize: 12 }}>{b.myEntry?.kind === 'coalition' ? 'Competing as a coalition' : 'Competing solo'} · {Math.round((b.myEntry?.fraction ?? 0) * 100)}% of threshold</div>
         </div>
-        <div className="card">
-          <h4>Next settlement</h4>
-          <div>{gameTime(b.nextSettlementTick)}</div>
-          <div className="muted" style={{ fontSize: 12 }}>One settlement at each day change; day 180 decides by highest fraction</div>
+        <div className="card p-tile">
+          <span className="p-tile-ico"><Icon name="clock" size={24} /></span>
+          <div className="p-tile-body">
+            <h4>Next settlement</h4>
+            <div style={{ fontWeight: 700 }}>{gameTime(b.nextSettlementTick)}</div>
+            <div className="p-tile-sub">One settlement at each day change; day 180 decides by highest fraction</div>
+          </div>
         </div>
-        <div className="card">
-          <h4>Rule</h4>
-          <div style={{ fontSize: 12.5 }}>
-            Province centre {b.weights.provinceCenter} · city {b.weights.cityTier} · capital +{b.weights.capital}. Denominator {b.denominator}. Solo {b.thresholds.solo}; coalition 2: {b.thresholds['2']}, 3: {b.thresholds['3']}, 4: {b.thresholds['4']}, 5: {b.thresholds['5']}.
+        <div className="card p-tile">
+          <span className="p-tile-ico"><Icon name="flag" size={24} /></span>
+          <div className="p-tile-body">
+            <h4>Rule</h4>
+            <div style={{ fontSize: 12.5 }}>
+              Province centre {b.weights.provinceCenter} · city {b.weights.cityTier} · capital +{b.weights.capital}. Denominator {b.denominator}. Solo {b.thresholds.solo}; coalition 2: {b.thresholds['2']}, 3: {b.thresholds['3']}, 4: {b.thresholds['4']}, 5: {b.thresholds['5']}.
+            </div>
           </div>
         </div>
       </div>
-      <div className="card">
+      <div className="card p-spark">
         <h4>Score history</h4>
         <Spark data={b.history.map((h) => h.mine)} />
       </div>
-      <h3>Standings</h3>
-      <table className="data" data-testid="standings">
+      <h3 className="p-h3"><Icon name="score" size={18} /> Standings</h3>
+      <table className="data p-standings" data-testid="standings">
         <thead>
           <tr>
             <th className="num">#</th>
@@ -96,7 +110,7 @@ export function ScorePanel() {
               </td>
               <td className="num">{e.score}</td>
               <td className="num">{e.threshold}</td>
-              <td className="num">{Math.round(e.fraction * 100)}%</td>
+              <td className="num"><span className="p-rd"><Progress value={e.fraction} tone={e.members.includes(frame.view.viewer) ? 'accent' : undefined} label={`${Math.round(e.fraction * 100)}% of threshold`} />{Math.round(e.fraction * 100)}%</span></td>
               <td className="num">{e.capitals}</td>
             </tr>
           ))}

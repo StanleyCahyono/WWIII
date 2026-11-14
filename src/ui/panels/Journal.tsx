@@ -6,6 +6,10 @@ import { NODES, cityByNode, countryName, placeName } from '../data/static';
 import { gameTime, dayOf, hourLabel, relWall, cap } from '../format';
 import { exec } from '../sim/exec';
 import { readableEventText } from '../eventText';
+import { Icon } from '../icons';
+import { IconTabs } from './panelKit';
+
+const CAT_ICON: Record<string, string> = { '': 'journal', economy: 'economy', research: 'research', diplomacy: 'diplomacy', combat: 'sword', intel: 'intel', government: 'flag', system: 'settings' };
 
 interface J { id: string; at: number; kind: string; category: string; node: number | null; text: string; data?: Record<string, unknown>; interrupt: boolean; routine: boolean }
 
@@ -35,20 +39,23 @@ export function JournalPanel() {
   }
   const detail = useQuery<{ id: string; at: number; kind: string; category: string; node: number | null; text: string; data: Record<string, unknown> | null } | null>('eventDetail', [open], { enabled: !!open });
   return (
-    <div className="col" data-testid="journal-panel">
-      <div className="tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === 'journal'} onClick={() => setTab('journal')}>
-          Private journal
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'notifications'} onClick={() => setTab('notifications')}>
-          Notification history ({history.length})
-        </button>
-      </div>
+    <div className="col p-root" data-testid="journal-panel">
+      <IconTabs
+        compact
+        label="Journal views"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { key: 'journal', label: 'Private journal', icon: <Icon name="journal" size={16} /> },
+          { key: 'notifications', label: `Notification history (${history.length})`, icon: <Icon name="bell" size={16} /> },
+        ]}
+      />
       {tab === 'journal' && (
         <>
-          <div className="region-filters" role="group" aria-label="Category filter">
+          <div className="region-filters p-chips" role="group" aria-label="Category filter">
             {['', 'economy', 'research', 'diplomacy', 'combat', 'intel', 'government', 'system'].map((c) => (
               <button key={c || 'all'} type="button" aria-pressed={cat === c} onClick={() => setCat(c)} data-testid={`journal-filter-${c || 'all'}`}>
+                <Icon name={CAT_ICON[c] ?? 'journal'} size={14} />
                 {c ? cap(c) : 'All'}
               </button>
             ))}
@@ -56,13 +63,14 @@ export function JournalPanel() {
           {!q.data && <p className="muted">Loading…</p>}
           {q.data && rows.length === 0 && <div className="empty">No events{cat ? ` in ${cat}` : ''} yet.</div>}
           {[...groups.entries()].map(([d, list]) => (
-            <section key={d} aria-label={`Day ${d}`}>
-              <h4>Day {d}</h4>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <section key={d} aria-label={`Day ${d}`} className="p-jday">
+              <h4 className="p-jday-h"><span>Day {d}</span></h4>
+              <ul className="p-jlist">
                 {list.map((e) => (
-                  <li key={e.id} style={{ borderBottom: '1px solid var(--line)', padding: '4px 0' }}>
+                  <li key={e.id} className={`p-jrow cat-${e.category}`}>
                     <div className="row" style={{ alignItems: 'flex-start' }}>
-                      <span className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 12, minWidth: 44 }}>{hourLabel(e.at)}</span>
+                      <span className="p-jtime">{hourLabel(e.at)}</span>
+                      <span className="p-jcat" aria-hidden="true"><Icon name={CAT_ICON[e.category] ?? 'journal'} size={16} /></span>
                       <span className="tag">{e.category}</span>
                       <button type="button" className="btn ghost small grow" style={{ justifyContent: 'flex-start', textAlign: 'left', whiteSpace: 'normal', minHeight: 0 }} aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>
                         {readableEventText(e, frame)}
@@ -74,7 +82,7 @@ export function JournalPanel() {
                       )}
                     </div>
                     {open === e.id && (
-                      <div className="card" style={{ marginTop: 4 }}>
+                      <div className="card p-jdetail">
                         <dl className="kv">
                           <dt>Recorded</dt>
                           <dd>{gameTime(e.at)}</dd>
@@ -103,10 +111,10 @@ export function JournalPanel() {
         (history.length === 0 ? (
           <div className="empty">No notifications this session.</div>
         ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          <ul className="p-jlist">
             {history.map((t) => (
-              <li key={t.id + t.at} className="row" style={{ borderBottom: '1px solid var(--line)', padding: '4px 0' }}>
-                <span className="muted" style={{ fontSize: 12, minWidth: 80 }}>{relWall(t.at)}</span>
+              <li key={t.id + t.at} className="row p-jrow">
+                <span className="p-jtime" style={{ minWidth: 80 }}>{relWall(t.at)}</span>
                 <span className="grow">{t.text}</span>
                 {t.node !== null && (
                   <button type="button" className="btn small" onClick={() => goto(t.node)}>
@@ -131,13 +139,15 @@ export function NewsPanel() {
   const [compose, setCompose] = useState({ headline: '', body: '', anonymous: false });
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   return (
-    <div className="row" style={{ alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }} data-testid="news-panel">
-      <div className="col" style={{ flex: '2 1 460px', minWidth: 0 }}>
-        <div className="row">
+    <div className="p-root p-news" data-testid="news-panel">
+      <div className="col p-paper" style={{ minWidth: 0 }}>
+        <div className="row p-masthead">
           <button type="button" className="btn small" onClick={() => setDay((d) => Math.max(1, d - 1))} disabled={day <= 1} aria-label="Previous edition">
             ← Previous
           </button>
-          <h3 style={{ flex: 1, textAlign: 'center' }}>The World 120 Dispatch — Day {day}</h3>
+          <h3 style={{ flex: 1, textAlign: 'center' }}>
+            <span className="p-mast-title">The World 120 Dispatch</span> — Day {day}
+          </h3>
           <button type="button" className="btn small" onClick={() => setDay((d) => Math.min(today, d + 1))} disabled={day >= today} aria-label="Next edition" title={day >= today ? 'Future editions do not exist yet.' : undefined}>
             Next →
           </button>
@@ -148,28 +158,28 @@ export function NewsPanel() {
           <>
             {q.data.items.length === 0 && q.data.articles.length === 0 && <div className="empty">A quiet day: no public events reported.</div>}
             {q.data.articles.map((a) => (
-              <article key={a.id} className="card">
-                <h4 style={{ textTransform: 'none', fontSize: 15, color: 'var(--text)' }}>{a.headline}</h4>
+              <article key={a.id} className="card p-article">
+                <h4 style={{ textTransform: 'none', fontSize: 17, color: 'var(--text)', letterSpacing: 0 }}>{a.headline}</h4>
                 <div className="muted" style={{ fontSize: 12 }}>
                   {a.author ? `By ${countryName(a.author)}` : 'Anonymous statement'} · {gameTime(a.at)}
                 </div>
                 <p style={{ whiteSpace: 'pre-wrap', margin: '6px 0 0' }}>{a.body}</p>
               </article>
             ))}
-            <ul style={{ paddingLeft: 18 }}>
+            <ul className="p-dispatches">
               {q.data.items.map((it) => (
-                <li key={it.id} style={{ marginBottom: 4 }}>
-                  <span className="muted" style={{ fontSize: 12 }}>{hourLabel(it.at)} · {it.countries.map(countryName).join(', ')}</span>
-                  <div>{it.headline}</div>
+                <li key={it.id}>
+                  <span className="muted" style={{ fontSize: 11.5 }}>{hourLabel(it.at)} · {it.countries.map(countryName).join(', ')}</span>
+                  <div className="p-dispatch-h">{it.headline}</div>
                 </li>
               ))}
             </ul>
           </>
         )}
       </div>
-      <div className="col" style={{ flex: '1 1 260px' }}>
-        <div className="card">
-          <h4>Nation index</h4>
+      <div className="col" style={{ minWidth: 0 }}>
+        <div className="card p-index">
+          <h4><Icon name="score" size={15} /> Nation index</h4>
           <table className="data">
             <tbody>
               {(q.data?.index ?? []).slice(0, 20).map((r) => (
@@ -182,7 +192,7 @@ export function NewsPanel() {
             </tbody>
           </table>
         </div>
-        <form className="card col" onSubmit={(e) => e.preventDefault()} aria-label="Publish a statement">
+        <form className="p-card" onSubmit={(e) => e.preventDefault()} aria-label="Publish a statement">
           <h4>Publish a statement</h4>
           <label className="field">
             Headline

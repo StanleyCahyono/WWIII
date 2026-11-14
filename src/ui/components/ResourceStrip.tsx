@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useFrame, useQuery } from './common';
+import { useFrame, useQuery, useIsMobile } from './common';
+import { Icon, RESOURCE_ICON } from '../icons';
 import { ui, openPanel } from '../state/ui';
 import { useStore } from '../state/store';
 import { RESOURCE_LABEL, RESOURCE_SHORT } from '../data/static';
@@ -26,7 +27,7 @@ interface RS {
 export function ResourceDetail({ r }: { r: RS }) {
   return (
     <div className="col" style={{ gap: 4 }}>
-      <strong>{RESOURCE_LABEL[r.resource]}</strong>
+      <strong className="row" style={{ gap: 6 }}><Icon name={RESOURCE_ICON[r.resource]} size={18} />{RESOURCE_LABEL[r.resource]}</strong>
       <dl className="kv">
         <dt>On hand</dt>
         <dd>{num(milli(r.onHand))}</dd>
@@ -110,8 +111,10 @@ export function ShortageLedger({ resource, onClose }: { resource: Resource; onCl
 export function ResourceStrip({ open }: { open: boolean }) {
   const frame = useFrame()!;
   const ledgerOpen = useStore(ui, (s) => s.ledgerOpen);
+  const panel = useStore(ui, (s) => s.panel);
   const [tip, setTip] = useState<{ r: RS; x: number; y: number } | null>(null);
   const res = frame.view.self.resources as RS[];
+  const isMobile = useIsMobile();
   return (
     <>
       <div className={`resstrip${open ? ' open' : ''}`} role="toolbar" aria-label="Resources (stock and net change per day)" data-testid="resource-strip">
@@ -120,7 +123,7 @@ export function ResourceStrip({ open }: { open: boolean }) {
           const neg = r.negativeNet;
           const label = `${RESOURCE_LABEL[r.resource]}: ${num(milli(r.spendable))} spendable, net ${signed(milli(r.netPerDay))} per day${short ? ', shortage' : neg ? ', negative net' : ''}. Open market.`;
           return (
-            <span key={r.resource} style={{ display: 'flex' }}>
+            <span key={r.resource} className="res-wrap">
               <button
                 type="button"
                 className={`res${short ? ' short' : neg ? ' negative' : ''}`}
@@ -133,30 +136,38 @@ export function ResourceStrip({ open }: { open: boolean }) {
                 onClick={() => openPanel('market', r.resource)}
                 data-testid={`res-${r.resource}`}
               >
-                <span className="rlabel">{RESOURCE_SHORT[r.resource]}</span>
-                <span className="rstock">{num(milli(r.spendable))}</span>
-                <span className={`rnet ${r.netPerDay < 0 ? 'bad' : 'ok'}`}>
-                  {signed(milli(r.netPerDay))}/d
+                <Icon name={RESOURCE_ICON[r.resource]} size={24} className="ricon" />
+                <span className="rnums">
+                  <span className="rstock">{num(milli(r.spendable))}</span>
+                  <span className={`rnet ${r.netPerDay < 0 ? 'bad' : 'ok'}`}>{signed(milli(r.netPerDay))}/d</span>
                 </span>
+                <span className="rlabel sr-only">{RESOURCE_SHORT[r.resource]}</span>
                 {short && <span className="tag bad" aria-hidden>short</span>}
-                {open && <span className="muted" style={{ fontSize: 11 }}>gross +{num(milli(r.grossPerDay))} · use −{num(milli(r.consumptionPerDay))}</span>}
+                {open && <span className="rgross">gross +{num(milli(r.grossPerDay))} · use −{num(milli(r.consumptionPerDay))}</span>}
               </button>
               {(short || neg) && (
-                <button type="button" className="res" aria-expanded={ledgerOpen === r.resource} aria-label={`Expand ${RESOURCE_LABEL[r.resource]} ledger row: users by city and time until depletion`} onClick={() => ui.patch({ ledgerOpen: ledgerOpen === r.resource ? null : r.resource })} data-testid={`ledger-${r.resource}`}>
-                  ▾
+                <button type="button" className="res-ledger" aria-expanded={ledgerOpen === r.resource} aria-label={`Expand ${RESOURCE_LABEL[r.resource]} ledger row: users by city and time until depletion`} onClick={() => ui.patch({ ledgerOpen: ledgerOpen === r.resource ? null : r.resource })} data-testid={`ledger-${r.resource}`}>
+                  <Icon name="chevron-down" size={14} />
                 </button>
               )}
             </span>
           );
         })}
+        {!isMobile && (
+          <button type="button" className={`market-tab${panel === 'market' ? ' on' : ''}`} onClick={() => openPanel('market')} aria-current={panel === 'market' ? 'page' : undefined} title="Market (M)" data-testid="rail-market">
+            <Icon name="market" size={14} />
+            {panel === 'market' ? 'Market open' : 'Show market'}
+            <Icon name="chevron-down" size={12} />
+          </button>
+        )}
       </div>
       {ledgerOpen && (
-        <div style={{ position: 'fixed', top: 'calc(var(--top-h) + var(--strip-h))', left: 'var(--rail-w)', zIndex: 55, width: 640, maxWidth: '100%' }}>
+        <div className="ledger-pop">
           <ShortageLedger resource={ledgerOpen as Resource} onClose={() => ui.patch({ ledgerOpen: null })} />
         </div>
       )}
       {tip && (
-        <div className="res-tip" id="res-tip" role="tooltip" style={{ left: Math.min(tip.x, window.innerWidth - 310), top: tip.y + 4 }}>
+        <div className="res-tip" id="res-tip" role="tooltip" style={{ left: Math.max(8, Math.min(tip.x, window.innerWidth - 310)), top: tip.y + 6 }}>
           <ResourceDetail r={tip.r} />
           <div className="muted" style={{ marginTop: 4 }}>Click: open market with this good</div>
         </div>

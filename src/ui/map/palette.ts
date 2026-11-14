@@ -23,30 +23,49 @@ export interface Theme {
   routeBad: string;
   select: string;
   self: string;
+  /** Own-nation glow / rim and label colours. */
+  selfGlow: string;
+  selfLabel: string;
+  /** Foreign country names (regional zoom) and foreign city names. */
+  countryText: string;
+  cityText: string;
+  /** Count pills / game counters by affiliation. */
+  unitFriend: string;
+  unitHostile: string;
+  unitNeutral: string;
+  unitUnknown: string;
   pattern: string;
 }
 
 export const THEMES: Record<'dark' | 'light', Theme> = {
   dark: {
     name: 'dark',
-    ocean: '#0d1520',
-    oceanDeep: '#0a111a',
-    land: '#283039',
-    outside: '#252a30',
-    border: '#7d8896',
-    provBorder: 'rgba(160,172,186,0.22)',
-    seaBorder: 'rgba(120,150,180,0.12)',
-    coast: '#5f6f82',
-    text: '#d9e0e8',
+    ocean: '#0b1722',
+    oceanDeep: '#08111a',
+    land: '#262d33',
+    outside: '#20252a',
+    border: '#8a96a3',
+    provBorder: 'rgba(160,172,186,0.18)',
+    seaBorder: 'rgba(120,150,180,0.10)',
+    coast: '#566676',
+    text: '#eef2f5',
     textDim: '#8d99a6',
-    halo: 'rgba(8,12,18,0.85)',
-    graticule: 'rgba(140,160,180,0.08)',
+    halo: 'rgba(6,10,15,0.9)',
+    graticule: 'rgba(140,170,200,0.07)',
     dim: 'rgba(8,12,18,0.28)',
     route: '#e8edf2',
     routeDraft: '#f0c24b',
     routeBad: '#ff6b5e',
-    select: '#ffd21a',
-    self: '#4d86c9',
+    select: '#ffd84a',
+    self: '#1f93b3',
+    selfGlow: '#7fe3ff',
+    selfLabel: '#c9f4ff',
+    countryText: 'rgba(205,214,222,0.62)',
+    cityText: '#c3ccd4',
+    unitFriend: '#1f7fa0',
+    unitHostile: '#b8382c',
+    unitNeutral: '#2f8a4a',
+    unitUnknown: '#a87d12',
     pattern: 'rgba(0,0,0,0.45)',
   },
   light: {
@@ -68,7 +87,15 @@ export const THEMES: Record<'dark' | 'light', Theme> = {
     routeDraft: '#9a6a00',
     routeBad: '#b3261e',
     select: '#c98f00',
-    self: '#86acd9',
+    self: '#5cc0db',
+    selfGlow: '#0a8fb3',
+    selfLabel: '#05485c',
+    countryText: 'rgba(40,50,62,0.62)',
+    cityText: '#2b343d',
+    unitFriend: '#127a99',
+    unitHostile: '#b3261e',
+    unitNeutral: '#2d7a3f',
+    unitUnknown: '#8d6a00',
     pattern: 'rgba(255,255,255,0.55)',
   },
 };
@@ -86,8 +113,8 @@ function hash(s: string): number {
 export function politicalColor(id: string, theme: Theme): string {
   const h = hash(id);
   const hue = (h % 360);
-  const sat = 18 + ((h >>> 9) % 16);
-  const light = theme.name === 'dark' ? 26 + ((h >>> 15) % 10) : 70 + ((h >>> 15) % 12);
+  const sat = 10 + ((h >>> 9) % 14);
+  const light = theme.name === 'dark' ? 22 + ((h >>> 15) % 9) : 74 + ((h >>> 15) % 10);
   return `hsl(${hue} ${sat}% ${light}%)`;
 }
 

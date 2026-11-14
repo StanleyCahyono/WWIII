@@ -14,6 +14,24 @@ import type { Frame } from '../sim/protocol';
 
 export const mapRef: { current: MapRenderer | null } = { current: null };
 
+/** Unit marker style (per device): APP-6 symbols by default (spec), or simplified game counters. */
+type UnitStyle = 'app6' | 'counters';
+const UNIT_STYLE_KEY = 'wc.unitStyle.v1';
+function readUnitStyle(): UnitStyle {
+  try {
+    return localStorage.getItem(UNIT_STYLE_KEY) === 'counters' ? 'counters' : 'app6';
+  } catch {
+    return 'app6';
+  }
+}
+function writeUnitStyle(u: UnitStyle) {
+  try {
+    localStorage.setItem(UNIT_STYLE_KEY, u);
+  } catch {
+    /* storage unavailable: keep for this session only */
+  }
+}
+
 /** Performance harness only (window.__wc.perfInject): synthetic render-only objects, never part of the sim. */
 export const synthetic: { objects: MapObject[] } = { objects: [] };
 
@@ -137,7 +155,7 @@ function FullscreenButton() {
   return (
     <button
       type="button"
-      className="btn icon"
+      className="round-btn"
       aria-label={on ? 'Exit fullscreen' : 'Enter fullscreen'}
       title={on ? 'Exit fullscreen' : 'Fullscreen'}
       aria-pressed={on}
@@ -205,7 +223,8 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     setSymbolReadyCallback(() => r.requestDraw());
     r.overlayRects = () => {
       const cb = c.getBoundingClientRect();
-      return [...(wrapRef.current?.querySelectorAll<HTMLElement>('.map-tools, .legend, .map-search, .scalebar, .dpad, .layers-pop') ?? [])].map((el) => {
+      const scope = wrapRef.current?.parentElement ?? wrapRef.current;
+      return [...(scope?.querySelectorAll<HTMLElement>('.map-tools, .legend, .map-search, .scalebar, .dpad, .layers-pop, .hud-card, .side-tabs, .roster, .unit-dock, .timestrip') ?? [])].map((el) => {
         const b = el.getBoundingClientRect();
         return { x: b.left - cb.left, y: b.top - cb.top, w: b.width, h: b.height };
       });
@@ -228,16 +247,24 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     };
   }, []);
 
+  const [unitStyle, setUnitStyle] = useState<UnitStyle>(readUnitStyle);
   useEffect(() => {
     const r = rRef.current;
     if (!r) return;
     r.setTheme(p.theme);
     r.mono = p.monochromeSymbols;
+    r.unitStyle = unitStyle;
     r.setPrefs(p.map);
-  }, [p]);
+  }, [p, unitStyle]);
 
   useEffect(() => {
-    if (camReq && rRef.current) rRef.current.center(camReq.lon, camReq.lat, camReq.zoom ?? rRef.current.cam.z);
+    if (camReq && rRef.current) {
+      const r = rRef.current;
+      r.center(camReq.lon, camReq.lat, camReq.zoom ?? r.cam.z);
+      // desktop: a selected formation opens the unit card docked at the bottom — keep the
+      // formation in the upper part of the map instead of under the card
+      if (!window.matchMedia('(max-width: 760px)').matches && ui.get().selection?.kind === 'stack') r.panBy(0, -Math.round(r.h * 0.18));
+    }
   }, [camReq]);
 
   const draft = mode.kind === 'draw' ? { kind: mode.drawKind, points: mode.points } : null;
@@ -506,19 +533,19 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
       />
       <MapSearch objects={objects} />
       <div className="map-tools" role="toolbar" aria-label="Map controls">
-        <button type="button" className="btn icon" aria-label="Zoom in" title="Zoom in (+)" onClick={() => rRef.current?.zoomAt(1.5, rRef.current.w / 2, rRef.current.h / 2)}>
+        <button type="button" className="round-btn" aria-label="Zoom in" title="Zoom in (+)" onClick={() => rRef.current?.zoomAt(1.5, rRef.current.w / 2, rRef.current.h / 2)}>
           <Icon name="plus" />
         </button>
-        <button type="button" className="btn icon" aria-label="Zoom out" title="Zoom out (−)" onClick={() => rRef.current?.zoomAt(1 / 1.5, rRef.current.w / 2, rRef.current.h / 2)}>
+        <button type="button" className="round-btn" aria-label="Zoom out" title="Zoom out (−)" onClick={() => rRef.current?.zoomAt(1 / 1.5, rRef.current.w / 2, rRef.current.h / 2)}>
           <Icon name="minus" />
         </button>
-        <button type="button" className="btn icon" aria-label="Reset view to capital" title="Reset to capital (Home)" onClick={resetToCapital} data-testid="recenter">
+        <button type="button" className="round-btn" aria-label="Reset view to capital" title="Reset to capital (Home)" onClick={resetToCapital} data-testid="recenter">
           <Icon name="home" />
         </button>
-        <button type="button" className="btn icon" aria-label="Map layers" title="Map layers" aria-expanded={showLayers} onClick={() => setShowLayers((s) => !s)} data-testid="layers-button">
-          <Icon name="layers" />
+        <button type="button" className="round-btn" aria-label="Map layers" title="Map layers and display settings" aria-expanded={showLayers} onClick={() => setShowLayers((s) => !s)} data-testid="layers-button">
+          <Icon name="settings" />
         </button>
-        <button type="button" className="btn icon" aria-label={showLegend ? 'Hide legend' : 'Show legend'} title="Legend" aria-pressed={showLegend} onClick={() => setShowLegend((s) => !s)}>
+        <button type="button" className="round-btn" aria-label={showLegend ? 'Hide legend' : 'Show legend'} title="Legend" aria-pressed={showLegend} onClick={() => setShowLegend((s) => !s)}>
           <Icon name="legend" />
         </button>
         <FullscreenButton />
@@ -536,7 +563,7 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
           )}
         </div>
       )}
-      {showLayers && <LayerPanel onClose={() => setShowLayers(false)} />}
+      {showLayers && <LayerPanel onClose={() => setShowLayers(false)} unitStyle={unitStyle} onUnitStyle={(u) => { setUnitStyle(u); writeUnitStyle(u); }} />}
       {showLegend && (
         <div className={`legend${isMobile ? ' open' : ''}`} aria-label="Map legend" role="region" data-testid="legend" data-legend={p.map.fill}>
           <div className="row">
@@ -614,7 +641,7 @@ function SymbolLegend() {
   );
 }
 
-function LayerPanel({ onClose }: { onClose: () => void }) {
+function LayerPanel({ onClose, unitStyle, onUnitStyle }: { onClose: () => void; unitStyle: UnitStyle; onUnitStyle: (u: UnitStyle) => void }) {
   const p = useStore(prefs, (s) => s.map);
   const fills: { id: FillLayer; label: string }[] = [
     { id: 'political', label: 'Political control' },
@@ -651,6 +678,17 @@ function LayerPanel({ onClose }: { onClose: () => void }) {
             {t.label}
           </label>
         ))}
+      </fieldset>
+      <fieldset style={{ marginTop: 8 }}>
+        <legend>Unit markers</legend>
+        <label className="row" style={{ gap: 6 }}>
+          <input type="radio" name="unit-style" checked={unitStyle === 'app6'} onChange={() => onUnitStyle('app6')} data-testid="unit-style-app6" />
+          Military symbols (APP-6)
+        </label>
+        <label className="row" style={{ gap: 6 }}>
+          <input type="radio" name="unit-style" checked={unitStyle === 'counters'} onChange={() => onUnitStyle('counters')} data-testid="unit-style-counters" />
+          Game counters (class icon + count)
+        </label>
       </fieldset>
       <div className="row" style={{ marginTop: 8 }}>
         <button type="button" className="btn small" onClick={onClose}>
@@ -752,6 +790,9 @@ function MapSearch({ objects }: { objects: MapObject[] }) {
   };
   return (
     <div className="map-search" role="search">
+      <span className="ms-ico" aria-hidden>
+        <Icon name="search" size={16} />
+      </span>
       <label className="sr-only" htmlFor="map-search-input">Search armies, cities and provinces</label>
       <input
         id="map-search-input"

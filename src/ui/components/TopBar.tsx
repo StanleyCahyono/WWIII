@@ -1,11 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../state/store';
 import { getHost } from '../sim/host';
 import { ui, openPanel } from '../state/ui';
 import { prefs, setPrefs } from '../persist/prefs';
 import { SPEEDS, SPEED_BASE } from '../sim/protocol';
 import { FlagChip, Icon, useFrame, useIsMobile, Modal } from './common';
-import { dayOf, hourLabel, duration, relWall } from '../format';
+import { ResourceStrip } from './ResourceStrip';
+import { dayOf, hourLabel, relWall } from '../format';
 import { techById, unitById, buildingById, placeName } from '../data/static';
 import { leaveToTitle } from '../session';
 import { SettingsPanel } from '../screens/Menus';
@@ -24,43 +25,42 @@ export function nextEvents(frame: NonNullable<ReturnType<typeof useFrame>>) {
   return out.filter((e) => e.at >= v.tick).sort((a, b) => a.at - b.at);
 }
 
-export function TopBar() {
+/** Game clock as one button; text reads "D<day> HH:MM" (the DAY / TIME captions are CSS-only). */
+export function ClockButton({ big = false }: { big?: boolean }) {
+  const frame = useFrame()!;
+  const v = frame.view;
+  return (
+    <button type="button" className={`clock${big ? ' big' : ''}`} onClick={() => document.getElementById('pause-btn')?.focus()} aria-label={`Game time day ${v.day}, ${hourLabel(v.tick)} UTC`} data-testid="game-clock" title={v.time + ' UTC'}>
+      <span className="clk-cell">
+        <span className="clk-lbl" data-l="Day">D</span>
+        <span className="clk-val">{v.day}</span>
+      </span>{' '}
+      <span className="clk-cell">
+        <span className="clk-lbl" data-l="Time · UTC" />
+        <span className="clk-val">{hourLabel(v.tick)}</span>
+      </span>
+    </button>
+  );
+}
+
+/** Pause / speed / step / next-event. Desktop: segmented speeds; phones: a select. */
+export function TimeControls() {
   const frame = useFrame()!;
   const host = getHost();
-  const hs = useStore(host.store, (s) => ({ lastSave: s.lastSave, saving: s.saving, lockLost: s.lockLost }), (a, b) => a.lastSave === b.lastSave && a.saving === b.saving && a.lockLost === b.lockLost);
   const speedPref = useStore(prefs, (p) => p.speed);
   const isMobile = useIsMobile();
-  const [menu, setMenu] = useState(false);
-  const [settings, setSettings] = useState(false);
-  const v = frame.view;
   const c = frame.clock;
-  const myScore = v.scores.byCountry[v.viewer] ?? 0;
-  const coalition = v.myCoalition ? v.coalitions.find((x) => x.id === v.myCoalition) : null;
-  const target = coalition ? v.scores.coalitionThresholds[Math.max(2, coalition.members.length)] ?? v.scores.soloThreshold : v.scores.soloThreshold;
-  const shown = coalition ? coalition.score : myScore;
-  const nxt = useMemo(() => nextEvents(frame)[0], [frame]);
   const ro = frame.meta.readOnly || frame.meta.reviewMode;
   const setSpeed = (s: number) => {
     setPrefs({ speed: s });
     void host.setClock({ speed: s });
   };
   const togglePause = () => void host.setClock({ paused: !c.paused, speed: speedPref });
-  const saveState = hs.saving ? 'busy' : hs.lastSave && !hs.lastSave.ok ? 'err' : '';
-  const saveText = hs.saving ? 'Saving…' : hs.lastSave ? (hs.lastSave.ok ? `Saved ${relWall(hs.lastSave.at)}` : hs.lastSave.conflict ? 'Save conflict' : 'Save failed') : 'Not saved yet';
   const realPerHour = !c.paused && c.speed ? 60 / (c.speed * SPEED_BASE) : null;
-
   return (
-    <header className="topbar" role="banner">
-      <button type="button" className="nation" onClick={() => openPanel('campaign')} aria-label={`${v.self.name} — campaign information`} data-testid="nation-chip">
-        <FlagChip id={v.viewer} />
-        <span className="desktop-only">{v.self.name}</span>
-      </button>
-      <button type="button" className="btn ghost clock" onClick={() => document.getElementById('pause-btn')?.focus()} aria-label={`Game time day ${v.day}, ${hourLabel(v.tick)} UTC`} data-testid="game-clock" title={v.time + ' UTC'}>
-        D{v.day} {hourLabel(v.tick)}
-        <span className="desktop-only">&nbsp;UTC</span>
-      </button>
-      <button id="pause-btn" type="button" className={`btn icon${c.paused ? '' : ' primary'}`} onClick={togglePause} aria-label={c.paused ? 'Resume game clock' : 'Pause game clock'} title={ro ? 'Read-only / review mode' : c.paused ? 'Resume (Space)' : 'Pause (Space)'} aria-pressed={!c.paused} disabled={ro} data-testid="pause-toggle">
-        <Icon name={c.paused ? 'play' : 'pause'} />
+    <div className={`time-ctl${c.paused ? ' is-paused' : ' is-running'}`}>
+      <button id="pause-btn" type="button" className={`tc-play${c.paused ? '' : ' on'}`} onClick={togglePause} aria-label={c.paused ? 'Resume game clock' : 'Pause game clock'} title={ro ? 'Read-only / review mode' : c.paused ? 'Resume (Space)' : 'Pause (Space)'} aria-pressed={!c.paused} disabled={ro} data-testid="pause-toggle">
+        <Icon name={c.paused ? 'play' : 'pause'} size={isMobile ? 18 : 20} />
       </button>
       {!isMobile && (
         <div className="speed-group" role="group" aria-label="Game speed">
@@ -72,7 +72,7 @@ export function TopBar() {
         </div>
       )}
       {isMobile && (
-        <select className="speed-sel" aria-label="Game speed" value={c.speed} onChange={(e) => setSpeed(Number(e.target.value))} style={{ minHeight: 34, padding: '2px 2px' }}>
+        <select className="speed-sel" aria-label="Game speed" value={c.speed} onChange={(e) => setSpeed(Number(e.target.value))}>
           {SPEEDS.map((s) => (
             <option key={s} value={s}>
               {s}×
@@ -80,71 +80,118 @@ export function TopBar() {
           ))}
         </select>
       )}
-      <button type="button" className="btn icon" aria-label="Advance one game hour" title="Advance one hour (pauses after)" onClick={() => void host.step(60)} disabled={ro} data-testid="step-hour">
-        <Icon name="step" />
+      <button type="button" className="tc-btn" aria-label="Advance one game hour" title="Advance one hour (pauses after)" onClick={() => void host.step(60)} disabled={ro} data-testid="step-hour">
+        <Icon name="step" size={17} />
       </button>
-      <button type="button" className="btn icon hide-narrow" aria-label="Jump to next significant event" title="Jump to next significant event (max 1 day)" onClick={() => void host.nextEvent(1440)} disabled={ro}>
-        <Icon name="skip" />
+      <button type="button" className="tc-btn hide-narrow" aria-label="Jump to next significant event" title="Jump to next significant event (max 1 day)" onClick={() => void host.nextEvent(1440)} disabled={ro}>
+        <Icon name="skip" size={17} />
       </button>
-      {!isMobile && <span className="muted" style={{ fontSize: 11.5 }} aria-live="off">{realPerHour ? `1 h ≈ ${realPerHour < 1 ? '<1' : Math.round(realPerHour)} s${c.behind ? ' (max sim rate)' : ''}` : 'Paused'}</span>}
-      <div className="sep" />
-      <button type="button" className="btn ghost" onClick={() => openPanel('score')} aria-label={`Score ${shown} of ${target} victory points — open standings`} data-testid="score-button">
-        <span className="desktop-only"><Icon name="score" size={16} /></span> {shown}/{target}
-        <span className="desktop-only">&nbsp;VP</span>
-      </button>
-      {!isMobile && nxt && (
-        <button type="button" className="btn ghost" style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12.5, justifyContent: 'flex-start' }} onClick={() => ui.patch({ timeStripOpen: true })} title={nxt.label} aria-label={`Next event: ${nxt.label} in ${duration(nxt.at - v.tick)}`}>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Next {duration(nxt.at - v.tick)}: {nxt.label}</span>
-        </button>
+      {!isMobile && (
+        <span className={`tc-rate${c.paused ? ' paused' : ''}`} aria-live="off">
+          {realPerHour ? `1 h ≈ ${realPerHour < 1 ? '<1' : Math.round(realPerHour)} s${c.behind ? ' · max rate' : ''}` : 'Paused'}
+        </span>
       )}
-      <div className="grow" />
+    </div>
+  );
+}
+
+/** Victory progress (score / threshold). */
+export function useVictory() {
+  const frame = useFrame()!;
+  const v = frame.view;
+  const myScore = v.scores.byCountry[v.viewer] ?? 0;
+  const coalition = v.myCoalition ? v.coalitions.find((x) => x.id === v.myCoalition) : null;
+  const target = coalition ? v.scores.coalitionThresholds[Math.max(2, coalition.members.length)] ?? v.scores.soloThreshold : v.scores.soloThreshold;
+  const shown = coalition ? coalition.score : myScore;
+  return { shown, target, coalition: !!coalition };
+}
+
+export function TopBar() {
+  const frame = useFrame()!;
+  const host = getHost();
+  const hs = useStore(host.store, (s) => ({ lastSave: s.lastSave, saving: s.saving, lockLost: s.lockLost }), (a, b) => a.lastSave === b.lastSave && a.saving === b.saving && a.lockLost === b.lockLost);
+  const isMobile = useIsMobile();
+  const resOpen = useStore(ui, (s) => s.resourceBarOpen);
+  const [menu, setMenu] = useState(false);
+  const [settings, setSettings] = useState(false);
+  const v = frame.view;
+  const { shown, target } = useVictory();
+  const ro = frame.meta.readOnly || frame.meta.reviewMode;
+  const saveState = hs.saving ? 'busy' : hs.lastSave && !hs.lastSave.ok ? 'err' : '';
+  const saveText = hs.saving ? 'Saving…' : hs.lastSave ? (hs.lastSave.ok ? `Saved ${relWall(hs.lastSave.at)}` : hs.lastSave.conflict ? 'Save conflict' : 'Save failed') : 'Not saved yet';
+
+  return (
+    <header className="topbar" role="banner">
       {isMobile && (
-        <button type="button" className="btn small" aria-expanded={ui.get().resourceBarOpen} onClick={() => ui.patch({ resourceBarOpen: !ui.get().resourceBarOpen })} aria-label="Toggle resource bar">
-          Res
+        <>
+          <button type="button" className="nation" onClick={() => openPanel('campaign')} aria-label={`${v.self.name} — campaign information`} data-testid="nation-chip">
+            <FlagChip id={v.viewer} />
+          </button>
+          <ClockButton />
+          <TimeControls />
+          <button type="button" className="btn ghost score-mini" onClick={() => openPanel('score')} aria-label={`Score ${shown} of ${target} victory points — open standings`} data-testid="score-button">
+            {shown}/{target}
+          </button>
+        </>
+      )}
+      {!isMobile && (
+        <div className="brand-mark" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24">
+            <path d="M12 1.5 21.5 7v10L12 22.5 2.5 17V7z" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            <path d="M7 9l2.5 7L12 10l2.5 6L17 9" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+          </svg>
+        </div>
+      )}
+      {!isMobile && <ResourceStrip open={false} />}
+      <div className="grow" />
+      {!isMobile && <TimeControls />}
+      {isMobile && (
+        <button type="button" className="btn small res-toggle" aria-expanded={resOpen} onClick={() => ui.patch({ resourceBarOpen: !ui.get().resourceBarOpen })} aria-label="Toggle resource bar">
+          <Icon name="supplies" size={18} />
         </button>
       )}
       {(hs.lockLost || frame.meta.readOnly) && <span className="tag warn">Read-only</span>}
       {frame.meta.reviewMode && <span className="tag accent">Review</span>}
-      <button type="button" className={`save-ind btn ghost ${saveState}`} onClick={() => void host.save('manual')} aria-label={`${saveText}. Save now.`} title={hs.lastSave?.error ?? 'Save now'} data-testid="save-indicator" disabled={ro}>
+      <button type="button" className={`save-ind ${saveState}`} onClick={() => void host.save('manual')} aria-label={`${saveText}. Save now.`} title={hs.lastSave?.error ?? 'Save now'} data-testid="save-indicator" disabled={ro}>
         <span className="dot" aria-hidden />
         <span className="desktop-only">{saveText}</span>
         {isMobile && <Icon name="save" size={16} />}
       </button>
-      <button type="button" className="btn icon hide-narrow" aria-label="Help and advisor" title="Help (advisor)" onClick={() => openPanel('help')} data-testid="help-button">
+      <button type="button" className="round-btn hide-narrow" aria-label="Help and advisor" title="Help (advisor)" onClick={() => openPanel('help')} data-testid="help-button">
         <Icon name="help" />
       </button>
-      <button type="button" className="btn icon" aria-label="Game menu" aria-expanded={menu} onClick={() => setMenu(true)} data-testid="game-menu">
+      <button type="button" className="round-btn" aria-label="Game menu" aria-expanded={menu} onClick={() => setMenu(true)} data-testid="game-menu">
         <Icon name="menu" />
       </button>
       {menu && (
         <Modal title="Campaign menu" onClose={() => setMenu(false)}>
-          <div className="col">
+          <div className="col menu-list">
             <button type="button" className="btn" onClick={() => { setMenu(false); void host.save('manual'); }} disabled={ro}>
-              Save now
+              <Icon name="save" /> Save now
             </button>
             <button type="button" className="btn" onClick={() => { setMenu(false); void host.nextEvent(1440); }} disabled={ro}>
-              Jump to next significant event
+              <Icon name="skip" /> Jump to next significant event
             </button>
             <button type="button" className="btn" onClick={() => { setMenu(false); openPanel('help'); }}>
-              Help & advisor
+              <Icon name="help" /> Help & advisor
             </button>
             <button type="button" className="btn" onClick={() => { setMenu(false); openPanel('campaign'); }}>
-              Campaign information & rules
+              <Icon name="flag" /> Campaign information & rules
             </button>
             <button type="button" className="btn" onClick={() => { setMenu(false); setSettings(true); }}>
-              Settings
+              <Icon name="settings" /> Settings
             </button>
             <button type="button" className="btn" onClick={() => { setMenu(false); ui.patch({ tutorialOpen: true }); }}>
-              Reopen tutorial
+              <Icon name="star" /> Reopen tutorial
             </button>
             <button type="button" className="btn" onClick={() => { setMenu(false); ui.patch({ briefingOpen: true }); }}>
-              Reopen briefing
+              <Icon name="journal" /> Reopen briefing
             </button>
             <button type="button" className="btn" onClick={() => { setMenu(false); ui.patch({ screen: 'diagnostics' }); }}>
-              Diagnostics
+              <Icon name="target" /> Diagnostics
             </button>
             <button type="button" className="btn primary" onClick={() => { setMenu(false); void leaveToTitle(); }} data-testid="home-button">
-              Save and return to campaigns
+              <Icon name="home" /> Save and return to campaigns
             </button>
           </div>
         </Modal>

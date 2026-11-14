@@ -98,6 +98,10 @@ export class MapRenderer {
   private outsidePath: Path2D | null = null;
   private grid = new Map<string, number[]>();
   private fillGroups: FillGroup[] = [];
+  /** Union of the viewer's own provinces (political glow). */
+  private selfPath: Path2D | null = null;
+  /** Unit marker style: APP-6 symbols (default, spec) or game counters (type glyph + count). */
+  unitStyle: 'app6' | 'counters' = 'app6';
   private fillKey = '';
   private patternCache = new Map<string, CanvasPattern | null>();
   private cache: HTMLCanvasElement;
@@ -297,6 +301,8 @@ export class MapRenderer {
     const groups = new Map<string, FillGroup>();
     const th = this.theme;
     const t = th.name;
+    const self = new Path2D();
+    let selfAny = false;
     const add = (n: number, color: string, pattern: PatternId) => {
       const p = this.shapePaths[n];
       if (!p) return;
@@ -317,8 +323,14 @@ export class MapRenderer {
         case 'political':
           if (rebel) add(n.id, RELATION_STYLE.rebel[t], 'cross');
           else if (!owner) add(n.id, th.outside, 'hatch2');
-          else if (owner === input?.me) add(n.id, th.self, 'none');
-          else add(n.id, politicalColor(owner, th), 'none');
+          else if (owner === input?.me) {
+            add(n.id, th.self, 'none');
+            const sp = this.shapePaths[n.id];
+            if (sp) {
+              self.addPath(sp);
+              selfAny = true;
+            }
+          } else add(n.id, politicalColor(owner, th), 'none');
           break;
         case 'terrain': {
           const st = TERRAIN_STYLE[n.terrain] ?? TERRAIN_STYLE.open;
@@ -357,6 +369,7 @@ export class MapRenderer {
       }
     }
     this.fillGroups = [...groups.values()];
+    this.selfPath = selfAny ? self : null;
   }
 
   private copiesFor(xmin: number, xmax: number): number[] {
@@ -407,6 +420,17 @@ export class MapRenderer {
             g.fill(fg.path);
           }
         }
+      }
+      if (this.selfPath && layerIsPolitical(this.prefs.fill)) {
+        // own nation: soft outer glow + crisp rim, from one fill of the province union (no seams)
+        g.save();
+        g.fillStyle = th.self;
+        g.shadowColor = th.selfGlow;
+        g.shadowBlur = (zs === 'world' ? 9 : 14) * dpr;
+        g.fill(this.selfPath);
+        g.shadowBlur = 2 * dpr;
+        g.fill(this.selfPath);
+        g.restore();
       }
       if (this.landBorder && zs !== 'world') {
         g.strokeStyle = th.provBorder;
@@ -761,28 +785,35 @@ export class MapRenderer {
     return true;
   }
 
-  private text(s: string, x: number, y: number, o: { color?: string; size?: number; bold?: boolean; italic?: boolean; align?: CanvasTextAlign; halo?: boolean; collide?: boolean; caps?: boolean } = {}): boolean {
+  private text(s: string, x: number, y: number, o: { color?: string; size?: number; bold?: boolean; italic?: boolean; align?: CanvasTextAlign; halo?: boolean; collide?: boolean; caps?: boolean; spacing?: number; display?: boolean; haloW?: number } = {}): boolean {
     const ctx = this.ctx;
     const size = o.size ?? 12;
-    ctx.font = `${o.italic ? 'italic ' : ''}${o.bold ? '600 ' : ''}${size}px Inter, "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif`;
+    const family = o.display ? 'Bahnschrift, "DIN Alternate", "Roboto Condensed", "Arial Narrow", "Segoe UI", system-ui, sans-serif' : '"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif';
+    ctx.font = `${o.italic ? 'italic ' : ''}${o.bold ? '700 ' : ''}${size}px ${family}`;
+    const cs = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
+    if ('letterSpacing' in cs) cs.letterSpacing = o.spacing ? `${o.spacing}px` : '0px';
     const str = o.caps ? s.toUpperCase() : s;
     const w = ctx.measureText(str).width;
     const align = o.align ?? 'center';
     const lx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
     if (o.collide) {
-      if (!this.fits(lx - 2, y - size, w + 4, size + 4)) return false;
+      if (!this.fits(lx - 2, y - size, w + 4, size + 4)) {
+        if ('letterSpacing' in cs) cs.letterSpacing = '0px';
+        return false;
+      }
       this.labels.push({ x: lx - 2, y: y - size, w: w + 4, h: size + 4 });
     }
     ctx.textAlign = align;
     ctx.textBaseline = 'alphabetic';
     if (o.halo !== false) {
       ctx.strokeStyle = this.theme.halo;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = o.haloW ?? 3;
       ctx.lineJoin = 'round';
       ctx.strokeText(str, x, y);
     }
     ctx.fillStyle = o.color ?? this.theme.text;
     ctx.fillText(str, x, y);
+    if ('letterSpacing' in cs) cs.letterSpacing = '0px';
     return true;
   }
 
@@ -897,8 +928,10 @@ export class MapRenderer {
     // labels: selection first, then cities by priority, then countries
     for (const c of cityItems) {
       if (!nameOn && input.selectedNode !== c.node) continue;
-      const size = c.capital ? 13 : c.tier >= 4 ? 12 : 11;
-      this.text(c.name, c.x + 7, c.y - 5, { size, bold: c.capital || input.selectedNode === c.node, align: 'left', collide: true, color: input.selectedNode === c.node ? th.select : th.text });
+      const size = c.capital ? 13.5 : c.tier >= 4 ? 12.5 : 11.5;
+      const own = c.owner === input.me;
+      const label = zs === 'world' ? c.name : `${c.name} (${c.tier})`;
+      this.text(label, c.x + 7, c.y - 5, { size, bold: c.capital || own || input.selectedNode === c.node, align: 'left', collide: true, color: input.selectedNode === c.node ? th.select : own ? th.text : th.cityText });
     }
     countryLabels.sort((a, b) => b.pri - a.pri);
     for (const l of countryLabels) {
@@ -923,8 +956,9 @@ export class MapRenderer {
         this.hits.push({ x: l.x - 8, y: l.y - 8, w: 16, h: 16, kind: 'small', ids: [l.id], node: capNode, label: l.text });
         continue;
       }
-      const size = zs === 'world' ? (l.pri > 60 ? 13 : 11) : 15;
-      this.text(l.text, l.x, l.y, { size, bold: true, caps: true, collide: true, color: zs === 'world' ? th.text : th.textDim });
+      const mine = l.id === input.me;
+      const size = zs === 'world' ? (mine ? 15 : l.pri > 60 ? 13 : 11) : mine ? 19 : 16;
+      this.text(l.text, l.x, l.y, { size, bold: true, caps: true, collide: true, display: true, spacing: zs === 'world' ? 1.5 : 3, haloW: 3.5, color: mine ? th.selfLabel : zs === 'world' ? th.text : th.countryText });
     }
   }
 
@@ -963,10 +997,16 @@ export class MapRenderer {
       if (zs !== 'local' && placed.some((q) => Math.abs(q.x - cl.x) < size * 0.9 && Math.abs(q.y - cl.y) < size * 0.9) && !input.selected.has(lead.o.id)) continue;
       placed.push({ x: cl.x, y: cl.y });
       const img = symbolImage(lead.o.sidc, size, mono);
-      const iw = img.w, ih = img.h;
-      const left = cl.x - img.cx, top = cl.y - img.cy;
+      const counters = this.unitStyle === 'counters';
+      const iw = counters ? size * 1.7 : img.w, ih = counters ? size : img.h;
+      const left = counters ? cl.x - iw / 2 : cl.x - img.cx, top = counters ? cl.y - ih / 2 : cl.y - img.cy;
       const muted = lead.o.kind === 'report' || (lead.o.kind === 'contact' && lead.o.stale);
-      if (img.ready) {
+      if (counters) {
+        const n = cl.items.some((p) => p.o.count === null) ? null : cl.items.reduce((a, p) => a + (p.o.count ?? 0), 0);
+        ctx.globalAlpha = muted ? 0.6 : 1;
+        this.counter(lead.o, cl.x, cl.y, size, n, cl.items.length > 1);
+        ctx.globalAlpha = 1;
+      } else if (img.ready) {
         ctx.globalAlpha = muted ? 0.6 : 1;
         ctx.drawImage(img.img, left, top, iw, ih);
         ctx.globalAlpha = 1;
@@ -995,7 +1035,7 @@ export class MapRenderer {
       // report marker (eye) — frozen dated snapshot, external to frame
       if (lead.o.kind === 'report') this.badge('REPORT ' + formatAge(lead.o.ageMin ?? 0), cl.x, top - 2, true);
       else if (lead.o.ageMin !== null && lead.o.ageMin >= 60) this.badge(formatAge(lead.o.ageMin), cl.x + size * 0.7, top + 4, true);
-      if (cl.items.length > 1) this.badge(`×${cl.items.length}`, cl.x + size * 0.75, cl.y + size * 0.55, false);
+      if (cl.items.length > 1 && this.unitStyle !== 'counters') this.countPill(`×${cl.items.length}`, cl.x + size * 0.75, cl.y + size * 0.55, lead.o.affiliation);
       if (lead.o.hasOrder && zs !== 'world') {
         ctx.fillStyle = th.route;
         ctx.beginPath();
@@ -1010,6 +1050,87 @@ export class MapRenderer {
       }
       this.hits.push({ x: cl.x - size * 0.6, y: cl.y - size * 0.5, w: size * 1.2, h: size, kind: cl.items.length > 1 ? 'cluster' : 'object', ids: cl.items.map((p) => p.o.id), label: cl.items.length > 1 ? `${cl.items.length} objects` : lead.o.label });
     }
+  }
+
+  private affColor(a: string): { fill: string; edge: string } {
+    const th = this.theme;
+    if (this.mono) return { fill: '#3a3f45', edge: '#e8e8e8' };
+    if (a === 'friend') return { fill: th.unitFriend, edge: th.selfGlow };
+    if (a === 'hostile') return { fill: th.unitHostile, edge: '#ffb3a8' };
+    if (a === 'neutral') return { fill: th.unitNeutral, edge: '#b9f0c4' };
+    return { fill: th.unitUnknown, edge: '#ffe7a3' };
+  }
+
+  /** Stack count pill outside the symbol frame, tinted by affiliation (count ≠ echelon). */
+  private countPill(s: string, x: number, y: number, aff: string) {
+    const ctx = this.ctx;
+    ctx.font = '700 10.5px "Segoe UI", system-ui, sans-serif';
+    const w = ctx.measureText(s).width + 9;
+    const h = 14;
+    const c = this.affColor(aff);
+    ctx.fillStyle = c.fill;
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - h + 3, w, h, 7);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(s, x, y - 0.5);
+  }
+
+  /** Game counter: affiliation-shaped plate, class glyph (only what the viewer knows) and count. */
+  private counter(o: MapObject, x: number, y: number, size: number, n: number | null, cluster: boolean) {
+    const ctx = this.ctx;
+    const w = size * 1.7, h = size;
+    const l = x - w / 2, t = y - h / 2;
+    const c = this.affColor(o.affiliation);
+    ctx.save();
+    ctx.beginPath();
+    if (o.affiliation === 'hostile') {
+      const k = h * 0.35;
+      ctx.moveTo(l + k, t);
+      ctx.lineTo(l + w - k, t);
+      ctx.lineTo(l + w, y);
+      ctx.lineTo(l + w - k, t + h);
+      ctx.lineTo(l + k, t + h);
+      ctx.lineTo(l, y);
+      ctx.closePath();
+    } else if (o.affiliation === 'neutral') ctx.rect(l, t, w, h);
+    else if (o.affiliation === 'unknown') ctx.roundRect(l, t, w, h, h / 2);
+    else ctx.roundRect(l, t, w, h, 4);
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = c.fill;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = c.edge;
+    if (o.status === 'planned') ctx.setLineDash([3, 2]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const fam = counterFamily(o.symbolKey);
+    const gs = h * 0.78;
+    const gx = l + h * 0.12, gy = t + (h - gs) / 2;
+    ctx.fillStyle = '#ffffff';
+    if (fam && GLYPHS[fam]) {
+      ctx.translate(gx, gy);
+      ctx.scale(gs / 24, gs / 24);
+      ctx.fill(GLYPHS[fam]);
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    } else {
+      ctx.font = `700 ${Math.round(h * 0.7)}px "Segoe UI", system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('?', gx + gs / 2, y + h * 0.25);
+    }
+    ctx.font = `800 ${Math.round(h * 0.56)}px "Segoe UI", system-ui, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(n === null ? '?' : cluster ? `${n}` : String(n), l + w - 4, y + 0.5);
+    ctx.textBaseline = 'alphabetic';
+    ctx.restore();
   }
 
   private badge(s: string, x: number, y: number, dashed: boolean) {
@@ -1180,3 +1301,33 @@ function compatible(a: MapObject, b: MapObject): boolean {
   if (a.kind === 'stack') return true;
   return a.affiliation === b.affiliation && a.domain === b.domain;
 }
+
+
+function layerIsPolitical(f: FillLayer): boolean {
+  return f === 'political';
+}
+
+/** Class glyph for game counters, from the viewer-safe symbol key (contacts → null = "?"). */
+function counterFamily(symbolKey: string): string | null {
+  const [dom, fam] = symbolKey.split('.');
+  if (!fam || dom === 'contact') return null;
+  if (fam === 'missile') return 'missile_launcher';
+  return fam;
+}
+
+const GLYPH_D: Record<string, string> = {
+  infantry: 'M9.5 2.2a2.4 2.4 0 110 4.8 2.4 2.4 0 010-4.8zM7 8h5.2l1.4 5.6-1.8.4-.6-2.4-.4 3.4.9 8H9.6l-.6-6-.6 6H6.3l.9-8L6.6 11l-.9 3.2-1.8-.5L5.4 9zm5.4 1.3 8.6-5 .6 1-8.6 5z',
+  armor: 'M1.8 14.2h20.4l-2.3 3.6H4.1zM6.2 10.2h8.4l1.6 4H5zM15.4 11.4h7.2v1.3h-7.2zM3.4 18.4h17.2a2.3 2.3 0 010 4.6H3.4a2.3 2.3 0 010-4.6z',
+  support: 'm6.5 13.8 14-9.6 1.1 1.6-14 9.6zM4.5 12.8h7l1 4h-9zM8 15.2a3.4 3.4 0 110 6.8 3.4 3.4 0 010-6.8z',
+  air_defense: 'M1.5 16h14.5v3.2H1.5zM16 13.2h3.6l2.9 3v3h-6.5zm-12.8 1 9.2-9.7 1.6 1.5-9.2 9.7zm3.2 1.1 9.2-9.7 1.6 1.5-9.2 9.7z',
+  recon: 'M2 13.5 5 9h8.5l3 4.5H22v4.3H2zM14.2 3.2h1.2v6h-1.2zM6.4 15.8a2.6 2.6 0 110 5.2 2.6 2.6 0 010-5.2zm11 0a2.6 2.6 0 110 5.2 2.6 2.6 0 010-5.2z',
+  helicopter: 'M1.5 5.3h21v1.4h-21zM11.4 6.7h1.4v2.2h-1.4zM6.6 9h8.6c2.7 0 4.3 1.6 4.3 3.8 0 2.1-1.7 3.4-4.1 3.4H8.3c-2.6 0-3.9-1.5-3.9-3.4 0-2.2.8-3.8 2.2-3.8zM4.6 11.4H.8l-.3-2h1.2l1.3 1.1h1.6zM4.5 18.2h15v1.3h-15z',
+  fighter: 'M12 1.2c.8 1 1.2 2.6 1.3 4.7l.2 3.6 8.5 6.4v2.3l-8.7-3.1-.4 4.4 3 2.3v1.6L12 22.2l-3.9 1.2v-1.6l3-2.3-.4-4.4-8.7 3.1v-2.3l8.5-6.4.2-3.6c.1-2.1.5-3.7 1.3-4.7z',
+  heavy: 'M12 1.5c.9 0 1.4 1.3 1.4 3.3v3.6L23 13.6v2.2l-9.6-3.2-.3 5.8 3.6 2.4v1.6L12 21.3l-4.7 1.1v-1.6l3.6-2.4-.3-5.8L1 15.8v-2.2l9.6-5.2V4.8c0-2 .5-3.3 1.4-3.3z',
+  naval: 'M1 14.5h22l-3.4 5.3H4.2zM6.5 11h9v3.5h-9zM9 7.2h4.4V11H9zM10.6 2.8h1.2v4.4h-1.2z',
+  submarine: 'M2 14c0-2.2 3.8-3.6 10-3.6 5.4 0 9.6 1.3 10 3.6-.4 2.3-4.6 3.6-10 3.6-6.2 0-10-1.4-10-3.6zM9.2 6.5h4.4l.8 4.2H8.5z',
+  missile_launcher: 'M1.5 15.8h14v3.3h-14zM15.5 12.8h4l3 3.1v3.2h-7zM2.3 14.6 15.6 7.7l.9 1.8-13.3 6.9zm13.3-6.9 3.2-1-2.3 2.8z',
+  officer: 'm12 1.8 2.4 5 5.4.7-4 3.8 1 5.4L12 14.1l-4.8 2.6 1-5.4-4-3.8 5.4-.7zM4 17.2 12 21l8-3.8v2.6L12 23.6l-8-3.8z',
+  deployable: 'M8.2 8.2h7.6v7.6H8.2zM8.3 9.9 4.6 6.2l1.6-1.6 3.7 3.7zM15.7 9.9l3.7-3.7-1.6-1.6-3.7 3.7zM8.3 14.1l-3.7 3.7 1.6 1.6 3.7-3.7zM15.7 14.1l3.7 3.7-1.6 1.6-3.7-3.7z',
+};
+const GLYPHS: Record<string, Path2D> = typeof Path2D === 'undefined' ? {} : Object.fromEntries(Object.entries(GLYPH_D).map(([k, d]) => [k, new Path2D(d)]));
