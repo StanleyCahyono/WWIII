@@ -1,6 +1,6 @@
 # Handoff — World Command: World 120
 
-_Last updated 2026-11-14 by the release-audit agent (Claude)._ Keep this file current; it is how a new
+_Last updated 2026-11-14 by the orchestrator (Claude) after the final verification run._ Keep this file current; it is how a new
 collaborator (e.g. ChatGPT/Codex) resumes **without access to prior chats**. The requirements are in
 [`SPEC.md`](SPEC.md); feature-by-feature status with test IDs is in [`COVERAGE.md`](COVERAGE.md); rules
 for every AI collaborator are in [`../AGENTS.md`](../AGENTS.md).
@@ -16,7 +16,25 @@ for every AI collaborator are in [`../AGENTS.md`](../AGENTS.md).
 | 5 | Normal/accelerated campaigns, performance & balance | partial — observer suite ran 120 × 5 days + 4 × 180 days only; heavy-war day still above target; no reference-laptop numbers |
 | 6 | Release audit, coverage matrix | done (this pass) — `docs/COVERAGE.md` |
 
-## Verified test results (this audit, 2026-11-14, Linux container, 4 vCPU, Node 22, Playwright Chromium 153 headless)
+## Final verified results (2026-11-14, orchestrator, all agents finished, clean tree)
+
+| Command | Result |
+| --- | --- |
+| `npx tsc --noEmit` | **pass** |
+| `npx vitest run` (`npm test`) | **281 passed, 0 failed** (33 files) |
+| `npm run build` | **pass** |
+| `npx playwright test --trace off` | **33 passed, 0 failed, 33 skipped** (by-design per-project skips) |
+
+Since the sections below were written: the USA `rebase` invalid-command failure is fixed (A02 smoke 0
+invalid); Sealift I, Resource Extraction I and Industrial Sustainment I now open on day 1 so all 120
+seats can start research immediately (`tests/profiles/day1-research.test.ts`; opening power unchanged,
+USA 117.98); gallery sample ids are unique. AI: coalition mutual defence, naval escort/blockade/carrier
+use and need-sized trades (`tests/ai/alliance.test.ts`); weakest-quintile survival 57 % → 66 % over
+4 × 180-day runs. Perf: World 120 smoke ≈ 1.4 s per game day total (planner ≈ 0.45 s), down from
+≈ 8.7 s, measured on a loaded 4-vCPU container — the ≤ 1 s target is not yet met (see ENGINE.md
+"Known gaps" and AI.md "Engine requests").
+
+## Verified test results (earlier audit, 2026-11-14, Linux container, 4 vCPU, Node 22, Playwright Chromium 153 headless)
 
 | Command | Result |
 | --- | --- |
@@ -50,9 +68,9 @@ UI bugs fixed (see `docs/UI.md` › Known gaps): landlocked/non-coastal sites of
 naval bases; search "La Paz" for Bolivia selected Mexico's La Paz; standings hid a player ranked
 below 25; journal briefly showed the previous filter's rows; on phones toasts blocked the inspector
 sheet's Close button and opening another screen required dropping the selection; catch-up toast said
-"0 game hours"; queued units now carry an APP-6 planned symbol. Findings for other owners: the U.S.
-has no research available until day 4 (catalog/profile data); `scripts/symbol-gallery.ts` emits
-duplicate sample ids (`…#mono-unknown` in two sections).
+"0 game hours"; queued units now carry an APP-6 planned symbol. Findings for other owners (both since
+fixed): the U.S. had no research available until day 4; `scripts/symbol-gallery.ts` emitted
+duplicate sample ids.
 
 ## What the release audit changed
 
@@ -96,7 +114,9 @@ Status totals in COVERAGE (after the verification pass): 172 implemented and tes
   its unit is destroyed, recovery-copies list, score/end panels (W10 touch pass, market, coalitions,
   journal/newspaper, dossier, split/merge, fire control, tutorial, archive/restore, settings and toasts
   are now covered — see COVERAGE short IDs E-market … E-gallery).
-* `tests/ai/world120.test.ts` invalid-command failure (USA `rebase` × 4) — §20; AI owner.
+* ~~`tests/ai/world120.test.ts` invalid-command failure (USA `rebase` × 4)~~ — fixed.
+* Engine+AI ≤ 1 s per game day (now ≈ 1.4 s on a loaded container) — ENGINE.md known gaps.
+* Engine rules suggested by the AI: blockade effects, coalition co-belligerence without a war declaration — AI.md #12, #14.
 
 ## File ownership (parallel work — do not edit another owner's files without coordinating)
 

@@ -140,6 +140,19 @@ one-pass ownership scan for objectives; lazy hop BFS; static analysis cached per
 ≈ 4.3 s/day. With requests 1–3 the prototype reaches ≈ 2.5 s/day; requests 4–5 (granular invalidation,
 per-step trust/resource rows) are needed for the remaining step to ≈ 1 s.
 
+**Planner profile after the engine pass (2026-11-14,** esbuild bundle, `node --cpu-prof`, 2 days from a day-6
+snapshot, shared CPU ⇒ absolute numbers noisy): the planner was ≈ 31 % of `advance`. Inclusive per 2 days:
+economic review ≈ 300 ms (construction ≈ 120, research ≈ 55), operational ≈ 190, `analyse` ≈ 105, the new
+alliance layer ≈ 98 (`partnerSites` scanning every partner's cities × contacts), validator previews ≈ 140,
+memory copy (`cloneJ`) ≈ 45. Cuts (decisions unchanged: identical `stateHash` before/after): mutual defence
+assesses only partners publicly at war or with an open request (alliance ≈ 98 → 36 ms), O(1) own-city lookup
+(`Analysis.cityAt`) instead of linear scans in the defend/offence/alliance/construction paths, a province-status
+map in `analyse`, latitude pre-filters before great-circle distances, cached per-building-level cost/upkeep values
+and per-tech static facts. The rest is diffuse (no function above ≈ 7 % of the planner); GC is ≈ 13 % of the
+whole step. `tests/ai/helpers.ts` `recording()`/`decideOnce` and the observer wrapper now forward `wants` and
+`liteView`, so tests and reports cost what the real scheduler costs (A02 smoke: ≈ 2.0 s/day total, planner
+≈ 0.6 s/day under load).
+
 ## Observer suite
 
 `npm run report:observer -- --runs 120 --days 30 --long 4 --long-days 180` (options in the script
@@ -167,6 +180,10 @@ cohort (before the balance-of-power / batch-guard changes).
 | Invalid bot commands | **0** | 1 (GBR, seed 1 — see below) | **0** | 2 (fixed: batch-consistency guard) |
 | Repeated stalls / no legal opening order | none / none | none / none | none / none | none / none |
 | Flags | none | noncompetitive peer set (CHN 3 of 4) | same (CHN) | same (RUS) |
+
+The single invalid command (GBR, seed 1; the suite stores counts, not commands) did not reproduce: full 180-day
+replays of seeds 1 and 2 with the final code (which adds the same-airfield rebase guard — the likeliest cause)
+logged **0** rejected commands of any type and no controller exception.
 
 Mutual defence lifts the weakest quintile's 180-day survival from 57.3 % to 65.6 % (+8.3 points; Q4 80.2 → 82.3 %),
 at the price of more wars per run (137 → 237: helpers join their partners' wars, since combat requires a war).
