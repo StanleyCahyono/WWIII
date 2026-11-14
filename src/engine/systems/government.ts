@@ -88,7 +88,8 @@ export function transferNode(state: GameState, node: NodeId, to: CountryId | nul
   const nodeName = m.data.nodes[node].name;
   p.owner = to;
   p.control = to ? 'country' : 'rebel';
-  p.status = to && p.homeland === to ? 'homeland' : 'occupied';
+  // a treaty cession gives legal title (annexed); a capture only occupies
+  p.status = to && p.homeland === to ? 'homeland' : cause === 'treaty' ? 'annexed' : 'occupied';
   p.changedAt = state.clock.tick;
   bumpEconomy(state, node);
   recordOwnerChange(state, node, from, to);
@@ -119,13 +120,14 @@ export function transferNode(state: GameState, node: NodeId, to: CountryId | nul
   const what = city ? `${city.name}${city.capital ? ' (capital)' : ''}` : nodeName;
   const interrupt: CountryId[] = [];
   if (city?.capital) for (const c of [from, to, p.homeland]) if (c && c === state.meta.humanCountry) interrupt.push(c);
-  const textFrom = cause === 'rebellion' ? `${what} fell to rebels.` : `${what} was captured by ${to}.`;
-  const textTo = p.status === 'homeland' ? `${what} liberated.${lootText}` : `${what} occupied.${lootText}`;
+  const treaty = cause === 'treaty';
+  const textFrom = cause === 'rebellion' ? `${what} fell to rebels.` : treaty ? `${what} ceded to ${to} under the peace settlement.` : `${what} was captured by ${to}.`;
+  const textTo = treaty ? `${what} transferred to us under the peace settlement (${p.status}).` : p.status === 'homeland' ? `${what} liberated.${lootText}` : `${what} occupied.${lootText}`;
   const ev = emit(state, {
-    kind: cause === 'rebellion' ? 'uprising_success' : city ? 'city_captured' : 'province_captured',
+    kind: cause === 'rebellion' ? 'uprising_success' : treaty ? 'territory_ceded' : city ? 'city_captured' : 'province_captured',
     category: 'government',
     node,
-    public: city || cause === 'rebellion' ? { headline: cause === 'rebellion' ? `Uprising: rebels seize ${what}` : `${to} takes ${what} from ${from ?? 'rebels'}`, countries: [from, to].filter((x): x is string => !!x) } : null,
+    public: city || cause === 'rebellion' || treaty ? { headline: cause === 'rebellion' ? `Uprising: rebels seize ${what}` : treaty ? `${from ?? 'Rebels'} cedes ${what} to ${to}` : `${to} takes ${what} from ${from ?? 'rebels'}`, countries: [from, to].filter((x): x is string => !!x) } : null,
     private: { ...toAll([from], textFrom, { node, city: ck ?? null, from, to, cause }), ...toAll([to], textTo, { node, city: ck ?? null, from, to, cause }) },
     interrupt,
   });

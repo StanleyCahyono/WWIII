@@ -80,6 +80,15 @@ export const MIGRATIONS: Record<number, Migration> = {
     o.schemaVersion = 1;
     return o;
   },
+  1: (s) => {
+    // v1 → v2 (engine features pass): port blockades are saved state (`blockades`, empty until the
+    // next whole hour re-derives them from stack positions). New optional fields (offer `round` /
+    // `counterOf`, MoveOrder `airmobile`, OfferTerm `territory`) need no conversion.
+    const o = JSON.parse(JSON.stringify(s));
+    o.blockades ??= {};
+    o.schemaVersion = 2;
+    return o;
+  },
 };
 
 export function migrate(raw: Record<string, any>): Record<string, any> {
@@ -107,7 +116,7 @@ function finiteDeep(x: unknown, path: string, errs: string[], depth = 0): void {
 
 export function validateState(s: GameState): string[] {
   const errs: string[] = [];
-  const req = ['countries', 'provinces', 'cities', 'stacks', 'queue', 'clock', 'score', 'market', 'countryOrder'];
+  const req = ['countries', 'provinces', 'cities', 'stacks', 'queue', 'clock', 'score', 'market', 'countryOrder', 'blockades'];
   for (const k of req) if ((s as any)[k] === undefined) errs.push(`Missing section ${k}`);
   if (errs.length) return errs;
   if (!Number.isInteger(s.clock.tick) || s.clock.tick < 0) errs.push('Invalid clock');
@@ -144,6 +153,11 @@ export function validateState(s: GameState): string[] {
     if (st.aboard && !s.stacks[st.aboard]) errs.push(`Stack ${id} aboard missing carrier`);
     for (const u of st.units) if (!(u.hp > 0 && u.hp <= u.maxHp)) errs.push(`Unit ${u.id} has invalid HP`);
   }
+  for (const [k, b] of Object.entries(s.blockades ?? {})) {
+    if (!s.cities[k]) errs.push(`Blockade of unknown city ${k}`);
+    else if (!Array.isArray(b.by) || !b.by.every((c) => !!s.countries[c])) errs.push(`Blockade of ${k} names an unknown country`);
+  }
+  for (const o of Object.values(s.offers ?? {})) for (const t of [...o.give, ...o.receive]) if (t.kind === 'territory' && !(Number.isInteger(t.node) && t.node >= 0 && t.node < nNodes && s.provinces[t.node])) errs.push(`Offer ${o.id} cedes an unknown province`);
   // market escrow reconciles with open orders
   const esc: Record<string, Record<string, number>> = {};
   for (const o of Object.values(s.market.orders)) {

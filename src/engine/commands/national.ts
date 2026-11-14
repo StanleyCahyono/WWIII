@@ -25,6 +25,8 @@ import {
   pendingOffersBetween,
   postMessage,
   proposeOfferInternal,
+  counterOfferInternal,
+  offerRound,
   renderIntent,
   respondOfferInternal,
   revokeGrantInternal,
@@ -41,7 +43,7 @@ import { emit, toAll } from '../systems/events';
 import { nextId } from '../ids';
 import { hash64Hex } from '../rng';
 import { dayOf } from '../time';
-import { ANNEX_BASE_COST, ANNEX_COST_PER_TIER, ANNEX_HOURS, AGENT_COST, DEMOLISH_REFUND_FACTOR, INTEL_REPORT_COST, MARKET_MAX_OPEN_PER_COUNTRY, MARKET_MAX_PRICE, MAX_AGENTS } from '../rules';
+import { ANNEX_BASE_COST, ANNEX_COST_PER_TIER, ANNEX_HOURS, AGENT_COST, DEMOLISH_REFUND_FACTOR, INTEL_REPORT_COST, MARKET_MAX_OPEN_PER_COUNTRY, MARKET_MAX_PRICE, MAX_AGENTS, PEACE } from '../rules';
 
 // ───────────────────────────── bulk build / mobilize ─────────────────────────────
 
@@ -279,23 +281,36 @@ function aliveCountry(state: GameState, c: CountryId) {
   return !!state.countries[c] && state.countries[c].alive;
 }
 
-export const proposeOffer: Handler<CommandOf<'proposeOffer'>, { expiresAt: number; effectiveDelayMin: number }> = {
+export const proposeOffer: Handler<CommandOf<'proposeOffer'>, { expiresAt: number; effectiveDelayMin: number; round: number }> = {
   validate(state, cmd) {
     if (!aliveCountry(state, cmd.to) || cmd.to === cmd.country) return fail('unknown_target', 'Unknown or eliminated recipient.');
     if (!Array.isArray(cmd.give) || !Array.isArray(cmd.receive)) return fail('invalid_argument', 'Terms must be lists.');
     const err = validateTerms(state, cmd.country, cmd.to, cmd.give, cmd.receive);
     if (err) return fail('invalid_argument', err);
-    if (pendingOffersBetween(state, cmd.country, cmd.to).length >= MAX_PENDING) return fail('busy', `There are already ${MAX_PENDING} pending offers with ${cmd.to}.`);
+    let countering = 0;
+    let round = 1;
+    if (cmd.counterTo !== undefined) {
+      const orig = state.offers[cmd.counterTo];
+      if (!orig) return fail('unknown_target', 'The offer you are countering no longer exists.');
+      if (orig.to !== cmd.country || orig.from !== cmd.to) return fail('not_recipient', 'You can only counter an offer addressed to you, back to its sender.');
+      if (orig.status !== 'pending') return fail('already_resolved', `That offer is already ${orig.status}.`);
+      round = offerRound(orig) + 1;
+      if (round > PEACE.maxRounds) return fail('negotiation_limit', `Negotiation limit reached (${PEACE.maxRounds} rounds): accept or decline the last offer.`);
+      countering = 1;
+    }
+    if (pendingOffersBetween(state, cmd.country, cmd.to).length - countering >= MAX_PENDING) return fail('busy', `There are already ${MAX_PENDING} pending offers with ${cmd.to}.`);
     const need = zero();
     for (const t of cmd.give) if (t.kind === 'resource') need[t.resource] += t.amount;
     if (!geq(state.countries[cmd.country].stock, need)) return fail('insufficient_resources', shortReason(shortfall(state.countries[cmd.country].stock, need)));
     const exp = cmd.expiresInMin ?? 2880;
     if (!Number.isInteger(exp) || exp < 60 || exp > 14 * 1440) return fail('invalid_argument', 'Expiry must be between 1 hour and 14 days.');
-    return ok({ expiresAt: state.clock.tick + exp, effectiveDelayMin: 60 });
+    return ok({ expiresAt: state.clock.tick + exp, effectiveDelayMin: 60, round });
   },
   apply(state, cmd) {
-    const o = proposeOfferInternal(state, cmd.country, cmd.to, cmd.give, cmd.receive, cmd.expiresInMin, cmd.reason ?? null, cmd.text);
-    return { offer: o.id };
+    const o = cmd.counterTo !== undefined
+      ? counterOfferInternal(state, state.offers[cmd.counterTo], cmd.give, cmd.receive, cmd.expiresInMin, cmd.reason ?? null, cmd.text)
+      : proposeOfferInternal(state, cmd.country, cmd.to, cmd.give, cmd.receive, cmd.expiresInMin, cmd.reason ?? null, cmd.text);
+    return { offer: o.id, round: o.round ?? 1 };
   },
 };
 

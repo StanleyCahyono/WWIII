@@ -765,7 +765,7 @@ function cloneStack(s: Stack): Stack {
     ...s,
     units: s.units.map((u) => ({ ...u })),
     pos: s.pos.kind === 'air' ? { ...s.pos, from: [s.pos.from[0], s.pos.from[1]], to: [s.pos.to[0], s.pos.to[1]] } : { ...s.pos },
-    order: s.order ? (s.order.kind === 'move' ? { ...s.order, route: s.order.route.map((r) => ({ ...r })), waypoints: [...s.order.waypoints], warConfirmed: [...s.order.warConfirmed], attack: s.order.attack ? { ...s.order.attack } : undefined } : { ...s.order, warConfirmed: [...s.order.warConfirmed] }) : null,
+    order: s.order ? (s.order.kind === 'move' ? { ...s.order, route: s.order.route.map((r) => ({ ...r })), waypoints: [...s.order.waypoints], warConfirmed: [...s.order.warConfirmed], attack: s.order.attack ? { ...s.order.attack } : undefined, ...(s.order.airmobile ? { airmobile: { ...s.order.airmobile } } : {}) } : { ...s.order, warConfirmed: [...s.order.warConfirmed] }) : null,
     air: s.air ? jsonCopy(s.air) : null,
   };
 }

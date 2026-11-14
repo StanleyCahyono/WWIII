@@ -12,7 +12,7 @@
 import { RESOURCES, type CountryId, type Resource } from '../data-types';
 import type { BuildingInstance, CityState, CountryState, GameState, ProvinceState, TerritoryStatus } from '../state';
 import { add, addInto, mul, type ResM, subInto, toMilli, vecFromWhole, zero, valueAt } from '../fixed';
-import { ESSENTIAL, MANPOWER_PER_SQRT_KPOP, MONEY_PER_SQRT_KPOP, RURAL_POP_FACTOR, MORALE, OCCUPATION_UPKEEP_PER_TIER, RURAL_DEPOSIT_OUTPUT, TERRITORY_FACTOR } from '../rules';
+import { BLOCKADE, ESSENTIAL, MANPOWER_PER_SQRT_KPOP, MONEY_PER_SQRT_KPOP, RURAL_POP_FACTOR, MORALE, OCCUPATION_UPKEEP_PER_TIER, RURAL_DEPOSIT_OUTPUT, TERRITORY_FACTOR } from '../rules';
 import { S } from '../scenario/registry';
 import { chargePartial, credit } from './ledger';
 import { hourOfDay } from '../time';
@@ -89,11 +89,13 @@ export function cityAdjustedOutput(state: GameState, city: CityState): ResM {
   out.manpower += toMilli(popManpower(city.population));
   out.money += toMilli(popMoney(city.population));
   out.electronics = Math.trunc(out.electronics * cmod(state, owner, 'electronics_output_mult'));
-  const f = moraleFactor(city.morale) * (0.25 + 0.75 * (city.condition / 100));
+  let f = moraleFactor(city.morale) * (0.25 + 0.75 * (city.condition / 100));
+  // blockaded port (systems/blockade.ts): port trade and coastal shipping lost
+  if (state.blockades?.[city.key]) f *= BLOCKADE.outputFactor;
   return mul(out, f);
 }
 
-const cityCache = new WeakMap<CityState, { o: string; st: string; ch: number; mo: number; co: number; po: number; im: number; em: number; bs: number; out: ResM }>();
+const cityCache = new WeakMap<CityState, { o: string; st: string; ch: number; mo: number; co: number; po: number; im: number; em: number; bs: number; bk: boolean; out: ResM }>();
 export function cityOutput(state: GameState, city: CityState): ResM {
   const p = state.provinces[city.node];
   if (!p || p.control !== 'country' || !p.owner) return zero();
@@ -101,10 +103,11 @@ export function cityOutput(state: GameState, city: CityState): ResM {
   const em = cmod(state, p.owner, 'electronics_output_mult');
   let bs = city.buildings.length;
   for (const b of city.buildings) bs = (bs * 31 + b.level * 131 + b.condition * 7 + b.type.length) | 0;
+  const bk = !!state.blockades?.[city.key];
   const c = cityCache.get(city);
-  if (c && c.o === p.owner && c.st === p.status && c.ch === p.changedAt && c.mo === city.morale && c.co === city.condition && c.po === city.population && c.im === im && c.em === em && c.bs === bs) return c.out;
+  if (c && c.o === p.owner && c.st === p.status && c.ch === p.changedAt && c.mo === city.morale && c.co === city.condition && c.po === city.population && c.im === im && c.em === em && c.bs === bs && c.bk === bk) return c.out;
   const out = applyTerritoryFactor(cityAdjustedOutput(state, city), p.status);
-  cityCache.set(city, { o: p.owner, st: p.status, ch: p.changedAt, mo: city.morale, co: city.condition, po: city.population, im, em, bs, out });
+  cityCache.set(city, { o: p.owner, st: p.status, ch: p.changedAt, mo: city.morale, co: city.condition, po: city.population, im, em, bs, bk, out });
   return out;
 }
 

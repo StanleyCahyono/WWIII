@@ -3,9 +3,11 @@ import type { CountryId, NodeId } from '../data-types';
 import type { GameState, Stack } from '../state';
 import { declareWarInternal, type DiploHooks } from './diplomacy';
 import type { MoveHooks } from './movement';
+import type { AirmobileHooks } from './airmobile';
 import { orderFromPlan, planRoute } from './movement';
 import type { CombatHooks } from './combat';
 import type { GovHooks } from './government';
+import { transferNode } from './government';
 import type { ProductionHooks } from './production';
 import { cancelJobInternal } from './production';
 import { canSee } from './visibility';
@@ -30,6 +32,8 @@ export function destroyStack(state: GameState, s: Stack, by: CountryId | null): 
 
 export const moveHooks: MoveHooks = { declareWar: declareWarInternal };
 
+export const airmobileHooks: AirmobileHooks = { declareWar: declareWarInternal, destroy: destroyStack };
+
 export const combatHooks: CombatHooks = {
   onStackDestroyed: destroyStack,
   canSee,
@@ -50,7 +54,7 @@ export const productionHooks: ProductionHooks = {
   onMissileReady: () => {},
 };
 
-export const diploHooks: DiploHooks = { joinCoalition: joinCoalitionInternal };
+export const diploHooks: DiploHooks = { joinCoalition: joinCoalitionInternal, cede: (state, node, _from, to) => transferNode(state, node, to, 'treaty', govHooks) };
 
 /** A country with no territory and no capture-capable force is eliminated (once). */
 const ownersCache = new WeakMap<GameState, { ownv: number; provs: object; owns: Set<CountryId> }>();

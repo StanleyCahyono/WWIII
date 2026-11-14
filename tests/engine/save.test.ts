@@ -73,13 +73,13 @@ describe('persistence (A14, W06)', () => {
     expect(stateHash(s)).toBe(h);
   });
 
-  it('explicit, repeatable v0 → v1 migration', () => {
+  it('explicit, repeatable v0 → v1 → v2 migration', () => {
     const s = newMiniGame();
     advance(s, 500);
     const json = serialize(s);
     const v0 = toV0(json);
     const loaded = deserialize(v0);
-    expect(loaded.schemaVersion).toBe(1);
+    expect(loaded.schemaVersion).toBe(2);
     expect(loaded.countries.ARD.stock).toEqual(s.countries.ARD.stock);
     expect(loaded.clock.tick).toBe(s.clock.tick);
     const raw = JSON.parse(v0).state;

@@ -199,6 +199,7 @@ export function checkMobilize(state: GameState, c: CountryId, cityKey: CityKey, 
     if (lvl < req.level) return { ok: false, code: 'missing_facility', reason: `${city.name} needs ${S(state).cat.buildings.get(req.building)?.name ?? req.building} level ${req.level}.`, city: cityKey, node: city.node };
   }
   if (moveClassOf(t) === 'naval' && !city.port) return { ok: false, code: 'unsuitable_port', reason: `${city.name} has no port for ships.`, city: cityKey, node: city.node };
+  if (moveClassOf(t) === 'naval' && state.blockades?.[cityKey]) return { ok: false, code: 'blockaded', reason: `${city.name} is blockaded by hostile warships: its shipyards cannot launch ships until the blockade is lifted.`, city: cityKey, node: city.node };
   const key = `c:${cityKey}:mobilize`;
   const queued = state.countries[c].jobs.filter((j) => locationKey(j) === key).length + pendingHere;
   if (queued >= CITY_QUEUE_MAX) return { ok: false, code: 'queue_full', reason: `Mobilization queue is full (${CITY_QUEUE_MAX}).`, city: cityKey, node: city.node };

@@ -27,6 +27,7 @@ const handlers: Record<Command['type'], Handler<any, any>> = {
   retreat: F.retreat,
   setRefit: F.setRefit,
   useDeployable: F.useDeployable,
+  airmobile: F.airmobile,
   build: N.build,
   cancelJob: N.cancelJob,
   demolish: N.demolish,

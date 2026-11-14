@@ -16,6 +16,7 @@ import { RETREAT_HP_COST, DEFAULT_PATROL_RADIUS_KM } from '../rules';
 import { emit, toAll } from '../systems/events';
 import { maintenanceCapacity } from '../systems/readiness';
 import { snapshotReport } from '../systems/intel';
+import { checkAirmobile, launchAirmobile, type AirmobilePreview } from '../systems/airmobile';
 
 function confirmList(c: CountryId[] | boolean | undefined, need: CountryId[]): boolean {
   if (!need.length) return true;
@@ -34,6 +35,7 @@ export interface MovePreview {
 function routeValidation(state: GameState, s: Stack, dest: NodeId, waypoints: NodeId[], confirm: CountryId[] | boolean | undefined) {
   if (s.moveClass === 'air') return fail('invalid_domain', 'Aircraft use Patrol or Rebase orders.');
   if (s.aboard) return fail('invalid_domain', 'Formation is aboard a carrier.');
+  if (s.pos.kind === 'air') return fail('busy', 'Formation is in an air-mobile flight; order it after it lands.');
   const m = S(state).map;
   for (const n of [...waypoints, dest]) if (!Number.isInteger(n) || n < 0 || n >= m.n) return fail('unknown_target', 'Unknown destination.');
   let plan = planRoute(state, s, dest, waypoints);
@@ -116,6 +118,7 @@ export const attack: Handler<CommandOf<'attack'>, AttackPreview> = {
     const s = ownStack(state, cmd.country, cmd.stack);
     if (isFail(s)) return s;
     if (s.moveClass === 'air') return fail('invalid_domain', 'Aircraft attack through Patrol orders (engage policy).');
+    if (s.pos.kind === 'air') return fail('busy', 'Formation is in an air-mobile flight; order it after it lands.');
     let targetStack: Stack | null = null;
     let node: NodeId | null = cmd.targetNode ?? null;
     if (cmd.targetContact) {
@@ -162,6 +165,7 @@ export const stop: Handler<CommandOf<'stop'>, { returning: boolean }> = {
   validate(state, cmd) {
     const s = ownStack(state, cmd.country, cmd.stack);
     if (isFail(s)) return s;
+    if (s.moveClass !== 'air' && s.pos.kind === 'air') return fail('busy', 'An air-mobile lift cannot stop in mid-air; it lands at its destination.');
     return ok({ returning: s.moveClass === 'air' && !!s.air && s.air.state === 'on_station' });
   },
   apply(state, cmd) {
@@ -187,6 +191,7 @@ export const delay: Handler<CommandOf<'delay'>, { until: number }> = {
     if (isFail(s)) return s;
     if (!Number.isInteger(cmd.minutes) || cmd.minutes <= 0 || cmd.minutes > 7 * 1440) return fail('invalid_argument', 'Delay must be 1 minute to 7 days.');
     if (!s.order) return fail('invalid_argument', 'Formation has no order to delay.');
+    if (s.moveClass !== 'air' && s.pos.kind === 'air') return fail('busy', 'An air-mobile lift in flight cannot be delayed.');
     return ok({ until: state.clock.tick + cmd.minutes });
   },
   apply(state, cmd, p) {
@@ -422,6 +427,18 @@ export const useDeployable: Handler<CommandOf<'useDeployable'>, { effect: string
     if (!s.units.length) delete state.stacks[s.id];
     emit(state, { kind: 'deployable_used', category: 'combat', node: cmd.target, private: toAll([cmd.country], `${t.name} used at ${S(state).map.data.nodes[cmd.target].name}: ${hit} hostile unit(s) affected.`) });
     return { hit };
+  },
+};
+
+export const airmobile: Handler<CommandOf<'airmobile'>, AirmobilePreview> = {
+  validate(state, cmd) {
+    const s = ownStack(state, cmd.country, cmd.stack);
+    if (isFail(s)) return s;
+    return checkAirmobile(state, s, cmd.dest, cmd.confirmActOfWar);
+  },
+  apply(state, cmd, p) {
+    launchAirmobile(state, state.stacks[cmd.stack], p);
+    return { arriveAt: p.arriveAt };
   },
 };
 

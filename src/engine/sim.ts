@@ -6,10 +6,11 @@
  *  1. scheduled events with at ≤ T, ordered (at, priority class, seq); the clock reads `at`
  *     while each runs (exact minute timestamps)
  *  2. air operations (launch/arrival/endurance/diversion)
+ *  2b. air-mobile lifts due to land (legality re-check, seeded interception, landing)
  *  3. ground & naval movement (route re-validation, acts of war on entry)
  *  4. on whole hours: attack-order refresh, combat round (node → ranged → air)
  *  5. capture
- *  6. on whole hours: economy accrual (production, upkeep, occupation)
+ *  6. on whole hours: blockade refresh, then economy accrual (production, upkeep, occupation)
  *  7. visibility
  *  8. at day change (00:00): government (morale/pop/revolts), readiness, trust decay,
  *     score settlement (victory), daily digest, pruning
@@ -27,6 +28,8 @@ import { applyOfferEffect, expireOffer, trustDecayDay } from './systems/diplomac
 import { completeDeparture } from './systems/coalitions';
 import { agentAct } from './systems/intel';
 import { airStep } from './systems/air';
+import { airmobileStep } from './systems/airmobile';
+import { updateBlockades } from './systems/blockade';
 import { moveStep, planRoute, orderFromPlan } from './systems/movement';
 import { combatRound } from './systems/combat';
 import { captureStep, governmentDay } from './systems/government';
@@ -35,7 +38,7 @@ import { updateVisibility, canSee } from './systems/visibility';
 import { readinessDay } from './systems/readiness';
 import { settle } from './systems/score';
 import { pruneMarket } from './systems/market';
-import { combatHooks, destroyStack, diploHooks, govHooks, moveHooks, productionHooks, checkEliminations } from './systems/hooks';
+import { airmobileHooks, combatHooks, destroyStack, diploHooks, govHooks, moveHooks, productionHooks, checkEliminations } from './systems/hooks';
 import { collectWakes, getDefaultHost, runAi } from './ai-host/scheduler';
 import type { SimHost } from './ai-host/types';
 import { emit } from './systems/events';
@@ -159,6 +162,7 @@ export function runStep(state: GameState, T: number, host: SimHost): void {
   state.clock.tick = T;
   invalidateViewCache(state);
   airStep(state, (st, s) => destroyStack(st, s, null));
+  airmobileStep(state, airmobileHooks);
   moveStep(state, stacksReadonly(state), moveHooks);
   if (isHour(T)) {
     refreshAttackOrders(state);
@@ -166,7 +170,10 @@ export function runStep(state: GameState, T: number, host: SimHost): void {
   }
   captureStep(state, govHooks);
   invalidateViewCache(state);
-  if (isHour(T)) economyHour(state);
+  if (isHour(T)) {
+    updateBlockades(state);
+    economyHour(state);
+  }
   if (T % VISIBILITY_INTERVAL_MIN === 0) updateVisibility(state);
   if (isDayChange(T)) {
     governmentDay(state, govHooks);

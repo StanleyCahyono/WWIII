@@ -424,7 +424,7 @@ export function moveStep(state: GameState, stacks: readonly Stack[], hooks: Move
     return atNode;
   };
   for (const s of stacks) {
-    if (s.moveClass === 'air' || s.aboard) continue;
+    if (s.moveClass === 'air' || s.aboard || s.pos.kind === 'air') continue;
     const o = s.order;
     if (!o || o.kind !== 'move' || !o.route.length) continue;
     if (s.delayUntil !== null && s.delayUntil > state.clock.tick) continue;
@@ -495,6 +495,7 @@ export function moveStep(state: GameState, stacks: readonly Stack[], hooks: Move
 }
 
 export function routeEtaTick(state: GameState, s: Stack): number | null {
+  if (s.pos.kind === 'air' && s.moveClass !== 'air') return s.pos.arrive; // air-mobile lift in flight
   const o = s.order;
   if (!o || o.kind !== 'move' || !o.route.length) return null;
   const m = S(state).map;

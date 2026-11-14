@@ -63,6 +63,7 @@ export function createCampaign(opts: CreateOptions): GameState {
     messages: {},
     market: { orders: {}, fills: [], seq: 0, lastPrice: {} },
     launches: {},
+    blockades: {},
     contacts: {},
     reports: {},
     agents: {},
