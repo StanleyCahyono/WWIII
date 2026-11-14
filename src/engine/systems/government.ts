@@ -23,7 +23,7 @@ import {
 } from '../rules';
 import { S } from '../scenario/registry';
 import { streamRng } from '../rng';
-import { atWar, cmpId, hostileStacks, stacksReadonly, ustats, utype } from './world';
+import { atWar, cmpId, enemyMap, hostileStacks, recordOwnerChange, stacksReadonly, ustats, utype } from './world';
 import { awardXp, emit, toAll } from './events';
 import { nodeDist, other } from './mapindex';
 import { sumEffect, bumpEconomy } from './economy';
@@ -89,7 +89,8 @@ export function transferNode(state: GameState, node: NodeId, to: CountryId | nul
   p.control = to ? 'country' : 'rebel';
   p.status = to && p.homeland === to ? 'homeland' : 'occupied';
   p.changedAt = state.clock.tick;
-  bumpEconomy(state);
+  bumpEconomy(state, node);
+  recordOwnerChange(state, node, from, to);
   state.ids.ownv = (state.ids.ownv ?? 0) + 1;
   invalidateDerived(state);
   for (const b of p.buildings) b.condition = Math.max(0, b.condition - CAPTURE_CONDITION_LOSS);
@@ -149,8 +150,7 @@ export function moraleTarget(state: GameState, p: ProvinceState, city: CityState
   f.push({ key: 'base', label: 'Base morale', value: MORALE.baseHomeland });
   if (p.status === 'occupied') f.push({ key: 'occupied', label: 'Under occupation', value: MORALE.occupiedPenalty });
   if (p.status === 'annexed') f.push({ key: 'annexed', label: 'Recently annexed', value: MORALE.annexedPenalty });
-  let enemies = 0;
-  for (const c of state.countryOrder) if (atWar(state, owner, c)) enemies++;
+  const enemies = enemyMap(state).get(owner)?.size ?? 0;
   if (enemies) f.push({ key: 'war', label: `At war with ${enemies} countr${enemies === 1 ? 'y' : 'ies'}`, value: Math.max(MORALE.warPenaltyCap, enemies * MORALE.warPenaltyPerEnemy) });
   if (city?.shortage) f.push({ key: 'shortage', label: 'Supply shortages', value: MORALE.shortagePenalty });
   const m = S(state).map;
@@ -261,7 +261,7 @@ export function resolveUprising(state: GameState, cityKey: string, hooks: GovHoo
     return 'garrison_defeated';
   }
   city.morale = Math.min(100, city.morale + 5);
-  bumpEconomy(state);
+  bumpEconomy(state, city.node);
   emit(state, { kind: 'uprising_suppressed', category: 'government', node: city.node, private: toAll([owner], `Uprising in ${city.name} suppressed by the garrison.`, { city: cityKey }), public: { headline: `Unrest in ${city.name} put down`, countries: [owner] } });
   return 'suppressed';
 }

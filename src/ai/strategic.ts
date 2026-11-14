@@ -40,6 +40,7 @@ export function ingestJournal(t: Turn, a: Analysis): void {
         break;
       case 'city_captured':
       case 'province_captured': {
+        if (/occupied|liberated/.test(e.text) && !/captured by/.test(e.text)) t.mem.counters['captures'] = (t.mem.counters['captures'] ?? 0) + 1;
         const m = /captured by ([A-Z]{3})/.exec(e.text);
         if (m && t.rel.has(m[1])) {
           bump(mem.grievance, m[1], e.kind === 'city_captured' ? 15 : 4);
@@ -49,13 +50,7 @@ export function ingestJournal(t: Turn, a: Analysis): void {
         break;
       }
       case 'intel_report': {
-        const rep = e.data && typeof e.data.report === 'string' ? e.data.report : null;
-        for (const req of mem.intel) if (!req.reportSeen && e.node !== null && (e.node === req.node || rep)) {
-          if (e.node === req.node) {
-            req.reportSeen = true;
-            t.note('strategic', 'intel_finding', `report on node ${req.node} (${req.country})`, e.text.slice(0, 120));
-          }
-        }
+        for (const req of mem.intel) if (!req.reportSeen && e.node === req.node) t.note('strategic', 'intel_finding', `report on node ${req.node} (${req.country})`, e.text.slice(0, 120));
         break;
       }
       default:
@@ -100,7 +95,8 @@ export function strategicPass(t: Turn, a: Analysis): void {
     const s = t.res[r];
     if (!s) continue;
     const h = s.hoursToDepletion;
-    if (v.self.shortages.includes(r) || (h !== null && h < t.diff.forecastHours * 2.5)) shortages.push(r);
+    const low = s.consumptionPerDay > 0 && s.stock < s.consumptionPerDay * 2;
+    if (v.self.shortages.includes(r) || low || (h !== null && h < t.diff.forecastHours * 2.5)) shortages.push(r);
   }
   // hypersonic only for capable peers with surplus
   const op = v.openingPower;
@@ -115,8 +111,9 @@ export function strategicPass(t: Turn, a: Analysis): void {
   mem.plan.stance = a.enemies.length && threat > a.myGround * 0.6 ? 'defend' : a.enemies.length || t.personality.expansion > 0.45 ? 'expand' : 'consolidate';
   t.note('strategic', 'plan', `stance=${mem.plan.stance} focus=${mem.plan.researchFocus.join('/')} shortages=${shortages.join(',') || 'none'} hyp=${mem.plan.hypersonic}`, `power ${a.myPower.toFixed(0)}, threat ${threat.toFixed(0)}, ${a.enemies.length} war(s)`);
 
-  // war bookkeeping
+  // war bookkeeping (a concluded peace starts a truce: no new war on that country for 15 days)
   for (const e of a.enemies) if (mem.warStartedAt[e] === undefined) mem.warStartedAt[e] = t.now;
+  for (const k of Object.keys(mem.warStartedAt)) if (!a.enemies.includes(k)) { mem.cooldown[`truce:${k}`] = t.now + 15 * DAY; delete mem.warStartedAt[k]; }
 
   chooseObjective(t, a);
   considerWar(t, a);
@@ -209,14 +206,18 @@ function considerWar(t: Turn, a: Analysis): void {
     t.note('strategic', 'war_deferred', `war on ${o.target} deferred`, 'small state: seek access, coalition or trade first');
     return;
   }
+  if ((mem.cooldown[`truce:${o.target}`] ?? 0) > t.now) return;
   const ratio = a.myPower / a.power(o.target);
-  const appetite = p.aggression * 0.55 + p.expansion * 0.45 + (mem.grievance[o.target] ?? 0) / 60 - Math.max(0, r.trust) / 80 - (r.theirStatusToMe !== 'peace' ? 0.2 : 0);
+  // score pressure grows with the calendar; a clearly weaker target is an opportunity
+  const pressure = Math.min(0.25, (v.day / 180) * 0.5);
+  const opportunity = ratio > 1.5 ? Math.min(0.2, (ratio - 1.5) * 0.1) : 0;
+  const appetite = p.aggression * 0.5 + p.expansion * 0.4 + 0.1 + pressure + opportunity + (mem.grievance[o.target] ?? 0) / 60 - Math.max(0, r.trust) / 80 - (r.theirStatusToMe !== 'peace' ? 0.2 : 0);
   const need = (a.small ? 1.6 : 1.25) + p.caution * 0.4;
   // local strength at the border vs estimated defence of the objective
   const d = defenceAt(t, a, o.node as NodeId);
   const local = a.myGround - a.cities.reduce((s, c) => s + c.required * 0.5, 0);
-  if (appetite < 0.42 || ratio < need || local < d.strength * t.diff.attackRatio) {
-    t.note('strategic', 'war_considered', `no war on ${o.target}`, `appetite ${appetite.toFixed(2)}, power ratio ${ratio.toFixed(2)} (need ${need.toFixed(2)}), local ${local.toFixed(0)} vs defence ${d.strength.toFixed(0)}`);
+  if (appetite < 0.45 || ratio < need || local < d.strength * t.diff.attackRatio) {
+    t.note('strategic', 'war_considered', `no war on ${o.target}`, `appetite ${appetite.toFixed(2)} (pressure ${pressure.toFixed(2)}), power ratio ${ratio.toFixed(2)} (need ${need.toFixed(2)}), local ${local.toFixed(0)} vs defence ${d.strength.toFixed(0)}`);
     return;
   }
   const reason = `objective ${o.reason}; power ratio ${ratio.toFixed(2)}`;

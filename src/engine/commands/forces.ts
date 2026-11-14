@@ -5,7 +5,7 @@ import type { CommandOf } from './types';
 import { fail, isFail, ok, ownStack, type Handler } from './common';
 import { orderFromPlan, planRoute, type RoutePlan, stackSpeed } from '../systems/movement';
 import { S } from '../scenario/registry';
-import { atWar, cmpId, hasPassage, hostileStacks, stackLL, ustats, utype, stacksAt, isFriendlyTerritory } from '../systems/world';
+import { atWar, cmpId, hasPassage, hostileStacks, stackLL, ustats, utype, stacksAt, isFriendlyTerritory, unitRange } from '../systems/world';
 import { resolveContact } from '../systems/visibility';
 import { declareWarInternal } from '../systems/diplomacy';
 import { distKm, edgeBetween, nodeLL, other } from '../systems/mapindex';
@@ -131,7 +131,7 @@ export const attack: Handler<CommandOf<'attack'>, AttackPreview> = {
     const nodeOwner = state.provinces[node]?.owner ?? null;
     if (!targetStack && nodeOwner && nodeOwner !== cmd.country && !atWar(state, cmd.country, nodeOwner) && !hasPassage(state, cmd.country, nodeOwner)) aow.push(nodeOwner);
     if (aow.length && !confirmList(cmd.confirmActOfWar, aow)) return fail('act_of_war', `Attacking ${aow.join(', ')} is an act of war. Confirm to declare war.`, { actOfWar: aow });
-    const maxR = Math.max(0, ...s.units.map((u) => ustats(state, u).rangeKm));
+    const maxR = Math.max(0, ...s.units.map((u) => unitRange(state, s.owner, u)));
     const ll = stackLL(state, s);
     const tll = targetStack ? stackLL(state, targetStack) : nodeLL(S(state).map, node);
     const d = distKm(ll[0], ll[1], tll[0], tll[1]);

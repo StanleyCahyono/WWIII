@@ -23,8 +23,8 @@ export interface MapIndex {
   nodeBins: Map<number, NodeId[]>;
   /** Playable land node ids. */
   playable: NodeId[];
-  /** Cache of static (ownership-independent) reachability by class: `${class}:${from}:${to}` */
-  staticCache: Map<string, boolean>;
+  /** Memo of rights-independent optimal paths (see movement.staticPath for the key). */
+  staticCache: Map<string, PathResult | null>;
 }
 
 const R = 6371;

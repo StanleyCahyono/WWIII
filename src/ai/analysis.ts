@@ -67,14 +67,21 @@ export function analyse(t: Turn): Analysis {
     }
     if (f) frontier.push(n);
   }
-  // hop distances from own territory (cached by owners-array identity: content-identical ⇒ same result)
-  let hc = hopCache.get(v.owners);
-  if (!hc) { hc = new Map(); hopCache.set(v.owners, hc); }
-  let hops = hc.get(me);
-  if (!hops) {
-    hops = landBfs(g, myNodes, 14, () => true);
-    hc.set(me, hops);
-  }
+  // hop distances from own territory: computed lazily (only layers that need reach use them) and
+  // cached by owners-array identity (content-identical ⇒ same result, so determinism is kept)
+  let hopsArr: Int16Array | null = null;
+  const getHops = () => {
+    if (hopsArr) return hopsArr;
+    let hc = hopCache.get(v.owners);
+    if (!hc) { hc = new Map(); hopCache.set(v.owners, hc); }
+    let h = hc.get(me);
+    if (!h) {
+      h = landBfs(g, myNodes, 14, () => true);
+      hc.set(me, h);
+    }
+    hopsArr = h;
+    return h;
+  };
   // own strength per node
   const presentAt = new Map<NodeId, number>();
   let myGround = 0, myStacksGround = 0;
@@ -141,20 +148,24 @@ export function analyse(t: Turn): Analysis {
     homelandVp,
     ports: v.cities.filter((c) => c.port).length,
     small,
-    hops,
+    get hops() {
+      return getHops();
+    },
   };
 }
 
 /** Estimated defending ground strength at a foreign node from observations (or a prior). */
 export function defenceAt(t: Turn, a: Analysis, node: NodeId): { strength: number; observed: boolean; age: number } {
   const g = t.geo;
+  const holder = t.view.owners[node];
+  const hostileTo = (o: CountryId | null | undefined) => !!o && o !== t.me && (o === holder || a.enemies.includes(o));
   let s = 0, observed = false, age = 1e9;
   for (const c of t.view.contacts) {
     if (c.node === null) continue;
     if (c.node !== node && !(g.land[node].includes(c.node) && km(g, node, c.node) < 120)) continue;
     if (c.owner === t.me) continue;
     const o = c.owner ?? t.view.owners[c.node];
-    if (o && !a.enemies.includes(o)) continue;
+    if (o && !hostileTo(o)) continue;
     s += contactStrength(t.ix, c) * (c.node === node ? 1 : 0.4);
     observed = true;
     age = Math.min(age, c.ageMin);
@@ -166,7 +177,7 @@ export function defenceAt(t: Turn, a: Analysis, node: NodeId): { strength: numbe
     age = Math.min(age, t.now - r.observedAt);
     let rs = 0;
     for (const st of r.stacks) {
-      if (!a.enemies.includes(st.owner)) continue;
+      if (!hostileTo(st.owner)) continue;
       for (const u of st.units) {
         const ut = t.ix.units.get(u.type);
         rs += (ut ? groundPower(ut, 1) : t.ix.avgGround) * u.count;

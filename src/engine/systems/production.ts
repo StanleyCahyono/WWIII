@@ -21,7 +21,8 @@ import { charge, credit } from './ledger';
 import { nextId } from '../ids';
 import { schedule, unschedule } from './queue';
 import { awardXp, emit, toAll } from './events';
-import { buildingLevelDef, sumEffect, bumpEconomy } from './economy';
+import { buildingLevelDef, sumEffect, bumpEconomy, multEffect } from './economy';
+import { cmod } from './modifiers';
 import { moveClassOf } from './world';
 
 export interface Verdict {
@@ -177,7 +178,10 @@ export function unitAvailable(state: GameState, c: CountryId, t: UnitType): Verd
 
 export function unitCost(state: GameState, c: CountryId, t: UnitType): ResM {
   const m = t.doctrine?.[state.countries[c].doctrine]?.costMult ?? 1;
-  return mul(vecFromWhole(t.cost), m);
+  const v = mul(vecFromWhole(t.cost), m);
+  const em = cmod(state, c, 'unit_electronics_cost_mult');
+  if (em !== 1) v.electronics = Math.trunc(v.electronics * em);
+  return v;
 }
 
 export function checkMobilize(state: GameState, c: CountryId, cityKey: CityKey, t: UnitType | undefined, pendingHere = 0): BuildCheck {
@@ -198,7 +202,7 @@ export function checkMobilize(state: GameState, c: CountryId, cityKey: CityKey, 
   const key = `c:${cityKey}:mobilize`;
   const queued = state.countries[c].jobs.filter((j) => locationKey(j) === key).length + pendingHere;
   if (queued >= CITY_QUEUE_MAX) return { ok: false, code: 'queue_full', reason: `Mobilization queue is full (${CITY_QUEUE_MAX}).`, city: cityKey, node: city.node };
-  const speed = 1 + sumEffect(state, city.buildings, 'recruitSpeedMult');
+  const speed = multEffect(state, city.buildings, 'recruitSpeedMult');
   return { ok: true, cost: unitCost(state, c, t), durationMin: Math.max(1, Math.round((t.buildHours * 60) / speed)), city: cityKey, node: city.node };
 }
 
@@ -253,7 +257,7 @@ export function completeJob(state: GameState, jobId: string, c: CountryId, hooks
   const j = cs.jobs[idx];
   if (j.endsAt === null || j.endsAt > state.clock.tick) return;
   cs.jobs.splice(idx, 1);
-  bumpEconomy(state);
+  bumpEconomy(state, j.node);
   const st = S(state);
   let text = '';
   if (j.kind === 'construct') {

@@ -107,7 +107,10 @@ export interface AiMemory {
   /** Replies to human/bot operation requests already handled (message ids). */
   handledMessages: string[];
   warStartedAt: Record<CountryId, number>;
+  /** Current coalition and when we joined (commitment window for the leave rules). */
+  coalition: { id: string; since: number } | null;
   capitalsLost: number;
+  lastOperational?: number;
 }
 
 export interface DecisionEntry {

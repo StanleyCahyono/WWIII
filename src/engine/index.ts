@@ -14,7 +14,7 @@ export { advance, stepOnce, advanceToNextEvent, isReviewMode } from './sim';
 export { submitCommand, validateCommand, previewCommand, applyCommand, COMMAND_TYPES } from './commands/index';
 export type { Command, CommandResult, Validation, CommandType, CommandOf, AirBase } from './commands/types';
 
-export { getCountryView, projectContact, type CountryView, type ContactView, type PublicCity, type StackView, type DiplomacyRow } from './view/country-view';
+export { getCountryView, getCountryViews, projectContact, type CountryView, type ContactView, type PublicCity, type StackView, type DiplomacyRow } from './view/country-view';
 export {
   ledgerModel,
   forecastModel,

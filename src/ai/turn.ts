@@ -8,13 +8,13 @@ import { RESOURCES } from '../engine/data-types';
 import type { Command } from '../engine/commands/types';
 import type { CountryView, DiplomacyRow } from '../engine/view/country-view';
 import type { PlannerContext } from '../engine/ai-host/types';
-import type { ResourceSummary } from '../engine/systems/economy';
 import { geoOf, type Geo } from './geo';
 import { catIndex, type CatIndex } from './value';
 import { DIFFICULTY, type AiMemory, type DifficultyProfile, type Layer } from './types';
 import { logDecision } from './log';
 
 type ResM = Record<Resource, number>;
+type ResourceSummary = CountryView['self']['resources'][number];
 
 export class Turn {
   readonly me: CountryId;

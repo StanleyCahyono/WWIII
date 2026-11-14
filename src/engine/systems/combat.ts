@@ -43,10 +43,11 @@ import {
 import { S } from '../scenario/registry';
 import { streamRng } from '../rng';
 import { nextId } from '../ids';
-import { cmpId, stackLL, ustats, utype, hostileStacks as hostileStacksW, sortedStacks, enemyMap } from './world';
-import { distKm } from './mapindex';
+import { cmpId, stackLL, ustats, utype, hostileStacks as hostileStacksW, sortedStacks, enemyMap, unitRange } from './world';
+import { binKey, binsAround, distKm } from './mapindex';
 import { awardXp, emit, toAll } from './events';
-import { sumEffect, bumpEconomy } from './economy';
+import { sumEffect, bumpEconomy, multEffect } from './economy';
+import { cmod } from './modifiers';
 import { derived } from '../derived';
 
 export function stackEfficiency(n: number): number {
@@ -68,7 +69,8 @@ function officerMult(state: GameState, s: Stack, u: Unit, key: 'attackMult' | 'd
     best.set(t.id, Math.max(best.get(t.id) ?? 1, v));
   }
   let m = 1;
-  for (const v of best.values()) m *= v;
+  const om = cmod(state, s.owner, 'officer_bonus_mult');
+  for (const v of best.values()) m *= 1 + (v - 1) * om;
   return m;
 }
 
@@ -88,8 +90,14 @@ export function unitStrength(state: GameState, s: Stack, u: Unit, c: TargetClass
   let m = (u.hp / u.maxHp) * (READINESS_STRENGTH_FLOOR + ((1 - READINESS_STRENGTH_FLOOR) * u.readiness) / 100) * eff;
   if (fc.node !== null) {
     const terr = S(state).map.terrain[fc.node];
-    if (fc.table === 'defense') m *= t.terrain[terr]?.defense ?? TERRAIN_DEFENSE[terr];
-    else m *= t.terrain[terr]?.attack ?? 1;
+    if (fc.table === 'defense') {
+      m *= t.terrain[terr]?.defense ?? TERRAIN_DEFENSE[terr];
+      if (t.family === 'infantry' && (terr === 'urban' || terr === 'suburban')) m *= cmod(state, s.owner, 'urban_defense_mult');
+    } else m *= t.terrain[terr]?.attack ?? 1;
+  }
+  if (fc.table === 'attack') {
+    if (t.domain === 'land') m *= cmod(state, s.owner, 'land_attack_mult');
+    if ((t.family === 'fighter' || t.family === 'heavy') && (c === 'airplane' || c === 'helicopter')) m *= cmod(state, s.owner, 'air_attack_mult');
   }
   m *= officerMult(state, s, u, fc.table === 'attack' ? 'attackMult' : 'defenseMult');
   if (s.refit) m *= REFIT_STRENGTH_MULT;
@@ -102,7 +110,7 @@ export function unitStrength(state: GameState, s: Stack, u: Unit, c: TargetClass
 
 /** Damage pools (hundredths of HP) by target class from firing stack A onto target stack D. */
 export function damageAgainst(state: GameState, A: Stack, D: Stack, fc: FireContext, share: number, variance: number, rangeKm?: number): Partial<Record<TargetClass, number>> {
-  const att = combatUnits(A).filter((u) => rangeKm === undefined || ustats(state, u).rangeKm >= rangeKm);
+  const att = combatUnits(A).filter((u) => rangeKm === undefined || unitRange(state, A.owner, u) >= rangeKm);
   const tgt = combatUnits(D);
   if (!att.length || !tgt.length) return {};
   const eff = stackEfficiency(combatUnits(A).length);
@@ -203,9 +211,9 @@ function defenderCtx(state: GameState, s: Stack, node: NodeId, isDefender: boole
   if (isDefender && land) {
     const p = state.provinces[node];
     if (p && p.owner === s.owner) {
-      dm += sumEffect(state, p.buildings, 'defenseMult');
+      dm += multEffect(state, p.buildings, 'defenseMult') - 1;
       const ck = m.cityByNode.get(node);
-      if (ck && state.cities[ck]) dm += sumEffect(state, state.cities[ck].buildings, 'defenseMult');
+      if (ck && state.cities[ck]) dm += multEffect(state, state.cities[ck].buildings, 'defenseMult') - 1;
     }
   }
   return { table: isDefender ? 'defense' : 'attack', node, entrenched, defenseMult: dm };
@@ -271,12 +279,37 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     }
   }
 
+  // spatial index for ranged/air target search (ties: distance, then numeric stack id)
+  const llOf = new Map<string, [number, number]>();
+  const gbins = new Map<number, Stack[]>();
+  const abins = new Map<number, Stack[]>();
+  for (const s of all) {
+    if (s.aboard) continue;
+    const p = stackLL(state, s);
+    llOf.set(s.id, p);
+    const isAir = s.moveClass === 'air';
+    if (isAir && (!s.air || s.air.state === 'landed' || s.air.state === 'refueling')) continue;
+    const bins = isAir ? abins : gbins;
+    const k = binKey(p[0], p[1]);
+    const l = bins.get(k);
+    if (l) l.push(s);
+    else bins.set(k, [s]);
+  }
+  const nearby = (bins: Map<number, Stack[]>, at: [number, number], r: number): Stack[] => {
+    const out: Stack[] = [];
+    for (const k of binsAround(at[0], at[1], r)) {
+      const l = bins.get(k);
+      if (l) for (const s of l) out.push(s);
+    }
+    return out.sort(cmpId);
+  };
+
   // ── 2. ranged fire
   for (const A of all) {
     if (!enemies.has(A.owner)) continue;
     if (fired.has(A.id) || A.pos.kind !== 'node' || A.aboard || A.moveClass === 'air') continue;
     if (A.order && A.order.kind === 'move' && A.order.route.length) continue;
-    const maxR = Math.max(0, ...combatUnits(A).map((u) => ustats(state, u).rangeKm));
+    const maxR = Math.max(0, ...combatUnits(A).map((u) => unitRange(state, A.owner, u)));
     if (maxR <= 0) continue;
     const ordered = A.order?.kind === 'attack' ? A.order : null;
     if (A.firePolicy !== 'engage' && !ordered) continue;
@@ -291,7 +324,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
       }
     }
     if (!target) {
-      for (const D of all) {
+      for (const D of nearby(gbins, ll, maxR)) {
         if (D.owner === A.owner || D.moveClass === 'air' || D.aboard || !hostileStacks(A, D)) continue;
         if (D.pos.kind === 'node' && A.pos.kind === 'node' && D.pos.node === A.pos.node) continue;
         if (!hooks.canSee(state, A.owner, D.id)) continue;
@@ -320,12 +353,12 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
         const d = distKm(ll[0], ll[1], m.lon[node], m.lat[node]);
         if (d <= maxR) {
           let sum = 0;
-          for (const u of combatUnits(A)) if (ustats(state, u).rangeKm >= d) sum += (ustats(state, u).attack.building ?? 0) * (u.hp / u.maxHp);
+          for (const u of combatUnits(A)) if (unitRange(state, A.owner, u) >= d) sum += (ustats(state, u).attack.building ?? 0) * (u.hp / u.maxHp);
           const city = state.cities[ck];
           const loss = Math.min(city.condition, Math.round(sum * ROUND_DAMAGE_FACTOR * 2) / 1);
           if (loss > 0) {
             city.condition = Math.max(0, city.condition - loss);
-            bumpEconomy(state);
+            bumpEconomy(state, city.node);
             fired.add(A.id);
             emit(state, { kind: 'bombardment', category: 'combat', node, private: { ...toAll([A.owner], `${A.name} bombarded ${city.name} (condition −${loss}).`), ...toAll([owner], `${city.name} was bombarded (condition −${loss}).`) }, public: { headline: `${city.name} comes under bombardment`, countries: [owner] } });
           }
@@ -343,7 +376,8 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     const canAir = combatUnits(P).some((u) => (ustats(state, u).attack.airplane ?? 0) > 0);
     let target: Stack | null = null;
     let best = Infinity;
-    for (const D of all) {
+    const cands = canAir ? [...nearby(gbins, ll, P.air.patrol.radiusKm), ...nearby(abins, ll, P.air.patrol.radiusKm)].sort(cmpId) : nearby(gbins, ll, P.air.patrol.radiusKm);
+    for (const D of cands) {
       if (D.id === P.id || !hostileStacks(P, D) || D.aboard) continue;
       const isAir = D.moveClass === 'air';
       if (isAir && (!D.air || D.air.state === 'landed' || D.air.state === 'refueling')) continue;
@@ -377,7 +411,7 @@ export function combatRound(state: GameState, hooks: CombatHooks): void {
     const maxR = Math.max(...ad.map((u) => ustats(state, u).rangeKm));
     if (maxR <= 0) continue;
     const ll = stackLL(state, A);
-    for (const P of all) {
+    for (const P of nearby(abins, ll, maxR)) {
       if (P.moveClass !== 'air' || !P.air || P.air.state !== 'on_station' || !hostileStacks(A, P)) continue;
       const d = distKm(ll[0], ll[1], ...stackLL(state, P));
       if (d > maxR || !hooks.canSee(state, A.owner, P.id)) continue;

@@ -3,7 +3,7 @@
  * forecasts and shortage breakdowns.
  *
  * Output rule (per day):
- *   city    = (base × (1 + Σ building productionMult × condition) + Σ building flat produces
+ *   city    = (base × (1 + Σ (productionMult − 1) × condition) × industrial_output_mult + flat produces
  *              + population-derived manpower/money) × moraleFactor × cityConditionFactor
  *   rural   = (deposit output + improvement produces + population manpower) × moraleFactor
  *   then × TERRITORY_FACTOR[status] applied EXACTLY ONCE (homeland 1, annexed .5, occupied .25).
@@ -11,14 +11,15 @@
  */
 import { RESOURCES, type CountryId, type Resource } from '../data-types';
 import type { BuildingInstance, CityState, CountryState, GameState, ProvinceState, TerritoryStatus } from '../state';
-import { addInto, mul, type ResM, toMilli, vecFromWhole, zero, valueAt } from '../fixed';
-import { ESSENTIAL, MANPOWER_PER_KPOP, MONEY_PER_KPOP, MORALE, OCCUPATION_UPKEEP_PER_TIER, RURAL_DEPOSIT_OUTPUT, TERRITORY_FACTOR } from '../rules';
+import { addInto, mul, type ResM, subInto, toMilli, vecFromWhole, zero, valueAt } from '../fixed';
+import { ESSENTIAL, MANPOWER_PER_SQRT_KPOP, MONEY_PER_SQRT_KPOP, RURAL_POP_FACTOR, MORALE, OCCUPATION_UPKEEP_PER_TIER, RURAL_DEPOSIT_OUTPUT, TERRITORY_FACTOR } from '../rules';
 import { S } from '../scenario/registry';
 import { chargePartial, credit } from './ledger';
 import { hourOfDay } from '../time';
 import { utype } from './world';
 import type { BuildingLevel } from '../data-types';
 import { derived } from '../derived';
+import { cmod } from './modifiers';
 
 export function buildingLevelDef(state: GameState, b: BuildingInstance): BuildingLevel | null {
   const t = S(state).cat.buildings.get(b.type);
@@ -40,6 +41,28 @@ export function sumEffect(state: GameState, list: BuildingInstance[], key: Effec
   return s;
 }
 
+/**
+ * Multiplier-type building effects (`*Mult`, catalog semantics: 1 = no change):
+ * combined as 1 + Σ (value − 1) × condition/100.
+ */
+export function multEffect(state: GameState, list: BuildingInstance[], key: EffectKey): number {
+  let s = 1;
+  for (const b of list) {
+    const d = buildingLevelDef(state, b);
+    const v = d?.effects[key];
+    if (typeof v === 'number') s += (v - 1) * (b.condition / 100);
+  }
+  return s;
+}
+
+/** Sublinear population yields (manpower/money per day) — see rules.POPULATION_YIELD. */
+export function popManpower(popK: number): number {
+  return Math.round(MANPOWER_PER_SQRT_KPOP * Math.sqrt(Math.max(0, popK)) * 1000) / 1000;
+}
+export function popMoney(popK: number): number {
+  return Math.round(MONEY_PER_SQRT_KPOP * Math.sqrt(Math.max(0, popK)) * 1000) / 1000;
+}
+
 export function moraleFactor(morale: number): number {
   return MORALE.moraleFloorFactor + ((1 - MORALE.moraleFloorFactor) * Math.max(0, Math.min(100, morale))) / 100;
 }
@@ -55,29 +78,33 @@ export function applyTerritoryFactor(v: ResM, status: TerritoryStatus): ResM {
 /** City output per day BEFORE the territory factor (milli). */
 export function cityAdjustedOutput(state: GameState, city: CityState): ResM {
   const base = city.baseOutput;
-  const mult = 1 + sumEffect(state, city.buildings, 'productionMult');
+  const owner = state.provinces[city.node]?.owner ?? null;
+  const mult = multEffect(state, city.buildings, 'productionMult') * cmod(state, owner, 'industrial_output_mult');
   const out = mul(base, mult);
   for (const b of city.buildings) {
     const d = buildingLevelDef(state, b);
     if (d?.effects.produces) addInto(out, mul(vecFromWhole(d.effects.produces), b.condition / 100));
     if (d?.effects.manpowerPerDay) out.manpower += Math.trunc(toMilli(d.effects.manpowerPerDay) * (b.condition / 100));
   }
-  out.manpower += toMilli(city.population * MANPOWER_PER_KPOP);
-  out.money += toMilli(city.population * MONEY_PER_KPOP);
+  out.manpower += toMilli(popManpower(city.population));
+  out.money += toMilli(popMoney(city.population));
+  out.electronics = Math.trunc(out.electronics * cmod(state, owner, 'electronics_output_mult'));
   const f = moraleFactor(city.morale) * (0.25 + 0.75 * (city.condition / 100));
   return mul(out, f);
 }
 
-const cityCache = new WeakMap<CityState, { k: string; out: ResM }>();
+const cityCache = new WeakMap<CityState, { o: string; st: string; ch: number; mo: number; co: number; po: number; im: number; em: number; bs: number; out: ResM }>();
 export function cityOutput(state: GameState, city: CityState): ResM {
   const p = state.provinces[city.node];
   if (!p || p.control !== 'country' || !p.owner) return zero();
-  let k = `${p.owner}|${p.status}|${p.changedAt}|${city.morale}|${city.condition}|${city.population}`;
-  for (const b of city.buildings) k += `|${b.type}:${b.level}:${b.condition}`;
+  const im = cmod(state, p.owner, 'industrial_output_mult');
+  const em = cmod(state, p.owner, 'electronics_output_mult');
+  let bs = city.buildings.length;
+  for (const b of city.buildings) bs = (bs * 31 + b.level * 131 + b.condition * 7 + b.type.length) | 0;
   const c = cityCache.get(city);
-  if (c && c.k === k) return c.out;
+  if (c && c.o === p.owner && c.st === p.status && c.ch === p.changedAt && c.mo === city.morale && c.co === city.condition && c.po === city.population && c.im === im && c.em === em && c.bs === bs) return c.out;
   const out = applyTerritoryFactor(cityAdjustedOutput(state, city), p.status);
-  cityCache.set(city, { k, out });
+  cityCache.set(city, { o: p.owner, st: p.status, ch: p.changedAt, mo: city.morale, co: city.condition, po: city.population, im, em, bs, out });
   return out;
 }
 
@@ -91,7 +118,7 @@ export function provinceAdjustedOutput(state: GameState, p: ProvinceState): ResM
       const d = buildingLevelDef(state, b);
       if (!t || !d) continue;
       if (d.effects.produces) addInto(out, mul(vecFromWhole(d.effects.produces), b.condition / 100));
-      if (d.effects.productionMult && t.needsDeposit) out[node.deposit] += Math.trunc(toMilli(RURAL_DEPOSIT_OUTPUT) * d.effects.productionMult * (b.condition / 100));
+      if (d.effects.productionMult && t.needsDeposit) out[node.deposit] += Math.trunc(toMilli(RURAL_DEPOSIT_OUTPUT) * (d.effects.productionMult - 1) * (b.condition / 100));
     }
   } else {
     for (const b of p.buildings) {
@@ -101,7 +128,9 @@ export function provinceAdjustedOutput(state: GameState, p: ProvinceState): ResM
       if (d.effects.produces) addInto(out, mul(vecFromWhole(d.effects.produces), b.condition / 100));
     }
   }
-  out.manpower += toMilli(p.population * MANPOWER_PER_KPOP);
+  if (node.deposit) out[node.deposit] = Math.trunc(out[node.deposit] * cmod(state, p.owner, 'rural_output_mult'));
+  out.electronics = Math.trunc(out.electronics * cmod(state, p.owner, 'electronics_output_mult'));
+  out.manpower += toMilli(popManpower(p.population) * RURAL_POP_FACTOR);
   return mul(out, moraleFactor(p.morale));
 }
 const provCache = new WeakMap<ProvinceState, { sig: number; owner: string | null; bl: number; out: ResM }>();
@@ -110,7 +139,7 @@ export function provinceOutput(state: GameState, p: ProvinceState): ResM {
   if (p.control !== 'country' || !p.owner) return zero();
   let bsig = 0;
   for (const b of p.buildings) bsig += b.level * 1000 + b.condition + b.type.length * 7;
-  const sig = p.changedAt * 1e7 + p.morale * 1e4 + STATUS_CODE[p.status] * 1e3 + p.population;
+  const sig = p.changedAt * 1e7 + p.morale * 1e4 + STATUS_CODE[p.status] * 1e3 + p.population + cmod(state, p.owner, 'rural_output_mult') * 1e-3 + cmod(state, p.owner, 'electronics_output_mult') * 1e-6;
   const c = provCache.get(p);
   if (c && c.sig === sig && c.owner === p.owner && c.bl === bsig) return c.out;
   const out = applyTerritoryFactor(provinceAdjustedOutput(state, p), p.status);
@@ -139,7 +168,23 @@ interface StaticRates {
   upkeepBuildings: ResM;
   occupation: ResM;
 }
-const staticRatesCache = new WeakMap<GameState, { ev: number; fp: number; provs: object; cities: object; m: Record<CountryId, StaticRates> }>();
+interface NodeContrib {
+  owner: CountryId;
+  prod: ResM;
+  bup: ResM;
+  occ: ResM;
+}
+interface StaticCache {
+  ev: number;
+  fp: number;
+  provs: object;
+  cities: object;
+  m: Record<CountryId, StaticRates>;
+  contrib: Map<number, NodeContrib>;
+}
+const staticRatesCache = new WeakMap<GameState, StaticCache>();
+/** Nodes whose territory output changed since the last aggregation ('all' = full recompute). */
+const econDirty = new WeakMap<GameState, Set<number> | 'all'>();
 /** Cheap structural fingerprint of everything that feeds territory output (guards missed bumps). */
 function econFingerprint(state: GameState): number {
   let h = 0;
@@ -156,44 +201,80 @@ function econFingerprint(state: GameState): number {
   return h;
 }
 /**
- * Bump whenever anything feeding city/province output or building upkeep changes (ownership,
- * status, buildings, condition, morale, population). Day changes bump it too.
+ * Announce a change to anything feeding territory output or building upkeep (ownership, status,
+ * buildings, condition, morale, population, national output modifiers). Pass the node to update
+ * only that location's contribution; omit it for a full recompute (day change, modifiers).
  */
-export function bumpEconomy(state: GameState): void {
+export function bumpEconomy(state: GameState, node?: number): void {
   state.ids.econv = (state.ids.econv ?? 0) + 1;
+  const d = econDirty.get(state);
+  if (node === undefined || d === 'all') econDirty.set(state, 'all');
+  else if (d) d.add(node);
+  else econDirty.set(state, new Set([node]));
+}
+function nodeContrib(state: GameState, node: number, occ: ResM): NodeContrib | null {
+  const p = state.provinces[node];
+  if (!p || !p.owner || p.control !== 'country') return null;
+  const c: NodeContrib = { owner: p.owner, prod: zero(), bup: zero(), occ: zero() };
+  addInto(c.prod, provinceOutput(state, p));
+  for (const b of p.buildings) {
+    const d = buildingLevelDef(state, b);
+    if (d?.upkeepPerDay) addInto(c.bup, vecFromWhole(d.upkeepPerDay));
+  }
+  const ck = S(state).map.cityByNode.get(node);
+  const city = ck ? state.cities[ck] : undefined;
+  if (city) {
+    addInto(c.prod, cityOutput(state, city));
+    for (const b of city.buildings) {
+      const d = buildingLevelDef(state, b);
+      if (d?.upkeepPerDay) addInto(c.bup, vecFromWhole(d.upkeepPerDay));
+    }
+    if (p.status === 'occupied') addInto(c.occ, mul(occ, city.tier));
+  }
+  return c;
 }
 function staticRates(state: GameState): Record<CountryId, StaticRates> {
   const ev = state.ids.econv ?? 0;
   const fp = econFingerprint(state);
   const c = staticRatesCache.get(state);
   if (c && c.ev === ev && c.fp === fp && c.provs === state.provinces && c.cities === state.cities) return c.m;
+  const occ = vecFromWhole(OCCUPATION_UPKEEP_PER_TIER);
+  const dirty = econDirty.get(state);
+  econDirty.delete(state);
+  if (c && c.provs === state.provinces && c.cities === state.cities && dirty && dirty !== 'all' && c.ev !== ev) {
+    // incremental: re-derive only the announced locations
+    for (const node of [...dirty].sort((a, b) => a - b)) {
+      const old = c.contrib.get(node);
+      if (old && c.m[old.owner]) {
+        subInto(c.m[old.owner].production, old.prod);
+        subInto(c.m[old.owner].upkeepBuildings, old.bup);
+        subInto(c.m[old.owner].occupation, old.occ);
+      }
+      const nw = nodeContrib(state, node, occ);
+      if (nw && c.m[nw.owner]) {
+        addInto(c.m[nw.owner].production, nw.prod);
+        addInto(c.m[nw.owner].upkeepBuildings, nw.bup);
+        addInto(c.m[nw.owner].occupation, nw.occ);
+        c.contrib.set(node, nw);
+      } else c.contrib.delete(node);
+    }
+    c.ev = ev;
+    c.fp = econFingerprint(state);
+    return c.m;
+  }
   const m: Record<CountryId, StaticRates> = {};
   for (const cc of state.countryOrder) m[cc] = { production: zero(), upkeepBuildings: zero(), occupation: zero() };
-  const occ = vecFromWhole(OCCUPATION_UPKEEP_PER_TIER);
-  const bUp = (list: BuildingInstance[], acc: ResM) => {
-    for (const b of list) {
-      const d = buildingLevelDef(state, b);
-      if (d?.upkeepPerDay) addInto(acc, vecFromWhole(d.upkeepPerDay));
-    }
-  };
+  const contrib = new Map<number, NodeContrib>();
   for (const p of state.provinces) {
-    if (!p || !p.owner || p.control !== 'country') continue;
-    const r = m[p.owner];
-    if (!r) continue;
-    addInto(r.production, provinceOutput(state, p));
-    if (p.buildings.length) bUp(p.buildings, r.upkeepBuildings);
+    if (!p) continue;
+    const nc = nodeContrib(state, p.node, occ);
+    if (!nc || !m[nc.owner]) continue;
+    contrib.set(p.node, nc);
+    addInto(m[nc.owner].production, nc.prod);
+    addInto(m[nc.owner].upkeepBuildings, nc.bup);
+    addInto(m[nc.owner].occupation, nc.occ);
   }
-  for (const k of Object.keys(state.cities)) {
-    const city = state.cities[k];
-    const p = state.provinces[city.node];
-    if (!p || !p.owner || p.control !== 'country') continue;
-    const r = m[p.owner];
-    if (!r) continue;
-    addInto(r.production, cityOutput(state, city));
-    bUp(city.buildings, r.upkeepBuildings);
-    if (p.status === 'occupied') addInto(r.occupation, mul(occ, city.tier));
-  }
-  staticRatesCache.set(state, { ev, fp, provs: state.provinces, cities: state.cities, m });
+  staticRatesCache.set(state, { ev, fp, provs: state.provinces, cities: state.cities, m, contrib });
   return m;
 }
 
@@ -213,6 +294,8 @@ export function computeRates(state: GameState): Record<CountryId, CountryRates> 
   }
   for (const c of state.countryOrder) {
     const r = out[c];
+    const fm = cmod(state, c, 'fuel_upkeep_mult');
+    if (fm !== 1) r.upkeepUnits.fuel = Math.trunc(r.upkeepUnits.fuel * fm);
     addInto(r.consumption, r.upkeepUnits);
     addInto(r.consumption, r.upkeepBuildings);
     addInto(r.consumption, r.occupation);
@@ -256,7 +339,9 @@ export function economyHour(state: GameState): void {
     cs.shortages = short;
   }
   // city shortage flags (essential inputs) feed morale at day change
-  for (const k of Object.keys(state.cities)) {
+  let anyShort = false;
+  for (const c of state.countryOrder) if (state.countries[c].shortages.some((x) => ESSENTIAL.includes(x))) anyShort = true;
+  if (anyShort) for (const k of Object.keys(state.cities)) {
     const city = state.cities[k];
     const o = state.provinces[city.node]?.owner;
     if (!o) { city.shortage = false; continue; }

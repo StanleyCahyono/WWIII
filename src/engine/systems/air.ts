@@ -24,18 +24,19 @@ import {
 } from '../rules';
 import { S } from '../scenario/registry';
 import { distKm, nodeLL } from './mapindex';
-import { cmpId, isFriendlyTerritory, sameCoalition, stackLL, ustats, utype , sortedStacks } from './world';
+import { cmpId, isFriendlyTerritory, sameCoalition, stackLL, ustats, utype , sortedStacks, stacksReadonly } from './world';
 import { emit, toAll } from './events';
 import { sumEffect } from './economy';
+import { cmod } from './modifiers';
 
 export function airSpeed(state: GameState, s: Stack): number {
   return Math.min(...s.units.map((u) => ustats(state, u).speedKmh));
 }
 export function airEndurance(state: GameState, s: Stack): number {
-  return Math.min(...s.units.map((u) => ustats(state, u).enduranceMin ?? DEFAULT_ENDURANCE_MIN));
+  return Math.floor(Math.min(...s.units.map((u) => ustats(state, u).enduranceMin ?? DEFAULT_ENDURANCE_MIN)) * cmod(state, s.owner, 'air_endurance_mult'));
 }
 export function airRange(state: GameState, s: Stack): number {
-  return Math.min(...s.units.map((u) => ustats(state, u).operationalRangeKm ?? DEFAULT_OPERATIONAL_RANGE_KM));
+  return Math.min(...s.units.map((u) => ustats(state, u).operationalRangeKm ?? DEFAULT_OPERATIONAL_RANGE_KM)) * cmod(state, s.owner, 'air_operational_range_mult');
 }
 
 export function isCarrier(state: GameState, s: Stack): boolean {
@@ -109,22 +110,40 @@ export function baseLL(state: GameState, base: { node: NodeId } | { stack: strin
 }
 
 /** Nearest legal base within `km` of a position (nodes then carriers), deterministic. */
-export function nearestBase(state: GameState, c: CountryId, ll: [number, number], km: number, exclude?: string): { node: NodeId } | { stack: string } | null {
+/** Aircraft currently homed at each base (node `n<id>` / carrier stack id), excluding one stack. */
+export function baseUsage(state: GameState, except?: string): Map<string, number> {
+  const u = new Map<string, number>();
+  for (const s of stacksReadonly(state)) {
+    if (!s.air || s.id === except) continue;
+    const k = 'node' in s.air.home ? `n${s.air.home.node}` : s.air.home.stack;
+    u.set(k, (u.get(k) ?? 0) + s.units.length);
+  }
+  return u;
+}
+
+/**
+ * Nearest legal base within `km` with free capacity for `need` aircraft (airfield slots / carrier
+ * deck slots, counting aircraft already homed there). Deterministic: distance, nodes before carriers.
+ */
+export function nearestBase(state: GameState, c: CountryId, ll: [number, number], km: number, exclude?: string, need = 0, self?: string): { node: NodeId } | { stack: string } | null {
   const m = S(state).map;
   let best: { node: NodeId } | { stack: string } | null = null;
   let bd = Infinity;
+  const usage = need > 0 ? baseUsage(state, self) : null;
   for (const p of state.provinces) {
     if (!p || p.control !== 'country' || !isFriendlyTerritory(state, c, p.owner)) continue;
     if (exclude === `n${p.node}`) continue;
     const d = distKm(ll[0], ll[1], m.lon[p.node], m.lat[p.node]);
     if (d > km || d >= bd) continue;
     if (!checkBase(state, c, { node: p.node }).ok) continue;
+    if (usage && (usage.get(`n${p.node}`) ?? 0) + need > nodeAirSlots(state, p.node)) continue;
     bd = d;
     best = { node: p.node };
   }
   for (const s of sortedStacks(state)) {
     if (s.moveClass !== 'naval' || exclude === s.id) continue;
     if (!checkBase(state, c, { stack: s.id }).ok) continue;
+    if (usage && (usage.get(s.id) ?? 0) + need > carrierSlots(state, s)) continue;
     const sl = stackLL(state, s);
     const d = distKm(ll[0], ll[1], sl[0], sl[1]);
     if (d <= km && d < bd) { bd = d; best = { stack: s.id }; }
@@ -135,7 +154,8 @@ export function nearestBase(state: GameState, c: CountryId, ll: [number, number]
 function fly(state: GameState, s: Stack, to: [number, number], st: AirState): void {
   const from = stackLL(state, s);
   const d = distKm(from[0], from[1], to[0], to[1]);
-  const mins = Math.max(1, Math.ceil((d / Math.max(1, airSpeed(state, s))) * 60));
+  const tm = st === 'rebasing' ? cmod(state, s.owner, 'rebase_time_mult') : 1;
+  const mins = Math.max(1, Math.ceil((d / Math.max(1, airSpeed(state, s))) * 60 * tm));
   if (s.aboard) s.aboard = null;
   s.pos = { kind: 'air', from, to, depart: state.clock.tick, arrive: state.clock.tick + mins };
   if (s.air) s.air.state = st;
@@ -199,7 +219,7 @@ function divert(state: GameState, s: Stack, why: string, onLost: (st: GameState,
   const remainMin = Math.max(0, airEndurance(state, s) - elapsed);
   const reach = Math.min(airRange(state, s), (airSpeed(state, s) * remainMin) / 60);
   const exclude = 'stack' in air.home ? air.home.stack : `n${air.home.node}`;
-  const b = nearestBase(state, s.owner, ll, reach, exclude);
+  const b = nearestBase(state, s.owner, ll, reach, exclude, s.units.length, s.id);
   if (!b) return lose(state, s, `${why}; no legal base within ${Math.round(reach)} km`, onLost);
   air.home = b;
   air.dest = b;

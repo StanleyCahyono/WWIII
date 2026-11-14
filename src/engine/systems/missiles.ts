@@ -27,6 +27,7 @@ import { distKm } from './mapindex';
 import { atWar, cmpId, sameCoalition, stackLL, utype , sortedStacks } from './world';
 import { emit, toAll } from './events';
 import { sumEffect, bumpEconomy } from './economy';
+import { cmod } from './modifiers';
 import { allocateDamage } from './combat';
 import { observesNode } from './visibility';
 import type { Verdict } from './production';
@@ -60,13 +61,18 @@ export function defenseRating(state: GameState, attacker: CountryId, target: Nod
   const m = S(state).map;
   const owner = state.provinces[target]?.owner ?? null;
   let r = 0;
+  const bonusFrom = new Set<string>();
   for (const s of sortedStacks(state)) {
     if (s.owner === attacker || s.aboard) continue;
     if (!(s.owner === owner || atWar(state, s.owner, attacker) || (owner && sameCoalition(state, s.owner, owner)))) continue;
     const ll = stackLL(state, s);
     if (distKm(ll[0], ll[1], m.lon[target], m.lat[target]) > AD_COVER_KM) continue;
-    for (const u of s.units) if (utype(state, u.type).family === 'air_defense') r += u.level * AD_RATING_PER_UNIT_LEVEL * (u.hp / u.maxHp);
+    for (const u of s.units) if (utype(state, u.type).family === 'air_defense') {
+      r += u.level * AD_RATING_PER_UNIT_LEVEL * (u.hp / u.maxHp);
+      bonusFrom.add(s.owner);
+    }
   }
+  for (const c of [...bonusFrom].sort()) r += cmod(state, c, 'missile_defense_rating_bonus');
   const ck = m.cityByNode.get(target);
   const blds = [...(state.provinces[target]?.buildings ?? []), ...(ck ? state.cities[ck]?.buildings ?? [] : [])];
   for (const b of blds) {
@@ -176,7 +182,7 @@ export function resolveLaunch(state: GameState, id: string): void {
   const ck = st.map.cityByNode.get(l.target);
   const city = ck ? state.cities[ck] : null;
   if (outcome === 'arrived_effect' || outcome === 'arrived_limited') {
-    bumpEconomy(state);
+    bumpEconomy(state, l.target);
     const f = outcome === 'arrived_effect' ? 1 : 0.5;
     if (city) {
       city.condition = Math.max(0, Math.round(city.condition - mt.effect.conditionDelta * f));

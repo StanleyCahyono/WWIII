@@ -73,8 +73,17 @@ export const OCCUPATION_UPKEEP_PER_TIER: Partial<Record<Resource, number>> = { m
 // ───────────── Economy ─────────────
 /** Rural deposit output per day (whole units) before modifiers. */
 export const RURAL_DEPOSIT_OUTPUT = 40;
-/** Manpower per day per 1,000 (thousand) population in a city (+ rural provinces). */
+/**
+ * Population yields are SUBLINEAR so mega-populations do not dominate: per day
+ * manpower = MANPOWER_PER_SQRT_KPOP × √(population in thousands), money = MONEY_PER_SQRT_KPOP × √pop.
+ * Rural provinces yield RURAL_POP_FACTOR of the city formula. (A 25M city → ≈ 237 manpower/day.)
+ */
+export const MANPOWER_PER_SQRT_KPOP = 1.5;
+export const MONEY_PER_SQRT_KPOP = 4;
+export const RURAL_POP_FACTOR = 0.5;
+/** @deprecated linear yields replaced by the sublinear formula above (kept for script compatibility). */
 export const MANPOWER_PER_KPOP = 0.02;
+/** @deprecated see MONEY_PER_SQRT_KPOP. */
 export const MONEY_PER_KPOP = 0.05;
 export const LEDGER_DAYS_KEPT = 14;
 /** Essential resources for shortage morale/readiness effects + economic resilience. */

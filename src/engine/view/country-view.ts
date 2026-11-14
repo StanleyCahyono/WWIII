@@ -43,7 +43,7 @@ import { bookView, type BookLevel } from '../systems/market';
 import { countryScores, thresholdFor } from '../systems/score';
 import { routeEtaTick } from '../systems/movement';
 import { alliedContacts } from '../systems/visibility';
-import { forceSummary, type ForceSummary } from '../systems/readiness';
+import { forceSummary, liftBreakdown, type ForceSummary, type LiftBreakdown } from '../systems/readiness';
 import { RULES } from '../rules';
 import { derived, invalidateDerived } from '../derived';
 
@@ -119,6 +119,7 @@ export interface CountryView {
     missiles: Record<string, MissileInventory>;
     jobs: Job[];
     lift: number;
+    liftBreakdown: LiftBreakdown;
     maintenanceSlots: number;
     personality: Record<string, number>;
     modifiers: Record<string, number>;
@@ -184,12 +185,19 @@ export function invalidateViewCache(state: GameState): void {
   invalidateDerived(state);
 }
 
-export function projectContact(c: { id: string; level: ContactLevel; domain: string; lonlat: [number, number]; node: NodeId | null; observedAt: number; owner: CountryId | null; count: number | null; units: { type: string; hpPct: number }[] | null }, now: number): ContactView {
-  const v: ContactView = { id: c.id, level: c.level, domain: c.domain, lonlat: [c.lonlat[0], c.lonlat[1]], node: c.node, observedAt: c.observedAt, ageMin: now - c.observedAt };
+export function projectContact(c: { id: string; level: ContactLevel; domain: string; lonlat: [number, number]; node: NodeId | null; observedAt: number; owner: CountryId | null; count: number | null; units: { type: string; hpPct: number; i?: number }[] | null }, now: number, refreshedAt?: number, live?: GameState['stacks'][string] | null): ContactView {
+  const obs = c.level !== 'stale' && refreshedAt !== undefined ? Math.max(refreshedAt, c.observedAt) : c.observedAt;
+  const v: ContactView = { id: c.id, level: c.level, domain: c.domain, lonlat: [c.lonlat[0], c.lonlat[1]], node: c.node, observedAt: obs, ageMin: now - obs };
   if (c.level === 'contact') return v;
   if (c.owner !== null) v.owner = c.owner;
   if (c.count !== null) v.count = c.count;
-  if (c.level === 'identified' || (c.level === 'stale' && c.units)) if (c.units) v.units = c.units.map((u) => ({ ...u }));
+  if (c.level === 'identified' || (c.level === 'stale' && c.units)) if (c.units) {
+    // current identified contacts show live HP of the observed members; stale ones the frozen snapshot
+    v.units = c.units.map((u) => {
+      const lu = c.level === 'identified' && live && u.i !== undefined ? live.units[u.i] : undefined;
+      return lu && lu.type === u.type ? { type: u.type, hpPct: Math.round((lu.hp / lu.maxHp) * 100) } : { type: u.type, hpPct: u.hpPct };
+    });
+  }
   return v;
 }
 
@@ -222,7 +230,11 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
   for (const k of mine.cities) cities.push(JSON.parse(JSON.stringify(state.cities[k])));
   const contacts: ContactView[] = [];
   const table = state.contacts[viewer] ?? {};
-  for (const k of Object.keys(table).sort()) contacts.push(projectContact(table[k], t));
+  const refreshed = state.clock.lastVisibility;
+  for (const k of Object.keys(table).sort()) {
+    const c = table[k];
+    contacts.push(projectContact(c, t, refreshed, c.level === 'identified' ? state.stacks[c.stack] ?? null : null));
+  }
   for (const c of alliedContacts(state, viewer)) if (!table[c.id]) contacts.push(projectContact(c, t));
   const srcs = new Set(visionSources(state, viewer));
   const reports: CountryView['reports'] = [];
@@ -297,7 +309,8 @@ export function getCountryView(state: GameState, viewer: CountryId, opts: { jour
       unitLevels: { ...cs.unitLevels },
       missiles: JSON.parse(JSON.stringify(cs.missiles)),
       jobs: JSON.parse(JSON.stringify(cs.jobs)),
-      lift: cs.lift,
+      lift: liftBreakdown(state, viewer).total,
+      liftBreakdown: liftBreakdown(state, viewer),
       maintenanceSlots: cs.maintenanceSlots,
       personality: { ...cs.personality },
       modifiers: { ...cs.modifiers },
@@ -377,3 +390,14 @@ function lonlatOf(state: GameState, s: Stack): [number, number] {
 }
 
 export { grantLevel };
+
+/**
+ * Batch projection for many countries (e.g. all AI planners of one review round). Shared public
+ * slices (ownership, public cities, scores, books, offer index, stack/territory indexes, economy
+ * rates) are computed once and reused; each result is identical to `getCountryView(state, id)`.
+ */
+export function getCountryViews(state: GameState, ids: readonly CountryId[], opts: { journalLimit?: number; journalScan?: number } = {}): Map<CountryId, CountryView> {
+  const out = new Map<CountryId, CountryView>();
+  for (const id of ids) out.set(id, getCountryView(state, id, opts));
+  return out;
+}

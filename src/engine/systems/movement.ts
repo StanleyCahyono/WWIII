@@ -18,10 +18,11 @@ import type { CountryId, NodeId, Terrain } from '../data-types';
 import type { GameState, MoveMode, MoveOrder, RouteSegment, Stack } from '../state';
 import { EMBARK_MIN, EMBARKED_SPEED_KMH, STEP_MIN, TERRAIN_SPEED } from '../rules';
 import { S } from '../scenario/registry';
-import { astar, nodeDist, other, type MapIndex } from './mapindex';
-import { atWar, hasPassage, isRebel, ownerOf, stacksAt, ustats, utype, hostileStacks } from './world';
+import { astar, nodeDist, other, type MapIndex, type PathResult } from './mapindex';
+import { atWar, enemyMap, hasPassage, isRebel, ownerChangesSince, ownerOf, ustats, utype } from './world';
 import { emit, toAll } from './events';
-import { sumEffect } from './economy';
+import { sumEffect, multEffect } from './economy';
+import { cmod } from './modifiers';
 
 export type BlockReason = 'unreachable' | 'no_access' | 'missing_facility' | 'outside_campaign' | 'invalid_domain';
 
@@ -67,7 +68,7 @@ export function evalEdge(state: GameState, ctx: MoveCtx, ei: number, from: NodeI
         if (!m.coastal[from]) return { ok: false, reason: 'missing_facility', detail: 'Embarking requires a coastal province.' };
         mode = 'embarked';
       }
-      extraHours = EMBARK_MIN / 60;
+      extraHours = (EMBARK_MIN / 60) * cmod(state, ctx.country, 'embark_time_mult');
     } else mode = 'embarked';
   } else if (ctx.moveClass === 'naval') {
     if (e.kind === 'land' || e.kind === 'strait') return { ok: false, reason: 'invalid_domain', detail: 'Ships cannot cross land.' };
@@ -119,10 +120,11 @@ export function stackSpeed(state: GameState, s: Stack, mode: MoveMode, terrain: 
   }
   if (!Number.isFinite(min)) return 0;
   const p = state.provinces[node];
-  const logi = p ? 1 + sumEffect(state, p.buildings, 'speedMult') : 1;
+  let logi = p && p.buildings.length ? multEffect(state, p.buildings, 'speedMult') : 1;
   const city = S(state).map.cityByNode.get(node);
-  const logi2 = city && state.cities[city] ? sumEffect(state, state.cities[city].buildings, 'speedMult') : 0;
-  return min * (logi + logi2);
+  if (city && state.cities[city]?.buildings.length) logi += multEffect(state, state.cities[city].buildings, 'speedMult') - 1;
+  if (mode === 'land' && p && p.owner === s.owner) logi *= cmod(state, s.owner, 'land_speed_mult_own');
+  return min * logi;
 }
 
 export function ctxFor(state: GameState, s: Stack, extra?: Partial<MoveCtx>): MoveCtx {
@@ -154,6 +156,34 @@ export interface RoutePlan {
   reason?: BlockReason;
   detail?: string;
   blockingOwners?: CountryId[];
+}
+
+const pathCaches = new WeakMap<GameState, Map<string, PathResult | null>>();
+/**
+ * Rights-independent optimal path, memoized per game state (a different state with equal version
+ * counters must never share entries, so the memo is not global). The key holds every input of
+ * the unconstrained search: movement class, owner (speed/embark modifiers), unit roster (types and
+ * levels), economy version (logistics buildings, ports) and ownership version (own-territory speed).
+ */
+function staticPath(state: GameState, s: Stack, from: NodeId, to: NodeId): PathResult | null {
+  const m = S(state).map;
+  let cache = pathCaches.get(state);
+  if (!cache) {
+    cache = new Map();
+    pathCaches.set(state, cache);
+  }
+  const roster = s.units.map((u) => `${u.type}:${u.level}`).sort().join(',');
+  const key = `${s.moveClass}|${s.owner}|${roster}|${state.ids.econv ?? 0}|${state.ids.ownv ?? 0}|${state.ids.techv ?? 0}|${from}|${to}`;
+  const hit = cache.get(key);
+  if (hit !== undefined) return hit;
+  const ctx = ctxFor(state, s, { ignoreRights: true });
+  const res = astar(m, from, to, (ei, a, b) => {
+    const v = evalEdge(state, ctx, ei, a, b);
+    return v.ok ? { hours: v.hours as number } : null;
+  }, maxSpeedFor(s.moveClass));
+  if (cache.size > 20000) cache.clear();
+  cache.set(key, res);
+  return res;
 }
 
 function maxSpeedFor(cls: Stack['moveClass']): number {
@@ -192,7 +222,22 @@ export function planRoute(state: GameState, s: Stack, dest: NodeId, waypoints: N
       verdicts.set(ei * 2 + (m.edges[ei].a === a ? 0 : 1), v);
       return { hours: v.hours as number + (v.actOfWar ? 1000 : 0) };
     };
-    const res = astar(m, cur, target, ev, maxSpeedFor(s.moveClass));
+    // 1) unconstrained (rights-ignoring) optimum from MapIndex.staticCache; if every edge is legal now
+    //    without an act of war it is also the constrained optimum → use it. 2) otherwise constrained A*.
+    let res: PathResult | null = null;
+    const sp = staticPath(state, s, cur, target);
+    if (sp) {
+      let legal = true;
+      for (let i = 0; i < sp.edges.length && legal; i++) {
+        const a = sp.nodes[i], b = sp.nodes[i + 1];
+        const v = evalEdge(state, ctx, sp.edges[i], a, b);
+        if (!v.ok || v.actOfWar) legal = false;
+        else verdicts.set(sp.edges[i] * 2 + (m.edges[sp.edges[i]].a === a ? 0 : 1), v);
+      }
+      if (legal) res = sp;
+      else verdicts.clear();
+    }
+    if (!res) res = astar(m, cur, target, ev, maxSpeedFor(s.moveClass));
     if (!res) return classifyFailure(state, s, cur, target, segments, t);
     for (let i = 0; i < res.edges.length; i++) {
       const ei = res.edges[i];
@@ -264,9 +309,31 @@ function stopWithEvent(state: GameState, s: Stack, text: string, kind = 'route_s
 }
 
 /** Re-validate the remaining route; truncate at the first illegal segment. */
+const revalidated = new WeakMap<object, { key: string; ownv: number }>();
 export function revalidateRoute(state: GameState, s: Stack): void {
   const o = s.order;
   if (!o || o.kind !== 'move' || !o.route.length) return;
+  // legality only changes with rights, ownership, facilities or the roster: skip when none changed
+  const key = `${state.ids.relv ?? 0}|${state.ids.grv ?? 0}|${state.ids.cov ?? 0}|${s.moveClass === 'naval' ? state.ids.econv ?? 0 : 0}|${o.route.length}|${s.units.length}|${s.pos.kind}`;
+  const ownv = state.ids.ownv ?? 0;
+  const prev = revalidated.get(o);
+  if (prev && prev.key === key) {
+    if (prev.ownv === ownv) return;
+    // ownership changed somewhere: only re-check if a changed node lies on the remaining route
+    const changed = ownerChangesSince(state, prev.ownv);
+    if (changed) {
+      let touches = false;
+      for (const sg of o.route) {
+        const e = S(state).map.edges[sg.edge];
+        if (changed.has(sg.to) || changed.has(sg.from) || (e.via !== undefined && changed.has(e.via))) { touches = true; break; }
+      }
+      if (!touches) {
+        prev.ownv = ownv;
+        return;
+      }
+    }
+  }
+  revalidated.set(o, { key, ownv });
   const ctx = ctxFor(state, s, { allowActOfWar: o.warConfirmed });
   for (let i = 0; i < o.route.length; i++) {
     const seg = o.route[i];
@@ -297,6 +364,17 @@ export function revalidateRoute(state: GameState, s: Stack): void {
 /** Advance all moving ground/naval stacks by one step. */
 export function moveStep(state: GameState, stacks: Stack[], hooks: MoveHooks): void {
   const m = S(state).map;
+  // node → stacks standing there (same membership rule as world.stacksAt), kept current as stacks move
+  let atNode: Map<NodeId, Set<Stack>> | null = null;
+  const index = () => {
+    if (atNode) return atNode;
+    atNode = new Map();
+    for (const x of stacks) {
+      if (x.pos.kind !== 'node' || x.aboard || (x.air && x.air.state !== 'landed' && x.air.state !== 'refueling')) continue;
+      (atNode.get(x.pos.node) ?? atNode.set(x.pos.node, new Set()).get(x.pos.node)!).add(x);
+    }
+    return atNode;
+  };
   for (const s of stacks) {
     if (s.moveClass === 'air' || s.aboard) continue;
     const o = s.order;
@@ -323,6 +401,7 @@ export function moveStep(state: GameState, stacks: Stack[], hooks: MoveHooks): v
           if (!atWar(state, s.owner, v.actOfWar)) hooks.declareWar(state, s.owner, v.actOfWar, `Border crossing into ${m.data.nodes[seg.to].name} by ${s.name}`);
         }
         s.mode = v.mode as MoveMode;
+        if (atNode) atNode.get(seg.from)?.delete(s);
         s.pos = { kind: 'edge', from: seg.from, to: seg.to, edge: seg.edge, progress: 0, length: (v.km as number) + (v.extraKm ?? 0) };
         s.stationarySince = state.clock.tick;
         if (s.engagement) s.engagement = null;
@@ -339,7 +418,11 @@ export function moveStep(state: GameState, stacks: Stack[], hooks: MoveHooks): v
         o.route.shift();
         if (m.isLand[p.to]) s.mode = s.moveClass === 'naval' ? 'naval' : 'land';
         // halt on contact with hostile forces
-        const hostile = stacksAt(state, p.to).some((x) => hostileStacks(state, s, x));
+        const enemies = enemyMap(state).get(s.owner);
+        const idx = index();
+        (idx.get(p.to) ?? idx.set(p.to, new Set()).get(p.to)!).add(s);
+        let hostile = false;
+        if (enemies && o.route.length) for (const x of idx.get(p.to)!) if (x !== s && enemies.has(x.owner)) { hostile = true; break; }
         if (hostile && o.route.length) {
           stopWithEvent(state, s, `halted by hostile forces at ${m.data.nodes[p.to].name}.`, 'halted');
           o.route = [];
@@ -367,7 +450,7 @@ export function routeEtaTick(state: GameState, s: Stack): number | null {
     let km = m.edges[seg.edge].km;
     const sp = stackSpeed(state, s, seg.mode, m.terrain[seg.to], seg.to);
     if (i === 0 && s.pos.kind === 'edge') km = s.pos.length - s.pos.progress;
-    else if (m.edges[seg.edge].kind === 'coast' && s.moveClass === 'ground') km += (EMBARK_MIN / 60) * sp;
+    else if (m.edges[seg.edge].kind === 'coast' && s.moveClass === 'ground') km += (EMBARK_MIN / 60) * cmod(state, s.owner, 'embark_time_mult') * sp;
     t += sp > 0 ? Math.ceil((km / sp) * 60) : 0;
   }
   return t;

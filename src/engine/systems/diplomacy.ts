@@ -19,21 +19,50 @@ import { emit, toAll } from './events';
 import { atWar, bumpRelations, coalitionOf, grantLevel, levelAtLeast, sameCoalition } from './world';
 import { charge, credit } from './ledger';
 import { zero, fmtVec } from '../fixed';
+import { streamRng } from '../rng';
+import { scenarioOf } from '../scenario/registry';
 
 // ───────────────────────────── trust ─────────────────────────────
 
+const initialTrustCache = new WeakMap<GameState, Map<string, number>>();
+/** Opening trust of `from` toward `to`: authored profile trust + seeded variation (stream "trust"). */
+export function initialTrust(state: GameState, from: CountryId, to: CountryId): number {
+  if (from === to) return 0;
+  let m = initialTrustCache.get(state);
+  if (!m) {
+    m = new Map();
+    initialTrustCache.set(state, m);
+  }
+  const k = dirKey(from, to);
+  let v = m.get(k);
+  if (v === undefined) {
+    const r = streamRng(state.seed, 'trust', k);
+    const authored = scenarioOf(state).profiles[from]?.relations?.find((x) => x.with === to);
+    v = Math.round(((authored?.trust ?? 0) + TRUST.initialVariation * (2 * r.next() - 1)) * 100) / 100;
+    m.set(k, v);
+  }
+  return v;
+}
+/** Trust value of a pair never touched by an event: the opening value decayed for every day change so far. */
+function lazyTrust(state: GameState, from: CountryId, to: CountryId): number {
+  const v0 = initialTrust(state, from, to);
+  const days = state.ids.trustDays ?? 0;
+  return days ? Math.round(v0 * Math.pow(1 - TRUST.decayPerDay, days) * 100) / 100 : v0;
+}
 export function trustOf(state: GameState, from: CountryId, to: CountryId): number {
-  return state.trust[dirKey(from, to)]?.value ?? 0;
+  const t = state.trust[dirKey(from, to)];
+  return t ? t.value : lazyTrust(state, from, to);
 }
 export function addTrust(state: GameState, holder: CountryId, about: CountryId, delta: number, kind: string, reason: string): void {
   if (holder === about) return;
   const k = dirKey(holder, about);
-  const t = (state.trust[k] ??= { value: 0, history: [] });
+  const t = (state.trust[k] ??= { value: lazyTrust(state, holder, about), history: [] });
   t.value = Math.max(TRUST.min, Math.min(TRUST.max, Math.round((t.value + delta) * 100) / 100));
   t.history.push({ at: state.clock.tick, kind, delta, reason });
   while (t.history.length > TRUST.historyKept) t.history.shift();
 }
 export function trustDecayDay(state: GameState): void {
+  state.ids.trustDays = (state.ids.trustDays ?? 0) + 1;
   for (const k of Object.keys(state.trust).sort()) {
     const t = state.trust[k];
     t.value = Math.round(t.value * (1 - TRUST.decayPerDay) * 100) / 100;

@@ -4,6 +4,7 @@ import { newMiniGame, N } from '../fixtures/mini-world';
 import { clearStacks, place, grant, refreshVision, must } from '../fixtures/helpers';
 import { revokeGrantInternal } from '../../src/engine/systems/diplomacy';
 import type { GameState } from '../../src/engine/state';
+import { bumpEconomy } from '../../src/engine/systems/economy';
 
 function setup(): GameState {
   const s = newMiniGame({ human: 'ARD' });
@@ -18,6 +19,7 @@ describe('visibility & intel', () => {
   it('A04: radar-only contact exposes only broad domain/position/time; no hidden fields anywhere in the view', () => {
     const s = setup();
     s.cities['ARD-ardena'].buildings.push({ type: 'radar', level: 2, condition: 100 });
+    bumpEconomy(s);
     const hidden = place(s, 'BOR', 14, ['inf', 'tank'], 'Secret Guards Brigade');
     refreshVision(s);
     const v = getCountryView(s, 'ARD');
@@ -73,6 +75,7 @@ describe('visibility & intel', () => {
   it('cross-check 7: two sensors on one contact — identification falls back to what the remaining sensor justifies, then stale', () => {
     const s = setup();
     s.cities['ARD-ardena'].buildings.push({ type: 'radar', level: 2, condition: 100 });
+    bumpEconomy(s);
     place(s, 'BOR', 14, ['inf']);
     const scout = place(s, 'ARD', 13, ['scout']);
     refreshVision(s);
@@ -84,6 +87,7 @@ describe('visibility & intel', () => {
     expect(c.owner).toBeUndefined();
     expect(c.units).toBeUndefined();
     s.cities['ARD-ardena'].buildings = s.cities['ARD-ardena'].buildings.filter((b) => b.type !== 'radar');
+    bumpEconomy(s); // direct test mutation of buildings must announce itself (engine paths do)
     refreshVision(s);
     expect(contactsOf(s, 'ARD')[0].level).toBe('stale');
   });

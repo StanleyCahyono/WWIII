@@ -40,3 +40,13 @@ describe('incremental visibility', () => {
     }
   });
 });
+
+describe('batch views', () => {
+  it('getCountryViews equals per-country getCountryView', async () => {
+    const { getCountryView, getCountryViews } = await import('../../src/engine');
+    const s = newMiniGame({ human: 'ARD', seed: 2 });
+    advance(s, 600, { fallback: BasicController });
+    const batch = getCountryViews(s, s.countryOrder);
+    for (const c of s.countryOrder) expect(JSON.stringify(batch.get(c))).toBe(JSON.stringify(getCountryView(s, c)));
+  });
+});

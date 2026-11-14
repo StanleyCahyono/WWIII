@@ -2,7 +2,7 @@
  * Research: slots, day gates, prerequisites, doctrine overrides, costs, completion effects.
  *
  * Slots = RESEARCH_BASE_SLOTS + Σ researchSlots of buildings in owned homeland/annexed cities.
- * Duration = hours × doctrine hoursMult ÷ (1 + Σ researchSpeedMult).
+ * Duration = hours × doctrine hoursMult ÷ ((1 + Σ (researchSpeedMult − 1)) × research_speed_mult).
  * Cancel refund = floor(cost × remaining fraction × RESEARCH_CANCEL_REFUND_FACTOR), quoted exactly.
  * UPGRADE RULE: completing a `unitLevel` tech raises every existing unit of that type owned by the
  * country to the new level (HP scaled proportionally) and all future mobilizations use it.
@@ -16,7 +16,8 @@ import { geq, mul, type ResM, shortfall, vecFromWhole } from '../fixed';
 import { charge, credit } from './ledger';
 import { schedule, unschedule } from './queue';
 import { awardXp, emit, toAll } from './events';
-import { sumEffect } from './economy';
+import { sumEffect, multEffect, bumpEconomy } from './economy';
+import { applyModifier, cmod } from './modifiers';
 import { dayOf } from '../time';
 import { derived } from '../derived';
 import { territoryOf } from './world';
@@ -60,9 +61,9 @@ export function researchSpeed(state: GameState, c: CountryId): number {
   return derived(state, `~rspeed:${c}`, () => computeResearchSpeed(state, c));
 }
 function computeResearchSpeed(state: GameState, c: CountryId): number {
-  let s = 0;
-  for (const ci of ownedResearchCities(state, c)) s += sumEffect(state, ci.buildings, 'researchSpeedMult');
-  return 1 + s + (state.countries[c].modifiers['research_speed'] ?? 0);
+  let s = 1;
+  for (const ci of ownedResearchCities(state, c)) s += multEffect(state, ci.buildings, 'researchSpeedMult') - 1;
+  return s * cmod(state, c, 'research_speed_mult');
 }
 export function labLevel(state: GameState, c: CountryId): number {
   let s = 0;
@@ -179,7 +180,8 @@ export function grantTech(state: GameState, c: CountryId, techId: TechId, lineag
       if (inv.maturity === 'prototype') inv.maturity = 'qualified';
     }
   }
-  for (const mo of e.modifiers ?? []) cs.modifiers[mo.key] = (cs.modifiers[mo.key] ?? 0) + mo.value;
+  for (const mo of e.modifiers ?? []) applyModifier(cs.modifiers, mo.key, mo.value);
+  if (e.modifiers?.length) bumpEconomy(state);
   if (e.liftCapacity) cs.lift += e.liftCapacity;
   if (e.maintenanceSlots) cs.maintenanceSlots += e.maintenanceSlots;
   void silentUpgrade;

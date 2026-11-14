@@ -3,7 +3,7 @@ import { advance, submitCommand, previewCommand, serialize, deserialize, stateHa
 import { newMiniGame, N } from '../fixtures/mini-world';
 import { must, war, clearStacks, place } from '../fixtures/helpers';
 import { atWar, grantLevel, hasPassage, coalitionOf, statusFrom } from '../../src/engine/systems/world';
-import { trustOf } from '../../src/engine/systems/diplomacy';
+import { addTrust, trustOf } from '../../src/engine/systems/diplomacy';
 import type { CountryController } from '../../src/engine/ai-host/types';
 
 describe('diplomacy, offers & coalitions', () => {
@@ -87,7 +87,7 @@ describe('diplomacy, offers & coalitions', () => {
     must(s, { type: 'proposeOffer', country: 'ARD', to: 'DUN', give: [], receive: [{ kind: 'status', level: 'shared_intel' }] });
     const id = Object.values(s.offers)[0].id;
     // DUN distrusts ARD
-    s.trust['DUN>ARD'].value = -40;
+    addTrust(s, 'DUN', 'ARD', -40 - trustOf(s, 'DUN', 'ARD'), 'test', 'set for test');
     const loaded = deserialize(serialize(s));
     expect(loaded.offers[id].status).toBe('pending');
     const host = { fallback: BasicController };

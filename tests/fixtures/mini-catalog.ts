@@ -56,18 +56,18 @@ function bl(level: number, cost: Record<string, number>, buildHours: number, eff
   return { level, cost, buildHours, upkeepPerDay: upkeep, effects };
 }
 export const MINI_BUILDINGS: BuildingType[] = [
-  { id: 'barracks', name: 'Barracks', scope: 'city', unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 200 * l, supplies: 100 }, 12, { recruitSpeedMult: 0.25 * l })) },
-  { id: 'factory', name: 'Factory', scope: 'city', unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 400 * l, components: 100 }, 24, { productionMult: 0.2 * l })) },
-  { id: 'lab', name: 'Research Lab', scope: 'city', unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 600 * l, electronics: 50 }, 36, { researchSlots: l, researchSpeedMult: 0.1 * l })) },
+  { id: 'barracks', name: 'Barracks', scope: 'city', unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 200 * l, supplies: 100 }, 12, { recruitSpeedMult: 1 + 0.25 * l })) },
+  { id: 'factory', name: 'Factory', scope: 'city', unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 400 * l, components: 100 }, 24, { productionMult: 1 + 0.2 * l })) },
+  { id: 'lab', name: 'Research Lab', scope: 'city', unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 600 * l, electronics: 50 }, 36, { researchSlots: l, researchSpeedMult: 1 + 0.1 * l })) },
   { id: 'airfield', name: 'Airfield', scope: 'rural', unlockTech: null, maxLevel: 2, description: '', levels: [1, 2].map((l) => bl(l, { money: 300 * l }, 24, { airSlots: 4 * l })) },
   { id: 'naval_base', name: 'Naval Base', scope: 'city', coastalOnly: true, unlockTech: null, maxLevel: 2, description: '', levels: [1, 2].map((l) => bl(l, { money: 500 * l }, 24, { navalSlots: 4 * l })) },
-  { id: 'hospital', name: 'Hospital', scope: 'city', unlockTech: null, maxLevel: 2, description: '', levels: [1, 2].map((l) => bl(l, { money: 300 * l }, 24, { hpRecoveryPerDay: 0.1 * l, moraleDelta: 5 * l })) },
-  { id: 'bunker', name: 'Bunker Line', scope: 'city', unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 250 * l }, 18, { defenseMult: 0.25 * l })) },
+  { id: 'hospital', name: 'Hospital', scope: 'city', unlockTech: null, maxLevel: 2, description: '', levels: [1, 2].map((l) => bl(l, { money: 300 * l }, 24, { hpRecoveryPerDay: 10 * l, moraleDelta: 5 * l })) },
+  { id: 'bunker', name: 'Bunker Line', scope: 'city', unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 250 * l }, 18, { defenseMult: 1 + 0.25 * l })) },
   { id: 'radar', name: 'Radar Station', scope: 'city', unlockTech: null, maxLevel: 2, description: '', levels: [1, 2].map((l) => bl(l, { money: 300 * l, electronics: 40 }, 24, { radarKm: 250 * l, radarSensitivity: 2 })) },
   { id: 'missile_complex', name: 'Launch Complex', scope: 'city', unlockTech: 'str_missile_complex', maxLevel: 2, description: '', levels: [1, 2].map((l) => bl(l, { money: 800 * l, components: 200 }, 48, { missileSlots: l })) },
-  { id: 'mine', name: 'Extraction Site', scope: 'rural', needsDeposit: true, unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 200 * l }, 12, { productionMult: 1 * l })) },
+  { id: 'mine', name: 'Extraction Site', scope: 'rural', needsDeposit: true, unlockTech: null, maxLevel: 3, description: '', levels: [1, 2, 3].map((l) => bl(l, { money: 200 * l }, 12, { productionMult: 1 + 1 * l })) },
   { id: 'workshop', name: 'Maintenance Depot', scope: 'city', unlockTech: null, maxLevel: 2, description: '', levels: [1, 2].map((l) => bl(l, { money: 300 * l }, 24, { maintenanceSlots: 2 * l })) },
-  { id: 'logistics', name: 'Logistics Hub', scope: 'rural', unlockTech: null, maxLevel: 1, description: '', levels: [bl(1, { money: 250 }, 12, { speedMult: 0.25 })] },
+  { id: 'logistics', name: 'Logistics Hub', scope: 'rural', unlockTech: null, maxLevel: 1, description: '', levels: [bl(1, { money: 250 }, 12, { speedMult: 1.25 })] },
 ];
 
 function tech(t: Partial<TechNode> & Pick<TechNode, 'id' | 'name' | 'branch'>): TechNode {
@@ -88,7 +88,7 @@ export const MINI_TECHS: TechNode[] = [
   tech({ id: 'hyp_glide_qualified', name: 'Glide Vehicle Qualification', branch: 'hypersonic', tier: 3, prereqs: ['hyp_glide_blueprint'], effects: { missileProgram: { missile: 'hgv_x', stage: 'qualified' } } }),
   tech({ id: 'hyp_cruise_blueprint', name: 'Hypersonic Cruise Blueprint', branch: 'hypersonic', tier: 2, prereqs: ['hyp_advanced_materials'], effects: { missileProgram: { missile: 'hcm_x', stage: 'blueprint' } } }),
   tech({ id: 'hyp_cruise_qualified', name: 'Hypersonic Cruise Qualification', branch: 'hypersonic', tier: 3, prereqs: ['hyp_cruise_blueprint'], effects: { missileProgram: { missile: 'hcm_x', stage: 'qualified' } } }),
-  tech({ id: 'ind_automation', name: 'Automation', branch: 'industry', effects: { modifiers: [{ key: 'research_speed', value: 0.1, description: '+10% research speed' }] } }),
+  tech({ id: 'ind_automation', name: 'Automation', branch: 'industry', effects: { modifiers: [{ key: 'research_speed_mult', value: 1.1, description: '+10% research speed' }] } }),
   tech({ id: 'mob_strategic_airlift_2', name: 'Strategic Airlift II', branch: 'mobility', effects: { liftCapacity: 2 } }),
   tech({ id: 'mob_refuel_support', name: 'Refuel Support', branch: 'mobility', effects: { maintenanceSlots: 1 } }),
   tech({ id: 'rec_broad_area_recon', name: 'Broad Area Recon', branch: 'recon' }),

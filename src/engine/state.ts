@@ -449,7 +449,8 @@ export interface Contact {
   /** Detected member count (only for identified/unidentified). */
   count: number | null;
   /** Unit types observed (identified only). */
-  units: { type: UnitTypeId; hpPct: number }[] | null;
+  /** `i` = index in the observed stack (internal; never projected into views). */
+  units: { type: UnitTypeId; hpPct: number; i?: number }[] | null;
   sources: string[];
 }
 
@@ -631,7 +632,8 @@ export interface GameState {
     mode: 'world120' | 'fixture';
     humanRun: 'active' | 'concluded' | 'observer';
   };
-  clock: { tick: number; lastStep: number };
+  /** lastVisibility: tick of the most recent observation refresh (current contacts are observed then). */
+  clock: { tick: number; lastStep: number; lastVisibility?: number };
   rng: { seed: number; counter: number };
   ids: Record<string, number>;
   countryOrder: CountryId[];

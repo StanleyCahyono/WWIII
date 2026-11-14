@@ -29,6 +29,40 @@ import { sumEffect } from './economy';
 import { unitCost } from './production';
 import { valueAt } from '../fixed';
 import { derived } from '../derived';
+import { cmod } from './modifiers';
+
+export interface LiftBreakdown {
+  base: number;
+  buildings: number;
+  units: number;
+  total: number;
+}
+/**
+ * Abstract lift capacity = profile/tech lift (CountryState.lift) + Σ building liftCapacity in owned
+ * cities/provinces (scaled by condition) + Σ liftCapacity of fielded units. Computed on demand, so
+ * construction, destruction and unit losses are reflected immediately.
+ */
+export function liftBreakdown(state: GameState, c: CountryId): LiftBreakdown {
+  const all = derived(state, 'liftAll', () => {
+    const bld = new Map<CountryId, number>();
+    const un = new Map<CountryId, number>();
+    for (const k of Object.keys(state.cities)) {
+      const city = state.cities[k];
+      const o = state.provinces[city.node]?.owner;
+      if (o && city.buildings.length) bld.set(o, (bld.get(o) ?? 0) + sumEffect(state, city.buildings, 'liftCapacity'));
+    }
+    for (const p of state.provinces) if (p && p.owner && p.buildings.length) bld.set(p.owner, (bld.get(p.owner) ?? 0) + sumEffect(state, p.buildings, 'liftCapacity'));
+    for (const s of stacksReadonly(state)) for (const u of s.units) {
+      const l = u.hp > 0 ? utype(state, u.type).liftCapacity ?? 0 : 0;
+      if (l) un.set(s.owner, (un.get(s.owner) ?? 0) + l);
+    }
+    return { bld, un };
+  });
+  const base = state.countries[c]?.lift ?? 0;
+  const buildings = Math.round((all.bld.get(c) ?? 0) * 100) / 100;
+  const units = all.un.get(c) ?? 0;
+  return { base, buildings, units, total: Math.round((base + buildings + units) * 100) / 100 };
+}
 
 export function maintenanceCapacity(state: GameState, c: CountryId): number {
   return derived(state, `~maint:${c}`, () => computeMaintenance(state, c));
@@ -96,12 +130,13 @@ export function readinessDay(state: GameState): void {
     for (const u of s.units) {
       let dr = 0;
       if (sup === 'supplied' && idle) dr += READINESS_RECOVERY_PER_DAY;
-      if (refitOk) dr += REFIT_READINESS_PER_DAY;
+      if (refitOk) dr += REFIT_READINESS_PER_DAY * cmod(state, s.owner, 'refit_speed_mult');
       if (sup === 'out') dr -= READINESS_LOSS_OUT_OF_SUPPLY_PER_DAY;
       if (shortage) dr -= READINESS_LOSS_SHORTAGE_PER_DAY;
       u.readiness = Math.max(0, Math.min(100, u.readiness + dr));
       if (sup === 'supplied' && (s.lastCombatAt === null || state.clock.tick - s.lastCombatAt > 360)) {
-        const frac = (refitOk ? REFIT_HP_REGEN_PER_DAY : HP_REGEN_PER_DAY) + facilityRegen;
+        let frac = (refitOk ? REFIT_HP_REGEN_PER_DAY : HP_REGEN_PER_DAY) + facilityRegen / 100; // facility hpRecoveryPerDay is % of max HP
+        if (s.moveClass === 'naval') frac *= cmod(state, s.owner, 'naval_hp_regen_mult');
         u.hp = Math.min(u.maxHp, u.hp + Math.round(u.maxHp * frac));
       }
     }

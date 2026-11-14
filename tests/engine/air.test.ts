@@ -73,6 +73,19 @@ describe('air operations (A10)', () => {
     expect(ev!.private.ARD.data?.count).toBe(2);
   });
 
+  it('emergency diversion respects airfield capacity (full base is not a legal diversion)', () => {
+    const s = setup();
+    war(s, 'ARD', 'DUN');
+    place(s, 'ARD', N.ardCapital, ['fighter', 'fighter', 'fighter', 'fighter']); // Ardena (tier 3) has 4 slots
+    const f = place(s, 'ARD', N.ardWestport, ['fighter']);
+    must(s, { type: 'patrol', country: 'ARD', stack: f.id, center: 19 });
+    advance(s, 30);
+    transferNode(s, N.ardWestport, 'DUN', 'capture', govHooks);
+    advance(s, 15);
+    expect(s.stacks[f.id]).toBeUndefined();
+    expect(s.events.some((e) => e.kind === 'aircraft_lost' && /no legal base/.test(e.private.ARD?.text ?? ''))).toBe(true);
+  });
+
   it('basing access revoked while airborne → divert; disabled airfield grounds aircraft on the ground', () => {
     const s = setup();
     grant(s, 'BOR', 'ARD', 'right_of_way');

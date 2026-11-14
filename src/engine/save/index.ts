@@ -63,7 +63,7 @@ export const MIGRATIONS: Record<number, Migration> = {
     // no `escrow`, no `ui` section, no `shortages`, and the clock was `minute`.
     const o = JSON.parse(JSON.stringify(s));
     if (o.clock && typeof o.clock.minute === 'number' && o.clock.tick === undefined) {
-      o.clock = { tick: o.clock.minute, lastStep: Math.floor(o.clock.minute / 15) * 15 };
+      o.clock = { tick: o.clock.minute, lastStep: Math.floor(o.clock.minute / 15) * 15, lastVisibility: Math.floor(o.clock.minute / 30) * 30 };
     }
     for (const c of Object.values<any>(o.countries ?? {})) {
       if (c.treasury && !c.stock) {

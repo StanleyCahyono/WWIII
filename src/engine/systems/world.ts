@@ -6,6 +6,41 @@ import { S, unitStats } from '../scenario/registry';
 import { lerpLonLat, nodeLL } from './mapindex';
 import { derived } from '../derived';
 
+const ownerChanges = new WeakMap<GameState, { ownv: number; countries: Set<CountryId>; nodes: Set<NodeId> }>();
+/** Record an ownership change (used by incremental visibility to limit recomputation). */
+const ownerJournal = new WeakMap<GameState, { v: number; node: NodeId }[]>();
+/** Nodes whose owner changed after ownership version `since`, or null if the journal cannot tell. */
+export function ownerChangesSince(state: GameState, since: number): Set<NodeId> | null {
+  const j = ownerJournal.get(state);
+  if (!j || !j.length || j[0].v > since + 1) return null;
+  const out = new Set<NodeId>();
+  for (let i = j.length - 1; i >= 0 && j[i].v > since; i--) out.add(j[i].node);
+  return out;
+}
+export function recordOwnerChange(state: GameState, node: NodeId, from: CountryId | null, to: CountryId | null): void {
+  let j = ownerJournal.get(state);
+  if (!j) {
+    j = [];
+    ownerJournal.set(state, j);
+  }
+  j.push({ v: (state.ids.ownv ?? 0) + 1, node });
+  if (j.length > 5000) j.splice(0, j.length - 2500);
+  let r = ownerChanges.get(state);
+  if (!r) {
+    r = { ownv: state.ids.ownv ?? 0, countries: new Set(), nodes: new Set() };
+    ownerChanges.set(state, r);
+  }
+  if (from) r.countries.add(from);
+  if (to) r.countries.add(to);
+  r.nodes.add(node);
+}
+/** Take (and clear) the change log if it covers every change since ownership version `since`. */
+export function takeOwnerChanges(state: GameState, since: number): { countries: Set<CountryId>; nodes: Set<NodeId> } | null {
+  const r = ownerChanges.get(state);
+  ownerChanges.delete(state);
+  if (!r || r.ownv !== since) return null;
+  return r;
+}
 export function ownerOf(state: GameState, node: NodeId): CountryId | null {
   const p = state.provinces[node];
   return p ? p.owner : null;
@@ -176,6 +211,16 @@ export function utype(state: GameState, id: string): UnitType {
 }
 export function ustats(state: GameState, u: Unit) {
   return unitStats(utype(state, u.type), u.level);
+}
+/** Effective weapon range (km) incl. the artillery_range_mult modifier for support/launchers. */
+export function unitRange(state: GameState, owner: CountryId, u: Unit): number {
+  const t = utype(state, u.type);
+  const r = unitStats(t, u.level).rangeKm;
+  if (r > 0 && (t.family === 'support' || t.family === 'missile_launcher')) {
+    const m = state.countries[owner]?.modifiers['artillery_range_mult'];
+    if (m !== undefined) return r * m;
+  }
+  return r;
 }
 export function isAirType(t: UnitType): boolean {
   return t.domain === 'air' && t.family !== 'helicopter';

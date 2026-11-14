@@ -6,7 +6,7 @@
  *   formations  25 % — Σ unit replacement value (catalog price × reference prices) × readiness
  *   research    20 % — Σ reference value of completed techs + funded throughput
  *                      (slots × speed × horizon × researchSlotValuePerDay)
- *   mobility    20 % — lift × liftValue + maintenance capacity × maintenanceSlotValue +
+ *   mobility    20 % — effective lift (profile/tech + lift buildings + fielded airlift units) × liftValue + maintenance capacity × maintenanceSlotValue +
  *                      manpower replenishment per day × horizon × value (own assets only)
  *   resilience  10 % — mean coverage of essential inputs over resilienceDays, capped at 1
  * Each raw dimension is divided by the highest NON-reference (non-U.S.) value, weighted, summed,
@@ -19,7 +19,7 @@ import { ESSENTIAL, OPENING_POWER, RESEARCH_BASE_SLOTS } from './rules';
 import { S } from './scenario/registry';
 import { allRates } from './systems/economy';
 import { researchSlots, researchSpeed } from './systems/research';
-import { maintenanceCapacity } from './systems/readiness';
+import { liftBreakdown, maintenanceCapacity } from './systems/readiness';
 import { unitCost } from './systems/production';
 import { utype } from './systems/world';
 import { valueAt, vecFromWhole } from './fixed';
@@ -53,7 +53,7 @@ export function rawDimensions(state: GameState): Record<CountryId, OpeningPowerD
       if (tn) techValue += valueAt(vecFromWhole(tn.cost), prices);
     }
     const research = techValue + researchSlots(state, c) * researchSpeed(state, c) * OPENING_POWER.researchHorizonDays * OPENING_POWER.researchSlotValuePerDay;
-    const mobility = cs.lift * OPENING_POWER.liftValue + maintenanceCapacity(state, c) * OPENING_POWER.maintenanceSlotValue + (Math.max(0, r.production.manpower) / 1000) * OPENING_POWER.mobilityHorizonDays * OPENING_POWER.replenishmentValuePerManpower;
+    const mobility = liftBreakdown(state, c).total * OPENING_POWER.liftValue + maintenanceCapacity(state, c) * OPENING_POWER.maintenanceSlotValue + (Math.max(0, r.production.manpower) / 1000) * OPENING_POWER.mobilityHorizonDays * OPENING_POWER.replenishmentValuePerManpower;
     let cov = 0;
     for (const res of ESSENTIAL) {
       const need = r.consumption[res] * OPENING_POWER.resilienceDays;

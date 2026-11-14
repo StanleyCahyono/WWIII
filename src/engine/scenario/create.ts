@@ -183,22 +183,12 @@ export function createCampaign(opts: CreateOptions): GameState {
       spawnStack(state, c, node, units, f.designation);
     }
   }
-  // relations (authored, seeded trust variation)
-  for (const a of order) for (const b of order) {
-    if (a >= b) continue;
-    state.relations[pairKey(a, b)] = { war: false, since: 0, version: 0, warDeclaredBy: null };
-  }
-  for (const a of order) for (const b of order) {
-    if (a === b) continue;
-    const r = streamRng(seed, 'trust', `${a}>${b}`);
-    const authored = sc.profiles[a].relations?.find((x) => x.with === b);
-    const base = authored?.trust ?? 0;
-    state.trust[dirKey(a, b)] = { value: Math.round((base + TRUST.initialVariation * (2 * r.next() - 1)) * 100) / 100, history: [] };
-  }
+  // relations are SPARSE: a missing pair is peace (version 0); initial trust (authored + seeded
+  // variation) is derived lazily by systems/diplomacy.initialTrust and only stored once it changes
   for (const a of order) for (const rel of sc.profiles[a].relations ?? []) {
     if (!seats.has(rel.with) || rel.with === a) continue;
     if (rel.status === 'war') {
-      const pr = state.relations[pairKey(a, rel.with)];
+      const pr = (state.relations[pairKey(a, rel.with)] ??= { war: false, since: 0, version: 0, warDeclaredBy: null });
       pr.war = true;
       pr.warDeclaredBy = a;
       state.ids.relv = (state.ids.relv ?? 0) + 1;

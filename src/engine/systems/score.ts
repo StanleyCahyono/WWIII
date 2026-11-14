@@ -18,7 +18,18 @@ import { allRates, industrialValue } from './economy';
 import { emit, awardXp } from './events';
 import { dayOf } from '../time';
 
+const vpCache = new WeakMap<Scenario, Int32Array>();
+/** VP of a node (memoized per scenario). */
 export function nodeVP(scenario: Scenario, node: NodeId): number {
+  let a = vpCache.get(scenario);
+  if (!a) {
+    a = new Int32Array(scenario.map.nodes.length);
+    for (let i = 0; i < a.length; i++) a[i] = nodeVPRaw(scenario, i);
+    vpCache.set(scenario, a);
+  }
+  return a[node] ?? 0;
+}
+function nodeVPRaw(scenario: Scenario, node: NodeId): number {
   const st = getStatic(scenario);
   const n = scenario.map.nodes[node];
   if (n.kind !== 'land' || n.outside || !n.country) return 0;

@@ -87,7 +87,7 @@ export function agentAct(state: GameState, id: string): void {
     const rep = snapshotReport(state, a.country, city.node, 'agent', 0.9);
     emit(state, { kind: 'intel_report', category: 'intel', node: city.node, private: toAll([a.country], `Agent report from ${city.name} (${rep.stacks.length} formation(s) observed).`, { report: rep.id }) });
   } else if (a.mission === 'sabotage') {
-    bumpEconomy(state);
+    bumpEconomy(state, city.node);
     const b = [...city.buildings].sort((x, y) => (x.type < y.type ? -1 : 1))[0];
     if (b) b.condition = Math.max(0, b.condition - SABOTAGE_CONDITION_DAMAGE);
     else city.condition = Math.max(0, city.condition - SABOTAGE_CONDITION_DAMAGE);

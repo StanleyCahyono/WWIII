@@ -21,10 +21,12 @@ export function defaultCityOutput(tier: number): ResVec {
   };
 }
 
+/** Cheapest start-unlocked unit whose required facilities are themselves start-unlocked (they are added to the city). */
 function starter(catalog: Catalog, pred: (u: UnitType) => boolean): UnitType | undefined {
-  const pick = (list: UnitType[]) => list.sort((a, b) => (a.cost.money ?? 0) - (b.cost.money ?? 0) || (a.id < b.id ? -1 : 1))[0];
-  // prefer starter units that need no facility; fall back to any unlocked-at-start unit
-  return pick(catalog.units.filter((u) => !u.unlockTech && u.requires.length === 0 && pred(u))) ?? pick(catalog.units.filter((u) => !u.unlockTech && pred(u)));
+  const buildable = (u: UnitType) => u.requires.every((r) => catalog.buildings.some((b) => b.id === r.building && !b.unlockTech && b.maxLevel >= r.level));
+  return [...catalog.units]
+    .filter((u) => !u.unlockTech && buildable(u) && pred(u))
+    .sort((a, b) => a.requires.length - b.requires.length || (a.cost.money ?? 0) - (b.cost.money ?? 0) || (a.id < b.id ? -1 : 1))[0];
 }
 
 export function synthesizeProfile(map: MapData, catalog: Catalog, c: CountryId, name?: string): CountryProfile {
@@ -35,6 +37,10 @@ export function synthesizeProfile(map: MapData, catalog: Catalog, c: CountryId, 
   const inf = starter(catalog, (u) => u.capture && u.domain === 'land');
   const arm = starter(catalog, (u) => u.family === 'armor');
   const forces: CountryProfile['forces'] = [];
+  // every city gets the facilities its starter garrison type requires (so it can also mobilize)
+  const reqs = new Map<string, number>();
+  for (const u of [inf, arm]) for (const r of u?.requires ?? []) reqs.set(r.building, Math.max(reqs.get(r.building) ?? 0, r.level));
+  const reqBuildings = [...reqs.entries()].filter(([b]) => catalog.buildings.some((x) => x.id === b && !x.unlockTech)).map(([type, level]) => ({ type, level }));
   for (const city of cities) {
     if (inf) forces.push({ unit: inf.id, count: city.tier >= 3 ? 2 : 1, at: city.key, readiness: 90, designation: `${city.name} Garrison` });
     if (arm && city.capital) forces.push({ unit: arm.id, count: 1, at: city.key, readiness: 90, designation: `${city.name} Armoured Group` });
@@ -50,7 +56,7 @@ export function synthesizeProfile(map: MapData, catalog: Catalog, c: CountryId, 
     template: 'synthesized-default',
     startDifficulty: tiers >= 12 ? 'easy' : tiers >= 5 ? 'moderate' : 'hard',
     summary: 'Synthesized default profile (authored profile not yet available).',
-    cities: cities.map((x) => ({ city: x.key, functions: [], buildings: [], output: defaultCityOutput(x.tier) })),
+    cities: cities.map((x) => ({ city: x.key, functions: [], buildings: reqBuildings.map((b) => ({ ...b })), output: defaultCityOutput(x.tier) })),
     stockpile: { supplies: 300 * tiers, components: 150 * tiers, electronics: 60 * tiers, fuel: 120 * tiers, rare: 30 * tiers, manpower: 100 * tiers, money: 600 * tiers },
     forces,
     techs: [],

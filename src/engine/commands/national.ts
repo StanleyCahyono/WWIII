@@ -189,7 +189,7 @@ export const demolish: Handler<CommandOf<'demolish'>, { refund: ResM; newLevel: 
     if (p.newLevel <= 0) list.splice(idx, 1);
     else list[idx].level = p.newLevel;
     credit(state, cmd.country, 'refund', p.refund);
-    bumpEconomy(state);
+    bumpEconomy(state, city ? city.node : (cmd.target as NodeId));
     return { refund: p.refund };
   },
 };
