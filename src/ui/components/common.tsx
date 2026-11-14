@@ -6,6 +6,7 @@ import { symbolSvg } from '../map/symbols';
 import { countryName, unitById } from '../data/static';
 import { buildSidc } from '../../data/catalog/sidc';
 import { userMovedFocus } from '../state/ui';
+import { FLAGS, type Emblem, type FlagSpec } from '../data/flags';
 
 export function useFrame(): Frame | null {
   return useStore(getHost().store, (s) => s.frame);
@@ -72,100 +73,190 @@ export function PlannedUnitSym({ unit, size = 18 }: { unit: string; size?: numbe
   return <Sym sidc={buildSidc(ut.symbol, { affiliation: 'friend', status: 'planned' })} size={size} label={`Planned unit (not yet fielded): ${ut.name}`} />;
 }
 
-function hashId(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+function starPoints(x: number, y: number, r: number): string {
+  const pts: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.42 : r;
+    pts.push(`${(x + Math.cos(a) * rr).toFixed(2)},${(y + Math.sin(a) * rr).toFixed(2)}`);
   }
-  return h >>> 0;
+  return pts.join(' ');
+}
+
+function emblem(e: Emblem, i: number): React.ReactNode {
+  switch (e.s) {
+    case 'disc':
+      return <circle key={i} cx={e.x} cy={e.y} r={e.r} fill={e.c} />;
+    case 'ring':
+      return <circle key={i} cx={e.x} cy={e.y} r={e.r} fill="none" stroke={e.c} strokeWidth={e.r * 0.3} />;
+    case 'star':
+      return <polygon key={i} points={starPoints(e.x, e.y, e.r)} fill={e.c} />;
+    case 'crescent':
+      return (
+        <g key={i}>
+          <circle cx={e.x} cy={e.y} r={e.r} fill={e.c} />
+          <circle cx={e.x + e.r * 0.36} cy={e.y} r={e.r * 0.8} fill={e.k} />
+        </g>
+      );
+    case 'rect':
+      return <rect key={i} x={e.x} y={e.y} width={e.w} height={e.h} fill={e.c} />;
+    case 'poly':
+      return <polygon key={i} points={e.p} fill={e.c} />;
+    case 'diamond':
+      return <polygon key={i} points={`${e.x - e.r},${e.y} ${e.x},${e.y - e.r * 0.66} ${e.x + e.r},${e.y} ${e.x},${e.y + e.r * 0.66}`} fill={e.c} />;
+    case 'grid': {
+      const dots: React.ReactNode[] = [];
+      for (let cx = 0; cx < e.n; cx++)
+        for (let cy = 0; cy < e.m; cy++) dots.push(<circle key={`${cx}-${cy}`} cx={e.x + (e.n === 1 ? e.w / 2 : (cx * e.w) / (e.n - 1))} cy={e.y + (e.m === 1 ? e.h / 2 : (cy * e.h) / (e.m - 1))} r={0.55} fill={e.c} />);
+      return <g key={i}>{dots}</g>;
+    }
+    case 'uj':
+      return (
+        <svg key={i} x={e.x} y={e.y} width={e.w} height={e.h} viewBox="0 0 60 30" preserveAspectRatio="none">
+          <rect width="60" height="30" fill="#012169" />
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6" />
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#c8102e" strokeWidth="2" />
+          <path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10" />
+          <path d="M30,0 v30 M0,15 h60" stroke="#c8102e" strokeWidth="6" />
+        </svg>
+      );
+  }
+}
+
+function bands(c: string[], w: number[] | undefined, horizontal: boolean): React.ReactNode[] {
+  const ws = w ?? c.map(() => 1);
+  const total = ws.reduce((a, b) => a + b, 0);
+  const len = horizontal ? 20 : 30;
+  let at = 0;
+  return c.map((col, i) => {
+    const size = (ws[i] / total) * len;
+    const r = horizontal ? <rect key={i} x="0" y={at} width="30" height={size + 0.05} fill={col} /> : <rect key={i} x={at} y="0" width={size + 0.05} height="20" fill={col} />;
+    at += size;
+    return r;
+  });
+}
+
+function flagBody(f: FlagSpec): React.ReactNode {
+  switch (f.k) {
+    case 'h':
+      return bands(f.c, f.w, true);
+    case 'v':
+      return bands(f.c, f.w, false);
+    case 'cross':
+      return (
+        <>
+          <rect width="30" height="20" fill={f.bg} />
+          <rect x="8" width="4" height="20" fill={f.fg} />
+          <rect y="8" width="30" height="4" fill={f.fg} />
+          {f.inner && (
+            <>
+              <rect x="9" width="2" height="20" fill={f.inner} />
+              <rect y="9" width="30" height="2" fill={f.inner} />
+            </>
+          )}
+        </>
+      );
+    case 'plus':
+      return (
+        <>
+          <rect width="30" height="20" fill={f.bg} />
+          <rect x="13.2" y="4" width="3.6" height="12" fill={f.fg} />
+          <rect x="9" y="8.2" width="12" height="3.6" fill={f.fg} />
+        </>
+      );
+    case 'tri': {
+      const tw = f.tw ?? 12;
+      return (
+        <>
+          {bands(f.c, f.w, true)}
+          <polygon points={`0,0 ${tw},10 0,20`} fill={f.t} />
+          {f.t2 && <polygon points={`0,${2.6} ${tw * 0.72},10 0,${17.4}`} fill={f.t2} />}
+        </>
+      );
+    }
+    case 'quad':
+      return (
+        <>
+          <rect width="15" height="10" fill={f.c[0]} />
+          <rect x="15" width="15" height="10" fill={f.c[1]} />
+          <rect y="10" width="15" height="10" fill={f.c[2]} />
+          <rect x="15" y="10" width="15" height="10" fill={f.c[3]} />
+          {f.fg && (
+            <>
+              <rect x="13" width="4" height="20" fill={f.fg} />
+              <rect y="8" width="30" height="4" fill={f.fg} />
+            </>
+          )}
+        </>
+      );
+    case 'diag':
+      return f.rev ? (
+        <>
+          <polygon points="0,0 30,0 30,20" fill={f.a} />
+          <polygon points="0,0 30,20 0,20" fill={f.b} />
+        </>
+      ) : (
+        <>
+          <polygon points="0,0 30,0 0,20" fill={f.a} />
+          <polygon points="30,0 30,20 0,20" fill={f.b} />
+          {f.edge && <path d="M0,20 L30,0" stroke={f.edge} strokeWidth="7.5" />}
+          {f.band !== 'none' && <path d="M0,20 L30,0" stroke={f.band} strokeWidth="5" />}
+        </>
+      );
+  }
 }
 
 /**
- * Original, simplified national badge derived from the country code (not a reproduction of any
- * real flag): one of five band layouts in two hues plus a light field, deterministic per code.
+ * Simplified national flag (real colours and layout from data/flags.ts) on a 3:2 chip; a coded
+ * neutral chip when a code has no entry. Decorative unless `title` is given.
  */
-export function badgeColors(id: string): { a: string; b: string; c: string; layout: number } {
-  const h = hashId(id);
-  const h1 = h % 360;
-  const h2 = (h1 + 110 + ((h >>> 9) % 120)) % 360;
-  const s1 = 38 + ((h >>> 5) % 20);
-  const s2 = 34 + ((h >>> 13) % 22);
-  return {
-    a: `hsl(${h1} ${s1}% ${32 + ((h >>> 3) % 12)}%)`,
-    b: `hsl(${h2} ${s2}% ${38 + ((h >>> 17) % 12)}%)`,
-    c: (h >>> 21) % 3 === 0 ? 'hsl(45 30% 88%)' : 'hsl(210 20% 94%)',
-    layout: (h >>> 24) % 5,
-  };
-}
-
-export function NationBadge({ id, size = 36, title }: { id: string | null | undefined; size?: number; title?: string }) {
+export function Flag({ id, size = 36, title }: { id: string | null | undefined; size?: number; title?: string }) {
   const w = size;
-  const hgt = Math.round(size * 0.68);
-  if (!id) return <svg className="nation-badge" width={w} height={hgt} viewBox="0 0 30 20" aria-hidden><rect width="30" height="20" rx="3" fill="#555" /></svg>;
-  const { a, b, c, layout } = badgeColors(id);
-  const bands: React.ReactNode =
-    layout === 0 ? (
-      <>
-        <rect width="10" height="20" fill={a} />
-        <rect x="10" width="10" height="20" fill={c} />
-        <rect x="20" width="10" height="20" fill={b} />
-      </>
-    ) : layout === 1 ? (
-      <>
-        <rect width="30" height="7" fill={a} />
-        <rect y="7" width="30" height="6" fill={c} />
-        <rect y="13" width="30" height="7" fill={b} />
-      </>
-    ) : layout === 2 ? (
-      <>
-        <rect width="30" height="20" fill={a} />
-        <path d="M0 8h9V0h5v8h16v5H14v7H9v-7H0z" fill={c} />
-        <path d="M0 9.4h10.4V0h2.2v9.4H30v2.2H12.6V20h-2.2v-8.4H0z" fill={b} />
-      </>
-    ) : layout === 3 ? (
-      <>
-        <rect width="30" height="20" fill={a} />
-        <path d="M0 20 30 0v20z" fill={b} />
-        <path d="M0 20 30 0v3L4.5 20z" fill={c} />
-      </>
-    ) : (
-      <>
-        <rect width="30" height="20" fill={b} />
-        <rect width="30" height="10" fill={a} />
-        <path d="M0 0l11 10L0 20z" fill={c} />
-        <circle cx="4.2" cy="10" r="2" fill={a} />
-      </>
-    );
+  const hgt = Math.round(size * 0.667);
+  const spec = id ? FLAGS[id] : undefined;
+  const clip = `fl-${id ?? 'none'}`;
+  const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true as const };
   return (
-    <svg className="nation-badge" width={w} height={hgt} viewBox="0 0 30 20" role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+    <svg className="nation-badge" width={w} height={hgt} viewBox="0 0 30 20" {...a11y}>
       <defs>
-        <clipPath id={`nb-${id}`}>
-          <rect width="30" height="20" rx="3" />
+        <clipPath id={clip}>
+          <rect width="30" height="20" rx="2.4" />
         </clipPath>
       </defs>
-      <g clipPath={`url(#nb-${id})`}>
-        {bands}
-        <rect width="30" height="10" fill="rgba(255,255,255,0.10)" />
+      <g clipPath={`url(#${clip})`}>
+        {spec ? (
+          <>
+            {flagBody(spec)}
+            {spec.e?.map(emblem)}
+          </>
+        ) : (
+          <>
+            <rect width="30" height="20" fill="#3a4652" />
+            {id && (
+              <text x="15" y="13.6" textAnchor="middle" fontSize="9" fontWeight="800" fill="#e8edf1" fontFamily="system-ui, sans-serif">
+                {id}
+              </text>
+            )}
+          </>
+        )}
+        <rect width="30" height="6" fill="rgba(255,255,255,0.05)" />
       </g>
-      <rect x="0.5" y="0.5" width="29" height="19" rx="2.6" fill="none" stroke="rgba(0,0,0,0.45)" />
+      <rect x="0.4" y="0.4" width="29.2" height="19.2" rx="2.2" fill="none" stroke="rgba(0,0,0,0.45)" strokeWidth="0.8" />
     </svg>
   );
 }
 
-/** Compact badge + country code (lists, tables, chips). */
+/** Kept name: the nation badge is the simplified national flag. */
+export function NationBadge(props: { id: string | null | undefined; size?: number; title?: string }) {
+  return <Flag {...props} />;
+}
+
+/** Compact flag chip (lists, tables, chips); the country code stays in the text for search/tests. */
 export function FlagChip({ id, size = 26 }: { id: string | null | undefined; size?: number }) {
-  if (!id)
-    return (
-      <span className="chip-flag" style={{ width: size, height: Math.round(size * 0.68) }} aria-hidden>
-        <NationBadge id={null} size={size} />
-        <span className="code">—</span>
-      </span>
-    );
   return (
-    <span className="chip-flag" style={{ width: size, height: Math.round(size * 0.68) }} aria-hidden title={countryName(id)}>
-      <NationBadge id={id} size={size} />
-      <span className="code">{id}</span>
+    <span className="chip-flag" style={{ width: size, height: Math.round(size * 0.667) }} aria-hidden title={id ? countryName(id) : undefined}>
+      <Flag id={id} size={size} />
+      <span className="code">{id ?? '—'}</span>
     </span>
   );
 }

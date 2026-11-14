@@ -101,8 +101,13 @@ names or copy.
   class silhouette on a land/sea/air plate). Resource icons (crate, gear, fuel can, chip, crystal,
   helmet, banknote) and the 13 unit-class silhouettes are filled and tinted by `--ic-*`; UI and
   action glyphs are stroked in `currentColor`. `components/common.tsx` re-exports `Icon`.
-* **Nation badges** — `NationBadge` / `FlagChip` (`common.tsx`) draw an original, deterministic
-  band layout from the country code (not real flags) plus the code.
+* **Flags** — one shared `Flag` component (`common.tsx`; `NationBadge` and `FlagChip` wrap it)
+  draws simplified national flags from `src/ui/data/flags.ts`: real colours, horizontal/vertical
+  bands, Nordic/centred crosses, hoist triangles, quarters, diagonals and a few cheap emblems
+  (disc, ring, star, crescent, diamond, union canton). Codes without an entry fall back to a coded
+  chip. `FlagChip` keeps the country code as visually hidden text. Used in the nation card, the
+  nation list, the inspector and diplomacy/score rows.
+* **Population** in the place inspector is stored in thousands and shown as “950k” / “10.6M”.
 * **Desktop HUD** (`screens/Game.tsx`): the map fills everything under the 52 px top bar.
   - Top bar: brand mark, resource pills (icon, spendable stock, signed net `/d` in green/red, a ▾
     ledger toggle when short/negative), a **Show market** pull-tab (`rail-market`), time controls

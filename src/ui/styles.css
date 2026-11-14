@@ -112,7 +112,7 @@ table.data th button.sort { background: none; border: 0; padding: 0; cursor: poi
 .sym svg { display: block; }
 .chip-flag { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; vertical-align: middle; }
 .chip-flag .nation-badge { position: absolute; inset: 0; width: 100%; height: 100%; }
-.chip-flag .code { position: relative; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; color: #fff; text-shadow: 0 0 2px #000, 0 0 3px #000, 0 1px 1px #000; }
+.chip-flag .code { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .nation-badge { display: block; flex: none; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4)); }
 
 /* ───────── shell: top bar + stage (+ right inspector) ───────── */
