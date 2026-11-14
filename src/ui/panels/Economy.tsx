@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useFrame, useQuery, ActionButton } from '../components/common';
 import { getHost } from '../sim/host';
 import { ui, openPanel } from '../state/ui';
-import { RESOURCE_LABEL, countryName } from '../data/static';
+import { RESOURCE_LABEL, countryName, resourceById } from '../data/static';
 import { milli, num, signed, resM, duration, gameTime, cap } from '../format';
 import { exec } from '../sim/exec';
 import { RESOURCES, type Resource } from '../../engine/data-types';
@@ -330,7 +330,8 @@ function OrderForm({ r, setR }: { r: Resource; setR: (r: Resource) => void }) {
   const p = Math.round(Number(price) * 1000);
   const self = frame.view.self.resources.find((x) => x.resource === (side === 'buy' ? 'money' : r));
   useEffect(() => {
-    if (!price && (ref || book?.last)) setPrice(((ref ?? book!.last!) / 1000).toFixed(3));
+    const fallback = (resourceById.get(r)?.referencePrice ?? 1) * 1000;
+    setPrice(((ref ?? book?.last ?? fallback) / 1000).toFixed(3));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [r, side]);
   useEffect(() => {

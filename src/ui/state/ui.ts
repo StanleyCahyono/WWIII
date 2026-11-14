@@ -18,7 +18,8 @@ export type Panel =
   | 'dossier'
   | 'help'
   | 'campaign'
-  | 'end';
+  | 'end'
+  | 'roster';
 
 export type Selection =
   | { kind: 'stack'; id: string }
@@ -92,7 +93,7 @@ export const ui = createStore<UiState>({
   toastHistory: [],
   camera: null,
   timeStripOpen: false,
-  rosterOpen: true,
+  rosterOpen: false,
   inspectorOpen: true,
   sheetExpanded: false,
   resourceBarOpen: false,

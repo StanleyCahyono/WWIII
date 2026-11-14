@@ -14,6 +14,9 @@ import type { Frame } from '../sim/protocol';
 
 export const mapRef: { current: MapRenderer | null } = { current: null };
 
+/** Performance harness only (window.__wc.perfInject): synthetic render-only objects, never part of the sim. */
+export const synthetic: { objects: MapObject[] } = { objects: [] };
+
 export function selectionIds(sel: Selection): string[] {
   if (!sel) return [];
   if (sel.kind === 'stack') return [`S:${sel.id}`];
@@ -153,7 +156,7 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
   const chooser = useStore(ui, (s) => s.chooser);
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   const [showLayers, setShowLayers] = useState(false);
-  const [showLegend, setShowLegend] = useState(true);
+  const [showLegend, setShowLegend] = useState(() => !window.matchMedia('(max-width: 760px)').matches);
   const [scale, setScale] = useState({ px: 100, label: '' });
   const [zs, setZs] = useState('regional');
   const lastSig = useRef('');
@@ -210,7 +213,7 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
     const sig = ownersSig(frame);
     const changed = sig !== lastSig.current;
     lastSig.current = sig;
-    r.setInput(buildInput(frame, objects, { routes: extraRoutes, selection, pinned, draft, preview: previewMarker }), changed);
+    r.setInput(buildInput(frame, synthetic.objects.length ? [...objects, ...synthetic.objects] : objects, { routes: extraRoutes, selection, pinned, draft, preview: previewMarker }), changed);
   }, [frame, objects, selection, pinned, extraRoutes, draft, previewMarker]);
 
   // ───────── pointer handling ─────────
@@ -311,7 +314,11 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
       return;
     }
     ptr.current = { id: e.pointerId, x, y, button: e.button, moved: false, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* synthetic or already-released pointer */
+    }
     ui.patch({ contextMenu: null, chooser: null });
   };
   const onPointerMove = (e: React.PointerEvent) => {
@@ -474,16 +481,20 @@ export function MapView({ extraRoutes = [] }: { extraRoutes?: RouteLine[] }) {
         <button type="button" className="btn icon" aria-label={showLegend ? 'Hide legend' : 'Show legend'} title="Legend" aria-pressed={showLegend} onClick={() => setShowLegend((s) => !s)}>
           <Icon name="legend" />
         </button>
-        {isMobile && (
-          <div className="col" style={{ gap: 6 }}>
-            {(['up', 'left', 'right', 'down'] as const).map((d) => (
-              <button key={d} type="button" className="btn icon" aria-label={`Pan ${d}`} onClick={() => rRef.current?.panBy(d === 'left' ? 120 : d === 'right' ? -120 : 0, d === 'up' ? 120 : d === 'down' ? -120 : 0)}>
+      </div>
+      {isMobile && (
+        <div className="dpad" role="group" aria-label="Pan the map">
+          {(['', 'up', '', 'left', '', 'right', '', 'down', ''] as const).map((d, i) =>
+            d ? (
+              <button key={i} type="button" className="btn" aria-label={`Pan ${d}`} onClick={() => rRef.current?.panBy(d === 'left' ? 120 : d === 'right' ? -120 : 0, d === 'up' ? 120 : d === 'down' ? -120 : 0)}>
                 {d === 'up' ? '↑' : d === 'down' ? '↓' : d === 'left' ? '←' : '→'}
               </button>
-            ))}
-          </div>
-        )}
-      </div>
+            ) : (
+              <span key={i} />
+            ),
+          )}
+        </div>
+      )}
       {showLayers && <LayerPanel onClose={() => setShowLayers(false)} />}
       {showLegend && (
         <div className={`legend${isMobile ? ' open' : ''}`} aria-label="Map legend" role="region" data-testid="legend" data-legend={p.map.fill}>
@@ -678,7 +689,12 @@ function MapSearch({ objects }: { objects: MapObject[] }) {
     if (!s) return { armies: [] as MapObject[], places: [] as ReturnType<typeof searchPlaces> };
     return { armies: objects.filter((o) => o.search.includes(s)).slice(0, 8), places: searchPlaces(s, frame, 10) };
   }, [q, objects, frame]);
-  const flat: ({ t: 'o'; o: MapObject } | { t: 'p'; p: ReturnType<typeof searchPlaces>[number] })[] = [...results.armies.map((o) => ({ t: 'o' as const, o })), ...results.places.map((p) => ({ t: 'p' as const, p }))];
+  const placesFirst = results.places.some((p) => p.label.toLowerCase() === q.trim().toLowerCase());
+  const armyItems = results.armies.map((o) => ({ t: 'o' as const, o }));
+  const placeItems = results.places.map((p) => ({ t: 'p' as const, p }));
+  const flat: ({ t: 'o'; o: MapObject } | { t: 'p'; p: ReturnType<typeof searchPlaces>[number] })[] = placesFirst ? [...placeItems, ...armyItems] : [...armyItems, ...placeItems];
+  const armyOffset = placesFirst ? placeItems.length : 0;
+  const placeOffset = placesFirst ? 0 : armyItems.length;
   const pick = (i: number) => {
     const it = flat[i];
     if (!it) return;
@@ -718,18 +734,37 @@ function MapSearch({ objects }: { objects: MapObject[] }) {
       {q && (
         <div className="search-results" id="map-search-results" role="listbox" aria-label="Search results">
           {flat.length === 0 && <div className="muted" style={{ padding: 8 }}>No match. Clear the search to restore the map.</div>}
+          {placesFirst ? (
+            <>
+          {results.places.length > 0 && <div className="g">Cities & provinces</div>}
+          {results.places.map((p, j) => (
+            <button key={p.id} type="button" role="option" aria-selected={active === placeOffset + j} onClick={() => pick(placeOffset + j)}>
+              <span>{p.label}</span> <span className="muted" style={{ fontSize: 11.5 }}>{p.sub}</span>
+            </button>
+          ))}
           {results.armies.length > 0 && <div className="g">Armies & contacts</div>}
           {results.armies.map((o, i) => (
-            <button key={o.id} type="button" role="option" aria-selected={active === i} aria-label={o.aria} onClick={() => pick(i)}>
+            <button key={o.id} type="button" role="option" aria-selected={active === armyOffset + i} aria-label={o.aria} onClick={() => pick(armyOffset + i)}>
+              <Sym sidc={o.sidc} size={16} /> <span>{o.label}</span>
+            </button>
+          ))}
+            </>
+          ) : (
+            <>
+          {results.armies.length > 0 && <div className="g">Armies & contacts</div>}
+          {results.armies.map((o, i) => (
+            <button key={o.id} type="button" role="option" aria-selected={active === armyOffset + i} aria-label={o.aria} onClick={() => pick(armyOffset + i)}>
               <Sym sidc={o.sidc} size={16} /> <span>{o.label}</span>
             </button>
           ))}
           {results.places.length > 0 && <div className="g">Cities & provinces</div>}
           {results.places.map((p, j) => (
-            <button key={p.id} type="button" role="option" aria-selected={active === results.armies.length + j} onClick={() => pick(results.armies.length + j)}>
+            <button key={p.id} type="button" role="option" aria-selected={active === placeOffset + j} onClick={() => pick(placeOffset + j)}>
               <span>{p.label}</span> <span className="muted" style={{ fontSize: 11.5 }}>{p.sub}</span>
             </button>
           ))}
+            </>
+          )}
         </div>
       )}
     </div>

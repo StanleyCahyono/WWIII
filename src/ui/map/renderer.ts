@@ -833,6 +833,28 @@ export class MapRenderer {
         for (const x of this.sx(n.center[0])) if (x > 0 && x < this.w && y > 0 && y < this.h) this.text(RESOURCE_STYLE[n.deposit].glyph, x, y + 4, { size: 10, bold: true, color: th.text });
       }
     }
+    // major links (reviewed straits and canals) at regional/local zoom
+    if (zs !== 'world') {
+      ctx.save();
+      ctx.strokeStyle = th.textDim;
+      ctx.setLineDash([4, 3]);
+      ctx.lineWidth = 1.4;
+      for (const e of MAP.data.edges) {
+        if (e.kind !== 'strait' && e.kind !== 'canal') continue;
+        const a = NODES[e.a].center, b = NODES[e.b].center;
+        const ya = this.sy(a[1]), yb = this.sy(b[1]);
+        if ((ya < 0 && yb < 0) || (ya > this.h && yb > this.h)) continue;
+        for (const xa of this.sx(a[0])) {
+          const xb = xa + dLon(b[0], a[0]) * this.cam.z;
+          ctx.beginPath();
+          ctx.moveTo(xa, ya);
+          ctx.lineTo(xb, yb);
+          ctx.stroke();
+          if (e.label && zs === 'local') this.text(e.label, (xa + xb) / 2, (ya + yb) / 2 - 4, { size: 10, italic: true, color: th.textDim, collide: true });
+        }
+      }
+      ctx.restore();
+    }
     // city markers
     for (const c of cityItems) {
       const r = c.capital ? 4.5 : 2.5 + c.tier * 0.5;

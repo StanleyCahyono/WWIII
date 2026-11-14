@@ -63,6 +63,7 @@ export function LeftRail() {
 export function MobileNav() {
   const [more, setMore] = useState(false);
   const all: { id: Panel; label: string }[] = [
+    { id: 'roster', label: 'Roster' },
     { id: 'forces', label: 'Forces' },
     { id: 'cities', label: 'Cities' },
     { id: 'research', label: 'Research' },

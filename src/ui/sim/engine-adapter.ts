@@ -13,7 +13,11 @@ export type { GameState, Scenario, Command };
 
 let scenarioP: Promise<Scenario> | null = null;
 export function loadScenario(): Promise<Scenario> {
-  if (!scenarioP) scenarioP = E.loadWorld120();
+  if (!scenarioP)
+    scenarioP = E.loadWorld120().then((sc) => {
+      E.registerScenario(sc); // deserialize() resolves saves against registered scenarios
+      return sc;
+    });
   scenarioP.catch(() => (scenarioP = null));
   return scenarioP;
 }

@@ -23,6 +23,7 @@ let knownRevision = 0;
 let dirty = false;
 let lastSaveWall = 0;
 let seq = 0;
+let debugEnabled = false;
 
 const clock: ClockState = { paused: true, speed: 1, effective: 0, behind: false };
 let interrupts: InterruptPrefs = { war: true, capital: true, end: true, other: false };
@@ -422,6 +423,24 @@ async function handle(req: Request): Promise<unknown> {
     }
     case 'perf':
       return { ok: true };
+    case 'debugEnable':
+      debugEnabled = true;
+      return { ok: true };
+    case 'debugContact': {
+      if (!debugEnabled || !state || !viewer) throw new Error('Debug operations are disabled.');
+      const mine = new Set(Object.values(state.stacks).filter((s) => s.owner === viewer).flatMap((s) => s.units.map((u) => u.type)));
+      const cands = Object.values(state.stacks).filter((s) => s.owner !== viewer && s.pos.kind === 'node');
+      const pick = cands.find((s) => s.units.every((u) => !mine.has(u.type))) ?? cands[0];
+      if (!pick || pick.pos.kind !== 'node') throw new Error('No foreign stack.');
+      const node = pick.pos.node;
+      const m = (await A.loadScenario()).map;
+      const ll = m.nodes[node].center as [number, number];
+      const table = (state.contacts[viewer] ??= {});
+      const domain = pick.moveClass === 'air' ? 'air' : pick.moveClass === 'naval' ? 'sea' : 'land';
+      table['kdbg1'] = { id: 'kdbg1', stack: pick.id, level: 'contact', domain, lonlat: [ll[0], ll[1]], node, observedAt: state.clock.tick, firstSeenAt: state.clock.tick, owner: null, count: null, units: null, sources: ['radar'] };
+      pushFrame();
+      return { contactId: 'kdbg1', hiddenTypes: [...new Set(pick.units.map((u) => u.type))], hiddenOwner: pick.owner, node, lonlat: ll };
+    }
   }
 }
 

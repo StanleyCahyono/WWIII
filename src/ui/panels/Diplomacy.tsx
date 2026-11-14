@@ -39,7 +39,7 @@ export function DiplomacyPanel({ arg }: { arg: { country?: string } | null }) {
       if (filter === 'agreements') return r.myStatusToThem !== 'peace' || r.theirStatusToMe !== 'peace' || r.sameCoalition;
       if (filter === 'neighbours') return neighbourSet(frame).has(r.country);
       return true;
-    });
+    }).sort((a, b) => Number(b.pendingOffers.length > 0) - Number(a.pendingOffers.length > 0) || a.name.localeCompare(b.name));
   }, [v.relations, q, filter, frame]);
   const chosen = v.relations.find((r) => r.country === sel) ?? null;
   return (

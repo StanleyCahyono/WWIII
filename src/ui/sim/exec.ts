@@ -1,9 +1,9 @@
-import { getHost } from './host';
+import { getHost, type CommandInput } from './host';
 import { toast } from '../state/ui';
 import { newNonce } from '../components/common';
-import type { Command, CommandResult } from '../../engine/index';
+import type { CommandResult } from '../../engine/index';
 
-type Cmd = Omit<Command, 'country'> & { country?: string };
+type Cmd = CommandInput;
 
 /** Submit a validated command; toast the outcome. Every Build/Apply/Send button goes through here. */
 export async function exec<P = unknown>(cmd: Cmd, okText?: string): Promise<CommandResult<P>> {

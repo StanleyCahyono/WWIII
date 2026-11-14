@@ -123,7 +123,10 @@ export type Request =
   | { op: 'ui'; action: UiAction }
   | { op: 'hash' }
   | { op: 'setReadOnly'; readOnly: boolean }
-  | { op: 'perf'; stacks?: number };
+  | { op: 'perf'; stacks?: number }
+  /** Test-only (enabled by ?e2e=1): inject a radar-only contact over a real hidden foreign stack. */
+  | { op: 'debugEnable' }
+  | { op: 'debugContact' };
 
 export type QueryName =
   | 'cityList'

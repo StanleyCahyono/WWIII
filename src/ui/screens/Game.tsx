@@ -16,7 +16,8 @@ import { DrawBanner } from '../components/Planning';
 import { Briefing, Tutorial } from '../components/Briefing';
 import { PanelHost } from '../panels/PanelHost';
 import { useFrame, isTypingTarget, isModalOpen, useIsMobile } from '../components/common';
-import { NODES, placeName } from '../data/static';
+import { placeName } from '../data/static';
+import { cycle } from '../actions';
 
 export function Game() {
   const frame = useFrame();
@@ -24,7 +25,7 @@ export function Game() {
   const briefing = useStore(ui, (s) => s.briefingOpen);
   const tutorial = useStore(ui, (s) => s.tutorialOpen);
   const rosterOpen = useStore(ui, (s) => s.rosterOpen);
-  const inspectorOpen = useStore(ui, (s) => s.inspectorOpen);
+  const inspectorOpen = useStore(ui, (s) => s.inspectorOpen && (!!s.selection || !!s.lostSelection));
   const resOpen = useStore(ui, (s) => s.resourceBarOpen);
   const mode = useStore(ui, (s) => s.mode);
   const isMobile = useIsMobile();
@@ -47,7 +48,7 @@ export function Game() {
       seen.current.add(e.id);
       const where = e.node !== null ? ` — ${placeName(e.node)}` : '';
       const level = e.interrupt ? 'alert' : e.category === 'combat' ? 'warn' : e.kind.includes('completed') || e.kind.includes('concluded') ? 'success' : 'info';
-      if (e.routine) ui.patch({ toastHistory: [{ id: e.id, at: Date.now(), text: e.text + where, node: e.node, kind: e.kind, level: 'info', eventId: e.id }, ...ui.get().toastHistory].slice(0, 200) });
+      if (e.routine) ui.patch({ toastHistory: [{ id: e.id, at: Date.now(), text: e.text + where, node: e.node, kind: e.kind, level: 'info' as const, eventId: e.id }, ...ui.get().toastHistory].slice(0, 200) });
       else toast({ id: e.id, text: e.text + where, node: e.node, kind: e.kind, level, eventId: e.id });
     }
     if (frame.view.finished && !endShown.current) {
@@ -190,7 +191,7 @@ export function Game() {
         {mode.kind === 'move' && <MoveOrder />}
         {mode.kind === 'draw' && <DrawBanner />}
         {panel && <PanelHost />}
-        {isMobile && <Inspector mobile />}
+        {isMobile && mode.kind === 'idle' && <Inspector mobile />}
         {isMobile && <MobileNav />}
       </div>
       {!isMobile && (
@@ -206,28 +207,5 @@ export function Game() {
   );
 }
 
-/** Cycle armies (with an army selected) or cities (with a city/province selected). */
-export function cycle(kind: 'stack' | 'city', dir: 1 | -1) {
-  const f = getHost().store.get().frame;
-  if (!f) return;
-  const s = ui.get().selection;
-  if (kind === 'stack') {
-    const list = f.view.stacks;
-    if (!list.length) return;
-    const i = s?.kind === 'stack' ? list.findIndex((x) => x.id === s.id) : -1;
-    const next = list[(i + dir + list.length) % list.length];
-    select({ kind: 'stack', id: next.id });
-    centerOn(next.lonlat[0], next.lonlat[1]);
-  } else {
-    const list = [...f.view.cities].sort((a, b) => a.name.localeCompare(b.name));
-    if (!list.length) return;
-    const cur = s?.kind === 'city' ? s.key : null;
-    const i = cur ? list.findIndex((c) => c.key === cur) : -1;
-    const next = list[(i + dir + list.length) % list.length];
-    select({ kind: 'city', key: next.key, node: next.node });
-    const n = NODES[next.node];
-    centerOn(n.center[0], n.center[1]);
-  }
-}
-
+export { cycle };
 void prefs;

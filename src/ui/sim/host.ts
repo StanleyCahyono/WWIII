@@ -19,6 +19,9 @@ export interface HostState {
   lockLost: boolean;
 }
 
+/** Distributive Omit so each command variant keeps its own fields. */
+export type CommandInput = Command extends unknown ? (Command extends infer C ? (C extends Command ? Omit<C, 'country'> & { country?: string } : never) : never) : never;
+
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error & { code?: string; details?: unknown }) => void; op: string; t0: number };
 
 export class SimHost {
@@ -177,10 +180,10 @@ export class SimHost {
   }
 
   // ───────────── game API ─────────────
-  command<P = unknown>(cmd: Omit<Command, 'country'> & { country?: string }): Promise<CommandResult<P>> {
+  command<P = unknown>(cmd: CommandInput): Promise<CommandResult<P>> {
     return this.request<CommandResult<P>>({ op: 'command', cmd: { country: '', ...cmd } as Command });
   }
-  preview<P = unknown>(cmd: Omit<Command, 'country'> & { country?: string }): Promise<Validation<P>> {
+  preview<P = unknown>(cmd: CommandInput): Promise<Validation<P>> {
     return this.request<Validation<P>>({ op: 'preview', cmd: { country: '', ...cmd } as Command });
   }
   query<T = unknown>(name: QueryName, ...args: unknown[]): Promise<T> {

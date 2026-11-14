@@ -11,6 +11,7 @@ import { JournalPanel, NewsPanel } from './Journal';
 import { ScorePanel, EndPanel, CampaignPanel } from './Score';
 import { HelpPanel } from './Help';
 import { PlanningPanel } from '../components/Planning';
+import { Roster } from '../components/Roster';
 
 const TITLES: Record<Panel, string> = {
   forces: 'Forces',
@@ -29,6 +30,7 @@ const TITLES: Record<Panel, string> = {
   help: 'Advisor & help',
   campaign: 'Campaign information',
   end: 'Campaign results',
+  roster: 'Roster',
 };
 const WIDE = new Set<Panel>(['research', 'cities', 'diplomacy', 'market', 'economy', 'journal', 'news', 'end', 'forces']);
 
@@ -97,6 +99,9 @@ export function PanelHost() {
       break;
     case 'planning':
       body = <PlanningPanel />;
+      break;
+    case 'roster':
+      body = <Roster compact />;
       break;
   }
   return (

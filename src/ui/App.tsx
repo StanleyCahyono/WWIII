@@ -8,6 +8,46 @@ import { ChooseCountry } from './screens/ChooseCountry';
 import { LoadCampaign } from './screens/LoadCampaign';
 import { SettingsScreen, CreditsScreen, DiagnosticsScreen } from './screens/Menus';
 import { Game } from './screens/Game';
+import { mapRef, synthetic } from './map/MapView';
+import { NODES } from './data/static';
+import { buildSidc } from '../data/catalog/sidc';
+import type { MapObject } from './map/objects';
+import { worldToScreen } from './map/projection';
+import { unitById, countryName } from './data/static';
+
+// Test/diagnostic hook (read-only accessors; no hidden data beyond the human's own view).
+(window as unknown as { __wc: unknown }).__wc = {
+  camera: () => (mapRef.current ? { ...mapRef.current.cam, w: mapRef.current.w, h: mapRef.current.h } : null),
+  frame: () => getHost().store.get().frame,
+  ui: () => ui.get(),
+  host: () => getHost(),
+  map: () => mapRef.current,
+  unitName: (id: string) => unitById.get(id)?.name ?? id,
+  /** Perf harness: add N synthetic render-only stacks spread over land provinces. */
+  perfInject: (n: number) => {
+    const land = NODES.filter((x) => x.kind === 'land' && !x.outside);
+    const keys = ['land.infantry.motorized', 'land.armor.mbt', 'land.support.sp_artillery', 'land.air_defense.sam'];
+    const aff = ['friend', 'hostile', 'neutral', 'unknown'] as const;
+    const out: MapObject[] = [];
+    for (let i = 0; i < n; i++) {
+      const node = land[(i * 7919) % land.length];
+      const a = aff[i % 4];
+      const key = a === 'unknown' ? 'contact.land' : keys[i % keys.length];
+      out.push({ id: `P:${i}`, kind: a === 'friend' ? 'stack' : 'contact', ref: `p${i}`, lonlat: [node.center[0] + ((i % 5) - 2) * 0.05, node.center[1] + ((i % 3) - 1) * 0.05], node: node.id, affiliation: a, domain: 'land', sidc: buildSidc(key, { affiliation: a, status: 'present' }), symbolKey: key, label: `Synthetic ${i}`, aria: `Synthetic ${i}`, designation: `S${i}`, owner: null, ageMin: a === 'unknown' ? 90 : null, stale: false, count: 1, status: 'present', search: `synthetic ${i}`, moving: false, parent: null, group: 'land', hasOrder: false });
+    }
+    synthetic.objects = out;
+    ui.patch({ pinned: [...ui.get().pinned] });
+    return out.length;
+  },
+  countryName: (id: string) => countryName(id),
+  project: (lon: number, lat: number) => {
+    const r = mapRef.current;
+    if (!r) return null;
+    const b = r.canvas.getBoundingClientRect();
+    const [x, y] = worldToScreen(r.cam, r.w, r.h, lon, lat);
+    return { x: x + b.left, y: y + b.top };
+  },
+};
 
 class Boundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -49,6 +89,7 @@ export function App() {
     document.documentElement.dataset.motion = reduced ? 'reduced' : 'full';
   }, [theme, reduced]);
   useEffect(() => {
+    if (/[?&]e2e=1/.test(location.search)) void getHost().request({ op: 'debugEnable' });
     getHost()
       .init()
       .then(() => ui.get().screen === 'boot' && ui.patch({ screen: 'title' }))

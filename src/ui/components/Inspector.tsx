@@ -6,6 +6,7 @@ import { useObjects, objectToSelection } from '../map/MapView';
 import { NODES, unitById, buildingById, countryName, placeName, TERRAIN_LABEL, RESOURCE_LABEL, cityByNode, techById } from '../data/static';
 import { gameTime, duration, ageLabel, milli, num, signed, cap, dayOf, hourLabel } from '../format';
 import { exec } from '../sim/exec';
+import { cycle } from '../actions';
 import type { StackView } from '../../engine/index';
 import type { Frame } from '../sim/protocol';
 import type { MapObject } from '../map/objects';
@@ -275,7 +276,7 @@ export function StackSheet({ s, o, frame }: { s: StackView; o: MapObject; frame:
           <ActionButton className="btn primary" disabledReason={ro ? 'Read-only campaign' : null} onClick={() => ui.patch({ mode: { kind: 'move', stacks: [s.id], waypoints: [], dest: null } })} data-testid="action-move">
             Move…
           </ActionButton>
-          <ActionButton disabledReason={ro ? 'Read-only campaign' : !order ? 'No active order to stop.' : null} onClick={() => exec({ type: 'stop', stack: s.id }, `${s.name}: orders cancelled.`)}>
+          <ActionButton disabledReason={ro ? 'Read-only campaign' : !order ? 'No active order to stop.' : null} onClick={() => exec({ type: 'stop', stack: s.id }, `${s.name}: orders cancelled.`)} data-testid="action-stop">
             Stop
           </ActionButton>
           <ActionButton disabledReason={ro ? 'Read-only campaign' : s.units.length < 2 ? 'A single unit cannot be split.' : s.pos.kind !== 'node' ? 'Split only at a province or sea zone.' : null} onClick={() => setSplit(true)}>
@@ -689,7 +690,7 @@ export function PlaceSheet({ node, frame }: { node: number; frame: Frame }) {
 }
 
 function cycleCity(dir: 1 | -1) {
-  void import('../screens/Game').then((m) => m.cycle('city', dir));
+  cycle('city', dir);
 }
 
 function MultiSheet({ ids, frame }: { ids: string[]; frame: Frame }) {

@@ -64,7 +64,7 @@ export function TopBar() {
       </button>
       {!isMobile && (
         <div className="speed-group" role="group" aria-label="Game speed">
-          {SPEEDS.slice(0, 8).map((s) => (
+          {SPEEDS.slice(0, 7).map((s) => (
             <button key={s} type="button" aria-pressed={c.speed === s} onClick={() => setSpeed(s)} title={`${s}× — 1 game hour ≈ ${Math.round(60 / (s * SPEED_BASE))} s real time`}>
               {s}×
             </button>
@@ -72,7 +72,7 @@ export function TopBar() {
         </div>
       )}
       {isMobile && (
-        <select aria-label="Game speed" value={c.speed} onChange={(e) => setSpeed(Number(e.target.value))} style={{ minHeight: 36, padding: '2px 4px' }}>
+        <select className="speed-sel" aria-label="Game speed" value={c.speed} onChange={(e) => setSpeed(Number(e.target.value))} style={{ minHeight: 34, padding: '2px 2px' }}>
           {SPEEDS.map((s) => (
             <option key={s} value={s}>
               {s}×
@@ -83,18 +83,18 @@ export function TopBar() {
       <button type="button" className="btn icon" aria-label="Advance one game hour" title="Advance one hour (pauses after)" onClick={() => void host.step(60)} disabled={ro} data-testid="step-hour">
         <Icon name="step" />
       </button>
-      <button type="button" className="btn icon" aria-label="Jump to next significant event" title="Jump to next significant event (max 1 day)" onClick={() => void host.nextEvent(1440)} disabled={ro}>
+      <button type="button" className="btn icon hide-narrow" aria-label="Jump to next significant event" title="Jump to next significant event (max 1 day)" onClick={() => void host.nextEvent(1440)} disabled={ro}>
         <Icon name="skip" />
       </button>
       {!isMobile && <span className="muted" style={{ fontSize: 11.5 }} aria-live="off">{realPerHour ? `1 h ≈ ${realPerHour < 1 ? '<1' : Math.round(realPerHour)} s${c.behind ? ' (max sim rate)' : ''}` : 'Paused'}</span>}
       <div className="sep" />
       <button type="button" className="btn ghost" onClick={() => openPanel('score')} aria-label={`Score ${shown} of ${target} victory points — open standings`} data-testid="score-button">
-        <Icon name="score" size={16} /> {shown}/{target}
+        <span className="desktop-only"><Icon name="score" size={16} /></span> {shown}/{target}
         <span className="desktop-only">&nbsp;VP</span>
       </button>
       {!isMobile && nxt && (
-        <button type="button" className="btn ghost" style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12.5 }} onClick={() => ui.patch({ timeStripOpen: true })} title={nxt.label} aria-label={`Next event: ${nxt.label} in ${duration(nxt.at - v.tick)}`}>
-          Next: {nxt.label.length > 40 ? nxt.label.slice(0, 39) + '…' : nxt.label} · {duration(nxt.at - v.tick)}
+        <button type="button" className="btn ghost" style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12.5, justifyContent: 'flex-start' }} onClick={() => ui.patch({ timeStripOpen: true })} title={nxt.label} aria-label={`Next event: ${nxt.label} in ${duration(nxt.at - v.tick)}`}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Next {duration(nxt.at - v.tick)}: {nxt.label}</span>
         </button>
       )}
       <div className="grow" />
@@ -110,7 +110,7 @@ export function TopBar() {
         <span className="desktop-only">{saveText}</span>
         {isMobile && <Icon name="save" size={16} />}
       </button>
-      <button type="button" className="btn icon" aria-label="Help and advisor" title="Help (advisor)" onClick={() => openPanel('help')} data-testid="help-button">
+      <button type="button" className="btn icon hide-narrow" aria-label="Help and advisor" title="Help (advisor)" onClick={() => openPanel('help')} data-testid="help-button">
         <Icon name="help" />
       </button>
       <button type="button" className="btn icon" aria-label="Game menu" aria-expanded={menu} onClick={() => setMenu(true)} data-testid="game-menu">
@@ -121,6 +121,12 @@ export function TopBar() {
           <div className="col">
             <button type="button" className="btn" onClick={() => { setMenu(false); void host.save('manual'); }} disabled={ro}>
               Save now
+            </button>
+            <button type="button" className="btn" onClick={() => { setMenu(false); void host.nextEvent(1440); }} disabled={ro}>
+              Jump to next significant event
+            </button>
+            <button type="button" className="btn" onClick={() => { setMenu(false); openPanel('help'); }}>
+              Help & advisor
             </button>
             <button type="button" className="btn" onClick={() => { setMenu(false); openPanel('campaign'); }}>
               Campaign information & rules

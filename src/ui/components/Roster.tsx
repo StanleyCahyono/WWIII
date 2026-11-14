@@ -52,6 +52,7 @@ export function Roster({ compact = false }: { compact?: boolean }) {
     }
     select(objectToSelection(o));
     centerOn(o.lonlat[0], o.lonlat[1]);
+    if (ui.get().panel === 'roster') ui.patch({ panel: null, panelStack: [] });
   };
 
   const row = (o: MapObject, depth: number) => (
@@ -83,7 +84,7 @@ export function Roster({ compact = false }: { compact?: boolean }) {
   );
 
   return (
-    <div className="col" style={{ gap: 0, height: '100%', minHeight: 0 }} data-testid="roster">
+    <div className="col rosterc" style={{ gap: 0, height: '100%', minHeight: 0 }} data-testid="roster">
       <header>
         <div className="row">
           <strong>Roster</strong>
