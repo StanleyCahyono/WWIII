@@ -1,0 +1,1947 @@
+{
+  "generatedBy": "scripts/opening-power-report.ts",
+  "seed": 120,
+  "scenarioVersion": "w120-map-2026-11-14-cd82fa62+2026-11-14.1+120p",
+  "rulesetVersion": "1.0.0",
+  "reference": "USA",
+  "summary": {
+    "reference": "USA",
+    "composite": 110.29,
+    "nearestRival": "CHN",
+    "rivalComposite": 100,
+    "leadPct": 10.29,
+    "rank": [
+      "USA",
+      "CHN",
+      "IND",
+      "RUS",
+      "JPN",
+      "FRA",
+      "GBR",
+      "DEU",
+      "KOR",
+      "BRA",
+      "IDN",
+      "TUR",
+      "AUS",
+      "CAN",
+      "ITA",
+      "TWN",
+      "IRN",
+      "PAK",
+      "ESP",
+      "MEX",
+      "ISR",
+      "EGY",
+      "POL",
+      "NLD",
+      "NGA",
+      "ZAF",
+      "SAU",
+      "UKR",
+      "VNM",
+      "SWE",
+      "GRC",
+      "PHL",
+      "BGD",
+      "SGP",
+      "PRK",
+      "CHE",
+      "ARG",
+      "THA",
+      "DZA",
+      "MYS",
+      "COL",
+      "CHL",
+      "FIN",
+      "NOR",
+      "ETH",
+      "ARE",
+      "COD",
+      "IRQ",
+      "MAR",
+      "KEN",
+      "AUT",
+      "MMR",
+      "PER",
+      "SYR",
+      "KAZ",
+      "AGO",
+      "VEN",
+      "UZB",
+      "DNK",
+      "PRT",
+      "OMN",
+      "CZE",
+      "LTU",
+      "PNG",
+      "EST",
+      "ROU",
+      "LBY",
+      "GEO",
+      "NZL",
+      "BLR",
+      "TZA",
+      "LVA",
+      "BEL",
+      "IRL",
+      "QAT",
+      "AZE",
+      "HRV",
+      "SDN",
+      "TUN",
+      "KWT",
+      "HUN",
+      "AFG",
+      "BGR",
+      "PAN",
+      "MOZ",
+      "YEM",
+      "JOR",
+      "SRB",
+      "LKA",
+      "MNG",
+      "CMR",
+      "ECU",
+      "BHR",
+      "LBN",
+      "TKM",
+      "SVN",
+      "CUB",
+      "GHA",
+      "CRI",
+      "SVK",
+      "BOL",
+      "CIV",
+      "NPL",
+      "DOM",
+      "PRY",
+      "URY",
+      "SEN",
+      "ARM",
+      "MDA",
+      "KHM",
+      "GTM",
+      "LAO",
+      "TJK",
+      "HND",
+      "ALB",
+      "KGZ",
+      "SLV",
+      "BIH",
+      "NIC",
+      "GUY"
+    ]
+  },
+  "weights": {
+    "industrial": 0.25,
+    "formations": 0.25,
+    "research": 0.2,
+    "mobility": 0.2,
+    "resilience": 0.1
+  },
+  "constants": {
+    "researchHorizonDays": 30,
+    "researchSlotValuePerDay": 400,
+    "mobilityHorizonDays": 30,
+    "liftValue": 1500,
+    "maintenanceSlotValue": 2500,
+    "replenishmentValuePerManpower": 1,
+    "resilienceDays": 30,
+    "resilienceCap": 1,
+    "researchBaseSlots": 2
+  },
+  "normalization": {
+    "industrial": 216677.05,
+    "formations": 284662.37,
+    "research": 570860,
+    "mobility": 796023.04,
+    "resilience": 1
+  },
+  "rescale": 100.00000000000001,
+  "referenceBasket": {
+    "supplies": 3,
+    "components": 6,
+    "electronics": 12,
+    "fuel": 5,
+    "rare": 20,
+    "manpower": 4,
+    "money": 1
+  },
+  "countries": [
+    {
+      "rank": 1,
+      "id": "USA",
+      "name": "United States",
+      "composite": 110.29,
+      "raw": {
+        "industrial": 152974.84,
+        "formations": 478523.06,
+        "research": 832310,
+        "mobility": 455844.56,
+        "resilience": 1
+      },
+      "template": "superpower"
+    },
+    {
+      "rank": 2,
+      "id": "CHN",
+      "name": "China",
+      "composite": 100,
+      "raw": {
+        "industrial": 216677.05,
+        "formations": 284662.37,
+        "research": 570860,
+        "mobility": 796023.04,
+        "resilience": 1
+      },
+      "template": "major_industrial"
+    },
+    {
+      "rank": 3,
+      "id": "IND",
+      "name": "India",
+      "composite": 61.74,
+      "raw": {
+        "industrial": 134364.85,
+        "formations": 101705.42,
+        "research": 247260,
+        "mobility": 742156.63,
+        "resilience": 1
+      },
+      "template": "continental_scale"
+    },
+    {
+      "rank": 4,
+      "id": "RUS",
+      "name": "Russia",
+      "composite": 51.01,
+      "raw": {
+        "industrial": 53990.1,
+        "formations": 242732.71,
+        "research": 294540,
+        "mobility": 124978.99,
+        "resilience": 1
+      },
+      "template": "major_land_power"
+    },
+    {
+      "rank": 5,
+      "id": "JPN",
+      "name": "Japan",
+      "composite": 36.51,
+      "raw": {
+        "industrial": 48464.39,
+        "formations": 91388.38,
+        "research": 289630,
+        "mobility": 109087.21,
+        "resilience": 1
+      },
+      "template": "maritime_tech"
+    },
+    {
+      "rank": 6,
+      "id": "FRA",
+      "name": "France",
+      "composite": 35.37,
+      "raw": {
+        "industrial": 35027.46,
+        "formations": 81941.45,
+        "research": 329830,
+        "mobility": 102409.15,
+        "resilience": 1
+      },
+      "template": "expeditionary_power"
+    },
+    {
+      "rank": 7,
+      "id": "GBR",
+      "name": "United Kingdom",
+      "composite": 34.39,
+      "raw": {
+        "industrial": 31359.5,
+        "formations": 81098.95,
+        "research": 318770,
+        "mobility": 98657.74,
+        "resilience": 1
+      },
+      "template": "expeditionary_power"
+    },
+    {
+      "rank": 8,
+      "id": "DEU",
+      "name": "Germany",
+      "composite": 31.66,
+      "raw": {
+        "industrial": 48822.3,
+        "formations": 61839.05,
+        "research": 231520,
+        "mobility": 99005.35,
+        "resilience": 1
+      },
+      "template": "major_industrial"
+    },
+    {
+      "rank": 9,
+      "id": "KOR",
+      "name": "South Korea",
+      "composite": 29.73,
+      "raw": {
+        "industrial": 32460.18,
+        "formations": 72107.77,
+        "research": 228840,
+        "mobility": 65244.38,
+        "resilience": 1
+      },
+      "template": "major_industrial"
+    },
+    {
+      "rank": 10,
+      "id": "BRA",
+      "name": "Brazil",
+      "composite": 28.51,
+      "raw": {
+        "industrial": 47035.17,
+        "formations": 55887.84,
+        "research": 129280,
+        "mobility": 144962.59,
+        "resilience": 1
+      },
+      "template": "continental_scale"
+    },
+    {
+      "rank": 11,
+      "id": "IDN",
+      "name": "Indonesia",
+      "composite": 26.53,
+      "raw": {
+        "industrial": 45761.57,
+        "formations": 42029.22,
+        "research": 93300,
+        "mobility": 170607,
+        "resilience": 1
+      },
+      "template": "archipelago"
+    },
+    {
+      "rank": 12,
+      "id": "TUR",
+      "name": "Türkiye",
+      "composite": 25.84,
+      "raw": {
+        "industrial": 28561.61,
+        "formations": 71359.62,
+        "research": 127860,
+        "mobility": 71477.95,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 13,
+      "id": "AUS",
+      "name": "Australia",
+      "composite": 24.27,
+      "raw": {
+        "industrial": 32376.21,
+        "formations": 54380,
+        "research": 129540,
+        "mobility": 48658.75,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 14,
+      "id": "CAN",
+      "name": "Canada",
+      "composite": 23.46,
+      "raw": {
+        "industrial": 36128.05,
+        "formations": 40272.89,
+        "research": 124600,
+        "mobility": 55183,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 15,
+      "id": "ITA",
+      "name": "Italy",
+      "composite": 22.73,
+      "raw": {
+        "industrial": 28417.06,
+        "formations": 40164.44,
+        "research": 127440,
+        "mobility": 57875.71,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 16,
+      "id": "TWN",
+      "name": "Taiwan",
+      "composite": 22.69,
+      "raw": {
+        "industrial": 15047.63,
+        "formations": 39670.23,
+        "research": 190100,
+        "mobility": 32352.4,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 17,
+      "id": "IRN",
+      "name": "Iran",
+      "composite": 22.66,
+      "raw": {
+        "industrial": 20937.1,
+        "formations": 42231.22,
+        "research": 137680,
+        "mobility": 68097.97,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 18,
+      "id": "PAK",
+      "name": "Pakistan",
+      "composite": 22.11,
+      "raw": {
+        "industrial": 26088.67,
+        "formations": 34134.01,
+        "research": 74480,
+        "mobility": 139187.68,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 19,
+      "id": "ESP",
+      "name": "Spain",
+      "composite": 21.19,
+      "raw": {
+        "industrial": 21792.8,
+        "formations": 34809.59,
+        "research": 124360,
+        "mobility": 50107.57,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 20,
+      "id": "MEX",
+      "name": "Mexico",
+      "composite": 20.56,
+      "raw": {
+        "industrial": 28972.93,
+        "formations": 31490.26,
+        "research": 63420,
+        "mobility": 88875.88,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 21,
+      "id": "ISR",
+      "name": "Israel",
+      "composite": 20.4,
+      "raw": {
+        "industrial": 9144.02,
+        "formations": 45838.69,
+        "research": 135660,
+        "mobility": 22579.12,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 22,
+      "id": "EGY",
+      "name": "Egypt",
+      "composite": 20.22,
+      "raw": {
+        "industrial": 16492.77,
+        "formations": 44035.42,
+        "research": 71340,
+        "mobility": 77577.67,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 23,
+      "id": "POL",
+      "name": "Poland",
+      "composite": 19.94,
+      "raw": {
+        "industrial": 15725.27,
+        "formations": 34603.67,
+        "research": 117760,
+        "mobility": 38432.98,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 24,
+      "id": "NLD",
+      "name": "Netherlands",
+      "composite": 19.85,
+      "raw": {
+        "industrial": 11050.55,
+        "formations": 27854.53,
+        "research": 147050,
+        "mobility": 38922.59,
+        "resilience": 1
+      },
+      "template": "maritime_tech"
+    },
+    {
+      "rank": 25,
+      "id": "NGA",
+      "name": "Nigeria",
+      "composite": 19.76,
+      "raw": {
+        "industrial": 26041.12,
+        "formations": 22071.51,
+        "research": 44380,
+        "mobility": 129996.84,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 26,
+      "id": "ZAF",
+      "name": "South Africa",
+      "composite": 18.32,
+      "raw": {
+        "industrial": 17189.43,
+        "formations": 28434.1,
+        "research": 70060,
+        "mobility": 54927.56,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 27,
+      "id": "SAU",
+      "name": "Saudi Arabia",
+      "composite": 18.1,
+      "raw": {
+        "industrial": 11247.67,
+        "formations": 40722.95,
+        "research": 66580,
+        "mobility": 35615.97,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 28,
+      "id": "UKR",
+      "name": "Ukraine",
+      "composite": 17.84,
+      "raw": {
+        "industrial": 12983.15,
+        "formations": 36692.44,
+        "research": 62220,
+        "mobility": 37212.85,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 29,
+      "id": "VNM",
+      "name": "Vietnam",
+      "composite": 17.75,
+      "raw": {
+        "industrial": 17092.35,
+        "formations": 27738.08,
+        "research": 48300,
+        "mobility": 65466.33,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 30,
+      "id": "SWE",
+      "name": "Sweden",
+      "composite": 17.63,
+      "raw": {
+        "industrial": 11563.09,
+        "formations": 18339.5,
+        "research": 114500,
+        "mobility": 26803.81,
+        "resilience": 1
+      },
+      "template": "regional_industrial"
+    },
+    {
+      "rank": 31,
+      "id": "GRC",
+      "name": "Greece",
+      "composite": 17.28,
+      "raw": {
+        "industrial": 5468.69,
+        "formations": 41243.25,
+        "research": 65960,
+        "mobility": 28575.52,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 32,
+      "id": "PHL",
+      "name": "Philippines",
+      "composite": 17.16,
+      "raw": {
+        "industrial": 15221.32,
+        "formations": 22704.52,
+        "research": 39320,
+        "mobility": 81037.08,
+        "resilience": 1
+      },
+      "template": "archipelago"
+    },
+    {
+      "rank": 33,
+      "id": "BGD",
+      "name": "Bangladesh",
+      "composite": 16.74,
+      "raw": {
+        "industrial": 18093.34,
+        "formations": 9808.34,
+        "research": 36780,
+        "mobility": 99688.68,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 34,
+      "id": "SGP",
+      "name": "Singapore",
+      "composite": 16.3,
+      "raw": {
+        "industrial": 3565.75,
+        "formations": 24877.5,
+        "research": 95260,
+        "mobility": 14640.78,
+        "resilience": 1
+      },
+      "template": "small_trade_hub"
+    },
+    {
+      "rank": 35,
+      "id": "PRK",
+      "name": "North Korea",
+      "composite": 16.2,
+      "raw": {
+        "industrial": 3788.62,
+        "formations": 23819.33,
+        "research": 84880,
+        "mobility": 27829.15,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 36,
+      "id": "CHE",
+      "name": "Switzerland",
+      "composite": 16.07,
+      "raw": {
+        "industrial": 9629.16,
+        "formations": 15055.99,
+        "research": 92900,
+        "mobility": 15186.02,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 37,
+      "id": "ARG",
+      "name": "Argentina",
+      "composite": 15.95,
+      "raw": {
+        "industrial": 16352.78,
+        "formations": 20520.9,
+        "research": 36780,
+        "mobility": 38627.49,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 38,
+      "id": "THA",
+      "name": "Thailand",
+      "composite": 15.93,
+      "raw": {
+        "industrial": 12231.01,
+        "formations": 21352.55,
+        "research": 39660,
+        "mobility": 49817.16,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 39,
+      "id": "DZA",
+      "name": "Algeria",
+      "composite": 15.74,
+      "raw": {
+        "industrial": 11154.47,
+        "formations": 19100.16,
+        "research": 52060,
+        "mobility": 38017.29,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 40,
+      "id": "MYS",
+      "name": "Malaysia",
+      "composite": 15.72,
+      "raw": {
+        "industrial": 14087.09,
+        "formations": 22708.18,
+        "research": 36780,
+        "mobility": 32415.69,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 41,
+      "id": "COL",
+      "name": "Colombia",
+      "composite": 15.36,
+      "raw": {
+        "industrial": 12601.15,
+        "formations": 15891.98,
+        "research": 41100,
+        "mobility": 42462.42,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 42,
+      "id": "CHL",
+      "name": "Chile",
+      "composite": 15.32,
+      "raw": {
+        "industrial": 11419.27,
+        "formations": 20274.42,
+        "research": 45340,
+        "mobility": 25406.55,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 43,
+      "id": "FIN",
+      "name": "Finland",
+      "composite": 15.19,
+      "raw": {
+        "industrial": 6194.03,
+        "formations": 20767.25,
+        "research": 62220,
+        "mobility": 18947.08,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 44,
+      "id": "NOR",
+      "name": "Norway",
+      "composite": 15.11,
+      "raw": {
+        "industrial": 9385.28,
+        "formations": 18818.64,
+        "research": 53820,
+        "mobility": 19619.01,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 45,
+      "id": "ETH",
+      "name": "Ethiopia",
+      "composite": 15.02,
+      "raw": {
+        "industrial": 11970.08,
+        "formations": 8828.53,
+        "research": 30820,
+        "mobility": 71141,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 46,
+      "id": "ARE",
+      "name": "United Arab Emirates",
+      "composite": 14.8,
+      "raw": {
+        "industrial": 6617.59,
+        "formations": 19479.04,
+        "research": 51580,
+        "mobility": 20586.66,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 47,
+      "id": "COD",
+      "name": "Democratic Republic of the Congo",
+      "composite": 14.71,
+      "raw": {
+        "industrial": 14853.49,
+        "formations": 6447.31,
+        "research": 25500,
+        "mobility": 61089.98,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 48,
+      "id": "IRQ",
+      "name": "Iraq",
+      "composite": 14.58,
+      "raw": {
+        "industrial": 8812.41,
+        "formations": 12036.65,
+        "research": 44380,
+        "mobility": 38060.49,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 49,
+      "id": "MAR",
+      "name": "Morocco",
+      "composite": 14.43,
+      "raw": {
+        "industrial": 9492.9,
+        "formations": 12401.58,
+        "research": 40540,
+        "mobility": 32858.22,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 50,
+      "id": "KEN",
+      "name": "Kenya",
+      "composite": 14.41,
+      "raw": {
+        "industrial": 7876.37,
+        "formations": 13631.34,
+        "research": 36780,
+        "mobility": 40581.81,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 51,
+      "id": "AUT",
+      "name": "Austria",
+      "composite": 14.4,
+      "raw": {
+        "industrial": 7231.34,
+        "formations": 4274.48,
+        "research": 81300,
+        "mobility": 13728.08,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 52,
+      "id": "MMR",
+      "name": "Myanmar",
+      "composite": 14.32,
+      "raw": {
+        "industrial": 8962.16,
+        "formations": 11468.47,
+        "research": 36780,
+        "mobility": 39494.67,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 53,
+      "id": "PER",
+      "name": "Peru",
+      "composite": 14.23,
+      "raw": {
+        "industrial": 8624.08,
+        "formations": 13463.01,
+        "research": 36780,
+        "mobility": 30257.19,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 54,
+      "id": "SYR",
+      "name": "Syria",
+      "composite": 14.21,
+      "raw": {
+        "industrial": 3461.12,
+        "formations": 12453.71,
+        "research": 58620,
+        "mobility": 26532.37,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 55,
+      "id": "KAZ",
+      "name": "Kazakhstan",
+      "composite": 14.19,
+      "raw": {
+        "industrial": 9952.78,
+        "formations": 10272.89,
+        "research": 43780,
+        "mobility": 24013.65,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 56,
+      "id": "AGO",
+      "name": "Angola",
+      "composite": 13.98,
+      "raw": {
+        "industrial": 6636.72,
+        "formations": 9581.82,
+        "research": 44380,
+        "mobility": 32426.04,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 57,
+      "id": "VEN",
+      "name": "Venezuela",
+      "composite": 13.95,
+      "raw": {
+        "industrial": 7684.61,
+        "formations": 8542.75,
+        "research": 44380,
+        "mobility": 30139.92,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 58,
+      "id": "UZB",
+      "name": "Uzbekistan",
+      "composite": 13.62,
+      "raw": {
+        "industrial": 7783.53,
+        "formations": 8511.67,
+        "research": 33300,
+        "mobility": 32208.51,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 59,
+      "id": "DNK",
+      "name": "Denmark",
+      "composite": 13.6,
+      "raw": {
+        "industrial": 6618.06,
+        "formations": 13036.45,
+        "research": 36780,
+        "mobility": 15976.62,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 60,
+      "id": "PRT",
+      "name": "Portugal",
+      "composite": 13.59,
+      "raw": {
+        "industrial": 3929.48,
+        "formations": 13036.45,
+        "research": 39320,
+        "mobility": 24411.99,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 61,
+      "id": "OMN",
+      "name": "Oman",
+      "composite": 13.51,
+      "raw": {
+        "industrial": 3019.47,
+        "formations": 13521.62,
+        "research": 44380,
+        "mobility": 16780.74,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 62,
+      "id": "CZE",
+      "name": "Czechia",
+      "composite": 13.45,
+      "raw": {
+        "industrial": 8113.59,
+        "formations": 8025.19,
+        "research": 38520,
+        "mobility": 18350.34,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 63,
+      "id": "LTU",
+      "name": "Lithuania",
+      "composite": 13.43,
+      "raw": {
+        "industrial": 2118.65,
+        "formations": 8114,
+        "research": 58620,
+        "mobility": 16566.82,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 64,
+      "id": "PNG",
+      "name": "Papua New Guinea",
+      "composite": 13.43,
+      "raw": {
+        "industrial": 4885.76,
+        "formations": 9353.89,
+        "research": 39320,
+        "mobility": 26444.73,
+        "resilience": 1
+      },
+      "template": "archipelago"
+    },
+    {
+      "rank": 65,
+      "id": "EST",
+      "name": "Estonia",
+      "composite": 13.42,
+      "raw": {
+        "industrial": 2283.01,
+        "formations": 8114,
+        "research": 58620,
+        "mobility": 15565.21,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 66,
+      "id": "ROU",
+      "name": "Romania",
+      "composite": 13.36,
+      "raw": {
+        "industrial": 6404.6,
+        "formations": 8604.8,
+        "research": 36780,
+        "mobility": 23051.43,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 67,
+      "id": "LBY",
+      "name": "Libya",
+      "composite": 13.33,
+      "raw": {
+        "industrial": 4318.08,
+        "formations": 9581.82,
+        "research": 44380,
+        "mobility": 17384.04,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 68,
+      "id": "GEO",
+      "name": "Georgia",
+      "composite": 13.29,
+      "raw": {
+        "industrial": 1612.31,
+        "formations": 7286.92,
+        "research": 58620,
+        "mobility": 16197.79,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 69,
+      "id": "NZL",
+      "name": "New Zealand",
+      "composite": 13.25,
+      "raw": {
+        "industrial": 6544.78,
+        "formations": 8635.38,
+        "research": 33320,
+        "mobility": 22708.74,
+        "resilience": 1
+      },
+      "template": "island_state"
+    },
+    {
+      "rank": 70,
+      "id": "BLR",
+      "name": "Belarus",
+      "composite": 13.22,
+      "raw": {
+        "industrial": 5242.36,
+        "formations": 8450.18,
+        "research": 40020,
+        "mobility": 18638.28,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 71,
+      "id": "TZA",
+      "name": "Tanzania",
+      "composite": 13.21,
+      "raw": {
+        "industrial": 9472.88,
+        "formations": 2013.3,
+        "research": 25500,
+        "mobility": 41826.17,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 72,
+      "id": "LVA",
+      "name": "Latvia",
+      "composite": 13.15,
+      "raw": {
+        "industrial": 1540.88,
+        "formations": 5828,
+        "research": 58620,
+        "mobility": 16019.17,
+        "resilience": 1
+      },
+      "template": "frontier_state"
+    },
+    {
+      "rank": 73,
+      "id": "BEL",
+      "name": "Belgium",
+      "composite": 13.1,
+      "raw": {
+        "industrial": 6831.25,
+        "formations": 6283.6,
+        "research": 36780,
+        "mobility": 18618.75,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 74,
+      "id": "IRL",
+      "name": "Ireland",
+      "composite": 13.06,
+      "raw": {
+        "industrial": 5272.34,
+        "formations": 8973.75,
+        "research": 36780,
+        "mobility": 15091.32,
+        "resilience": 1
+      },
+      "template": "small_trade_hub"
+    },
+    {
+      "rank": 75,
+      "id": "QAT",
+      "name": "Qatar",
+      "composite": 13.04,
+      "raw": {
+        "industrial": 4058.06,
+        "formations": 7228.3,
+        "research": 44380,
+        "mobility": 15070.41,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 76,
+      "id": "AZE",
+      "name": "Azerbaijan",
+      "composite": 12.97,
+      "raw": {
+        "industrial": 3555.09,
+        "formations": 7116.58,
+        "research": 43120,
+        "mobility": 16998.78,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 77,
+      "id": "HRV",
+      "name": "Croatia",
+      "composite": 12.97,
+      "raw": {
+        "industrial": 2891.09,
+        "formations": 11288.95,
+        "research": 36780,
+        "mobility": 14031.99,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 78,
+      "id": "SDN",
+      "name": "Sudan",
+      "composite": 12.96,
+      "raw": {
+        "industrial": 7677.44,
+        "formations": 4179.48,
+        "research": 25500,
+        "mobility": 32537.33,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 79,
+      "id": "TUN",
+      "name": "Tunisia",
+      "composite": 12.96,
+      "raw": {
+        "industrial": 3235.62,
+        "formations": 9541.45,
+        "research": 36780,
+        "mobility": 18315.36,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 80,
+      "id": "KWT",
+      "name": "Kuwait",
+      "composite": 12.94,
+      "raw": {
+        "industrial": 2874.49,
+        "formations": 7228.3,
+        "research": 44380,
+        "mobility": 16497.27,
+        "resilience": 1
+      },
+      "template": "petrostate"
+    },
+    {
+      "rank": 81,
+      "id": "HUN",
+      "name": "Hungary",
+      "composite": 12.72,
+      "raw": {
+        "industrial": 6565.72,
+        "formations": 4145.31,
+        "research": 33300,
+        "mobility": 17143.98,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 82,
+      "id": "AFG",
+      "name": "Afghanistan",
+      "composite": 12.64,
+      "raw": {
+        "industrial": 5554.5,
+        "formations": 3683.75,
+        "research": 27300,
+        "mobility": 28529.36,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 83,
+      "id": "BGR",
+      "name": "Bulgaria",
+      "composite": 12.59,
+      "raw": {
+        "industrial": 3144.04,
+        "formations": 6283.6,
+        "research": 36780,
+        "mobility": 15222.87,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 84,
+      "id": "PAN",
+      "name": "Panama",
+      "composite": 12.53,
+      "raw": {
+        "industrial": 3228.71,
+        "formations": 5859.72,
+        "research": 36780,
+        "mobility": 14107.02,
+        "resilience": 1
+      },
+      "template": "small_trade_hub"
+    },
+    {
+      "rank": 85,
+      "id": "MOZ",
+      "name": "Mozambique",
+      "composite": 12.51,
+      "raw": {
+        "industrial": 6182.14,
+        "formations": 3163.34,
+        "research": 25500,
+        "mobility": 24833.51,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 86,
+      "id": "YEM",
+      "name": "Yemen",
+      "composite": 12.5,
+      "raw": {
+        "industrial": 5730.42,
+        "formations": 3533.21,
+        "research": 25500,
+        "mobility": 25394.72,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 87,
+      "id": "JOR",
+      "name": "Jordan",
+      "composite": 12.49,
+      "raw": {
+        "industrial": 2778.37,
+        "formations": 4854.78,
+        "research": 36780,
+        "mobility": 18029.04,
+        "resilience": 1
+      },
+      "template": "medium_balanced"
+    },
+    {
+      "rank": 88,
+      "id": "SRB",
+      "name": "Serbia",
+      "composite": 12.41,
+      "raw": {
+        "industrial": 3899.5,
+        "formations": 4113.14,
+        "research": 33300,
+        "mobility": 17135.61,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 89,
+      "id": "LKA",
+      "name": "Sri Lanka",
+      "composite": 12.38,
+      "raw": {
+        "industrial": 3709.81,
+        "formations": 2499.89,
+        "research": 28040,
+        "mobility": 29990.46,
+        "resilience": 1
+      },
+      "template": "island_state"
+    },
+    {
+      "rank": 90,
+      "id": "MNG",
+      "name": "Mongolia",
+      "composite": 12.27,
+      "raw": {
+        "industrial": 4494.93,
+        "formations": 2627.44,
+        "research": 33300,
+        "mobility": 14193.39,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 91,
+      "id": "CMR",
+      "name": "Cameroon",
+      "composite": 12.26,
+      "raw": {
+        "industrial": 5441.52,
+        "formations": 1883.04,
+        "research": 25500,
+        "mobility": 22744.19,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 92,
+      "id": "ECU",
+      "name": "Ecuador",
+      "composite": 12.25,
+      "raw": {
+        "industrial": 5273.58,
+        "formations": 2013.3,
+        "research": 28980,
+        "mobility": 17963.69,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 93,
+      "id": "BHR",
+      "name": "Bahrain",
+      "composite": 12.24,
+      "raw": {
+        "industrial": 1261.69,
+        "formations": 5859.72,
+        "research": 36780,
+        "mobility": 11734.2,
+        "resilience": 1
+      },
+      "template": "small_trade_hub"
+    },
+    {
+      "rank": 94,
+      "id": "LBN",
+      "name": "Lebanon",
+      "composite": 12.23,
+      "raw": {
+        "industrial": 1924.15,
+        "formations": 3882.75,
+        "research": 36780,
+        "mobility": 14915.04,
+        "resilience": 1
+      },
+      "template": "small_trade_hub"
+    },
+    {
+      "rank": 95,
+      "id": "TKM",
+      "name": "Turkmenistan",
+      "composite": 12.22,
+      "raw": {
+        "industrial": 2820.61,
+        "formations": 3841.41,
+        "research": 33300,
+        "mobility": 15437.88,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 96,
+      "id": "SVN",
+      "name": "Slovenia",
+      "composite": 12.2,
+      "raw": {
+        "industrial": 2251.03,
+        "formations": 3882.75,
+        "research": 36780,
+        "mobility": 12338.07,
+        "resilience": 1
+      },
+      "template": "small_trade_hub"
+    },
+    {
+      "rank": 97,
+      "id": "CUB",
+      "name": "Cuba",
+      "composite": 12.18,
+      "raw": {
+        "industrial": 2467.08,
+        "formations": 2224.31,
+        "research": 31560,
+        "mobility": 23749.14,
+        "resilience": 1
+      },
+      "template": "island_state"
+    },
+    {
+      "rank": 98,
+      "id": "GHA",
+      "name": "Ghana",
+      "composite": 12.17,
+      "raw": {
+        "industrial": 5058.24,
+        "formations": 753.98,
+        "research": 25500,
+        "mobility": 24884.3,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 99,
+      "id": "CRI",
+      "name": "Costa Rica",
+      "composite": 12.14,
+      "raw": {
+        "industrial": 1732.71,
+        "formations": 3528,
+        "research": 36780,
+        "mobility": 13671.84,
+        "resilience": 1
+      },
+      "template": "small_trade_hub"
+    },
+    {
+      "rank": 100,
+      "id": "SVK",
+      "name": "Slovakia",
+      "composite": 12.11,
+      "raw": {
+        "industrial": 2855.35,
+        "formations": 2936.76,
+        "research": 33300,
+        "mobility": 14340.84,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 101,
+      "id": "BOL",
+      "name": "Bolivia",
+      "composite": 12.08,
+      "raw": {
+        "industrial": 4868.9,
+        "formations": 2099.13,
+        "research": 27300,
+        "mobility": 15126.65,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 102,
+      "id": "CIV",
+      "name": "Côte d’Ivoire",
+      "composite": 12.07,
+      "raw": {
+        "industrial": 4745.29,
+        "formations": 718.08,
+        "research": 25500,
+        "mobility": 22406.66,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 103,
+      "id": "NPL",
+      "name": "Nepal",
+      "composite": 12.06,
+      "raw": {
+        "industrial": 3866.51,
+        "formations": 787.34,
+        "research": 27300,
+        "mobility": 23379.95,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 104,
+      "id": "DOM",
+      "name": "Dominican Republic",
+      "composite": 12,
+      "raw": {
+        "industrial": 3106.62,
+        "formations": 787.34,
+        "research": 28040,
+        "mobility": 23471.58,
+        "resilience": 1
+      },
+      "template": "island_state"
+    },
+    {
+      "rank": 105,
+      "id": "PRY",
+      "name": "Paraguay",
+      "composite": 11.99,
+      "raw": {
+        "industrial": 2687.68,
+        "formations": 1441.44,
+        "research": 33300,
+        "mobility": 15201.42,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 106,
+      "id": "URY",
+      "name": "Uruguay",
+      "composite": 11.98,
+      "raw": {
+        "industrial": 1942.55,
+        "formations": 1570.8,
+        "research": 36780,
+        "mobility": 13076.22,
+        "resilience": 1
+      },
+      "template": "small_trade_hub"
+    },
+    {
+      "rank": 107,
+      "id": "SEN",
+      "name": "Senegal",
+      "composite": 11.94,
+      "raw": {
+        "industrial": 4779.16,
+        "formations": 718.08,
+        "research": 25500,
+        "mobility": 17292.59,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 108,
+      "id": "ARM",
+      "name": "Armenia",
+      "composite": 11.84,
+      "raw": {
+        "industrial": 1981.03,
+        "formations": 3538.28,
+        "research": 30820,
+        "mobility": 8945.24,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 109,
+      "id": "MDA",
+      "name": "Moldova",
+      "composite": 11.77,
+      "raw": {
+        "industrial": 1078.98,
+        "formations": 1852.5,
+        "research": 33300,
+        "mobility": 12588.39,
+        "resilience": 1
+      },
+      "template": "landlocked_plains"
+    },
+    {
+      "rank": 110,
+      "id": "KHM",
+      "name": "Cambodia",
+      "composite": 11.73,
+      "raw": {
+        "industrial": 3273.14,
+        "formations": 646.27,
+        "research": 25500,
+        "mobility": 16039.91,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 111,
+      "id": "GTM",
+      "name": "Guatemala",
+      "composite": 11.72,
+      "raw": {
+        "industrial": 2964.13,
+        "formations": 753.98,
+        "research": 25500,
+        "mobility": 16487.63,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 112,
+      "id": "LAO",
+      "name": "Laos",
+      "composite": 11.65,
+      "raw": {
+        "industrial": 3004.87,
+        "formations": 674.87,
+        "research": 27300,
+        "mobility": 11308.94,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 113,
+      "id": "TJK",
+      "name": "Tajikistan",
+      "composite": 11.63,
+      "raw": {
+        "industrial": 2548.73,
+        "formations": 674.87,
+        "research": 27300,
+        "mobility": 12562.28,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 114,
+      "id": "HND",
+      "name": "Honduras",
+      "composite": 11.6,
+      "raw": {
+        "industrial": 2466.11,
+        "formations": 753.98,
+        "research": 25500,
+        "mobility": 13992.17,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 115,
+      "id": "ALB",
+      "name": "Albania",
+      "composite": 11.52,
+      "raw": {
+        "industrial": 1836.37,
+        "formations": 718.08,
+        "research": 28980,
+        "mobility": 8945.69,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 116,
+      "id": "KGZ",
+      "name": "Kyrgyzstan",
+      "composite": 11.51,
+      "raw": {
+        "industrial": 1840.02,
+        "formations": 674.87,
+        "research": 27300,
+        "mobility": 11271.65,
+        "resilience": 1
+      },
+      "template": "landlocked_highland"
+    },
+    {
+      "rank": 117,
+      "id": "SLV",
+      "name": "El Salvador",
+      "composite": 11.42,
+      "raw": {
+        "industrial": 1725.69,
+        "formations": 753.98,
+        "research": 25500,
+        "mobility": 10397.87,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 118,
+      "id": "BIH",
+      "name": "Bosnia and Herzegovina",
+      "composite": 11.4,
+      "raw": {
+        "industrial": 1875.16,
+        "formations": 718.08,
+        "research": 25500,
+        "mobility": 9035.84,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 119,
+      "id": "NIC",
+      "name": "Nicaragua",
+      "composite": 11.39,
+      "raw": {
+        "industrial": 1433.74,
+        "formations": 646.27,
+        "research": 25500,
+        "mobility": 10884.23,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    },
+    {
+      "rank": 120,
+      "id": "GUY",
+      "name": "Guyana",
+      "composite": 11.33,
+      "raw": {
+        "industrial": 1253,
+        "formations": 753.98,
+        "research": 25500,
+        "mobility": 8799.86,
+        "resilience": 1
+      },
+      "template": "small_agrarian"
+    }
+  ],
+  "crossChecks": [
+    {
+      "semantics": "engine",
+      "usComposite": 110.29,
+      "top10": [
+        {
+          "id": "USA",
+          "composite": 110.29
+        },
+        {
+          "id": "CHN",
+          "composite": 100
+        },
+        {
+          "id": "IND",
+          "composite": 61.74
+        },
+        {
+          "id": "RUS",
+          "composite": 51.01
+        },
+        {
+          "id": "JPN",
+          "composite": 36.51
+        },
+        {
+          "id": "FRA",
+          "composite": 35.37
+        },
+        {
+          "id": "GBR",
+          "composite": 34.39
+        },
+        {
+          "id": "DEU",
+          "composite": 31.66
+        },
+        {
+          "id": "KOR",
+          "composite": 29.73
+        },
+        {
+          "id": "BRA",
+          "composite": 28.51
+        }
+      ]
+    },
+    {
+      "semantics": "catalog",
+      "usComposite": 114.37,
+      "top10": [
+        {
+          "id": "USA",
+          "composite": 114.37
+        },
+        {
+          "id": "CHN",
+          "composite": 100
+        },
+        {
+          "id": "IND",
+          "composite": 69.29
+        },
+        {
+          "id": "RUS",
+          "composite": 55.18
+        },
+        {
+          "id": "FRA",
+          "composite": 41.97
+        },
+        {
+          "id": "JPN",
+          "composite": 41.23
+        },
+        {
+          "id": "GBR",
+          "composite": 40.55
+        },
+        {
+          "id": "DEU",
+          "composite": 34.12
+        },
+        {
+          "id": "BRA",
+          "composite": 32.63
+        },
+        {
+          "id": "KOR",
+          "composite": 32.41
+        }
+      ]
+    }
+  ]
+}
