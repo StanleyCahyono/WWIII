@@ -155,7 +155,7 @@ for (const key of representatives) {
     : `<td>${figure(sample(e, 'damaged', { affiliation: 'friend', status: 'damaged' }, {}, `Friendly ${m}, damaged (operational-condition bar)`))}</td>`);
   cells.push(isEvent ? '<td class="na">n/a — events are reported once, not aged</td>'
     : `<td>${figure(sample(e, 'stale', { affiliation: 'hostile', status: 'present' }, { staleMinutes: 6 * 60, muted: true }, `Hostile ${m}, last observed 6 h ago (age badge, muted)`))}</td>`);
-  cells.push(`<td>${figure(sample(e, 'mono-unknown', { affiliation: 'unknown', status: 'present' }, { monochrome: true }, `Unknown-affiliation ${m}, monochrome`))}</td>`);
+  cells.push(`<td>${figure(sample(e, 'state-mono-unknown', { affiliation: 'unknown', status: 'present' }, { monochrome: true }, `Unknown-affiliation ${m}, monochrome`))}</td>`);
   stateRows.push(`<tr><th scope="row"><b>${esc(e.meaning)}</b><br><code>${esc(e.key)}</code></th>${cells.join('')}</tr>`);
 }
 

@@ -36,7 +36,7 @@ async function saveReloadContinue(page: Page) {
 test.describe('W08 walkthroughs (desktop)', () => {
   test.skip(({ isMobile }) => !!isMobile, 'desktop walkthroughs; the mobile variant is in mobile-touch.spec.ts');
 
-  test('W08 U.S.: mobilize, build, offer, move, carrier patrol, verify outcomes; research opens on day 4 and Sealift I adds lift; save/reload', async ({ page }) => {
+  test('W08 U.S.: mobilize, build, offer, move, carrier patrol, verify outcomes; research is open on day 1 and Sealift I adds lift; save/reload', async ({ page }) => {
     test.setTimeout(600_000);
     await clearStorage(page);
     await newCampaign(page, 'USA', 1776);
@@ -54,13 +54,12 @@ test.describe('W08 walkthroughs (desktop)', () => {
     expect(force.ready).toBeLessThanOrEqual(force.fielded);
     await page.getByTestId('panel-close').click();
 
-    // Research on day 1: the U.S. starts with its tier-1 package complete; the next program is
-    // time-locked and the tree says exactly when it opens (no silent dead end).
+    // Research on day 1 (SPEC: start research within the first five minutes): even with its
+    // tier-1 package complete, the U.S. has programs it can start immediately.
     await page.getByTestId('rail-research').click();
-    expect(await page.locator('.tech[data-status="available"]').count()).toBe(0);
+    expect(await page.locator('.tech[data-status="available"]').count()).toBeGreaterThan(0);
     const sealift = page.getByTestId('tech-mob_sealift_1');
-    await expect(sealift).toHaveAttribute('data-status', 'time_locked');
-    await expect(sealift).toHaveAttribute('aria-label', /Available from day 4/);
+    await expect(sealift).toHaveAttribute('data-status', 'available');
     await page.getByTestId('panel-close').click();
 
     // 1. build in a port city (Norfolk) through the city sheet
@@ -160,7 +159,7 @@ test.describe('W08 walkthroughs (desktop)', () => {
     await advanceUntil(page, 'f => f.view.offers.find(o => o.to === "CAN").status !== "pending"', 48 * 60, 120);
     expect(['accepted', 'declined', 'expired']).toContain(await frame<string>(page, 'f => f.view.offers.find(o => o.to === "CAN").status'));
 
-    // 7. day 4: Sealift I opens; research it through the tree and watch the lift capacity grow
+    // 7. day 4: research Sealift I through the tree and watch the lift capacity grow
     await advance(page, 3 * 1440 - (await frame<number>(page, 'f => f.view.tick')));
     await expect(page.getByTestId('game-clock')).toContainText('D4');
     const lift0 = await frame<number>(page, 'f => f.view.self.lift');
